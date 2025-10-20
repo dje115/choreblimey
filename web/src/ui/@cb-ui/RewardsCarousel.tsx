@@ -1,0 +1,1 @@
+export function RewardsCarousel(){return <div>Rewards coming soon…</div>}

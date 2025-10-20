@@ -1,0 +1,1 @@
+export function RivalryFeedItem({text}:{text:string}){return <div className='text-sm opacity-80'>🧨 {text}</div>}

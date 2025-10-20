@@ -1,0 +1,73 @@
+{
+  "projectType": "monorepo",
+  "primaryPackages": ["api", "web", "worker"],
+  "preferredLanguages": ["TypeScript", "React", "Prisma"],
+  "containerization": "Docker",
+  "database": "PostgreSQL",
+  "frameworks": {
+    "backend": "Fastify",
+    "frontend": "React + Vite + Tailwind",
+    "orm": "Prisma"
+  },
+  "paths": {
+    "compose": "docker/docker-compose.yml",
+    "env": "docker/dev.env",
+    "prismaSchema": "api/prisma/schema.prisma",
+    "apiEntry": "api/src/server.ts",
+    "webEntry": "web/src/main.tsx",
+    "workerEntry": "worker/src/jobs.ts"
+  },
+  "codeStyle": {
+    "typescript": {
+      "strict": true,
+      "module": "ESNext",
+      "moduleResolution": "Node"
+    },
+    "naming": {
+      "apiRoutes": "kebab-case for URLs, camelCase in code",
+      "dbModels": "PascalCase models, camelCase fields",
+      "reactComponents": "PascalCase",
+      "files": "kebab-case"
+    },
+    "linting": {
+      "rules": [
+        "Prefer async/await",
+        "No any unless justified",
+        "No default exports in server code",
+        "Avoid magic numbers; centralise tokens/config"
+      ]
+    }
+  },
+  "instructions": [
+    "Respect the ChoreBlimey! brand: fun, family-friendly, accessible.",
+    "When generating backend code, register routes via api/src/routes/index.ts.",
+    "When generating frontend components, keep mobile-first layout and Tailwind classes.",
+    "For DB changes, update prisma schema and create a migration (migrate dev --name <meaningful-name>).",
+    "Ensure multi-tenant safety: always scope by familyId on read/write.",
+    "Never leak data across families; include server-side guards."
+  ],
+  "runbook": {
+    "startStack": "docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build",
+    "migrate": "docker compose -f docker/docker-compose.yml exec api npx prisma migrate dev --name init",
+    "seed": "docker compose -f docker/docker-compose.yml exec api npm run seed",
+    "apiHealth": "http://localhost:1501/v1/health",
+    "web": "http://localhost:1500"
+  },
+  "reviewChecklist": [
+    "Types are explicit; no implicit anys.",
+    "API validates input and checks familyId scope.",
+    "Queries have appropriate indexes or use existing ones.",
+    "UI works on phone widths (≤390px) and tablet, then desktop.",
+    "No secrets or PII logged.",
+    "Env vars read from docker/dev.env."
+  ],
+  "commitConventions": {
+    "style": "conventional-commits",
+    "examples": [
+      "feat(api): add /children/:id/streaks endpoint",
+      "fix(web): correct leaderboard tie-break logic",
+      "chore(worker): add hourly cleanup job",
+      "docs: update README with new seed options"
+    ]
+  }
+}

@@ -1,0 +1,101 @@
+name: choreblimey
+
+networks:
+  choreblimey_net:
+    driver: bridge
+
+volumes:
+  pgdata: {}
+  minio-data: {}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-choreblimey}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-choreblimey}
+      POSTGRES_DB: ${POSTGRES_DB:-choreblimey}
+    ports:
+      - "1502:5432"
+    networks:
+      - choreblimey_net
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--aclfile", "/usr/local/etc/redis-acl.conf"]
+    volumes:
+      - ./redis-acl.conf:/usr/local/etc/redis-acl.conf:ro
+    ports:
+      - "1507:6379"
+    networks:
+      - choreblimey_net
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports:
+      - "1504:9000"
+      - "1505:9001"
+    networks:
+      - choreblimey_net
+    volumes:
+      - minio-data:/data
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1506:8025"
+      - "2525:1025"
+    networks:
+      - choreblimey_net
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      NODE_ENV: development
+    ports:
+      - "1501:1501"
+    depends_on:
+      - postgres
+      - minio
+      - redis
+    networks:
+      - choreblimey_net
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:1501}
+    ports:
+      - "1500:1500"
+    depends_on:
+      - api
+    networks:
+      - choreblimey_net
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/worker.Dockerfile
+    env_file:
+      - ./dev.env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - choreblimey_net
+

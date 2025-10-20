@@ -1,0 +1,1 @@
+export const Card=({children}:{children:any})=>(<div className='rounded-2xl p-4 border border-white/10 bg-white/5'>{children}</div>)
