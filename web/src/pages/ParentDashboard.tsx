@@ -290,8 +290,17 @@ const ParentDashboard: React.FC = () => {
     try {
       const result = await apiClient.approveCompletion(completionId)
       
-      // Check if there's a streak bonus
-      if (result.streakBonus) {
+      // Check for rivalry bonus (DOUBLE STARS!)
+      if (result.rivalryBonus) {
+        setShowConfetti(true)
+        setToast({ 
+          message: `🏆 RIVALRY WINNER! DOUBLE STARS! +£${(result.rivalryBonus.doubledReward / 100).toFixed(2)}`, 
+          type: 'success' 
+        })
+        setTimeout(() => setShowConfetti(false), 3000)
+      }
+      // Check for streak bonus
+      else if (result.streakBonus) {
         setShowConfetti(true)
         setToast({ 
           message: `🎉 Approved! +${result.streakBonus.stars} BONUS stars for ${result.streakBonus.streakLength}-day streak!`, 

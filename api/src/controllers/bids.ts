@@ -8,6 +8,38 @@ interface BidCompeteBody {
   targetChildId?: string
 }
 
+export const list = async (req: FastifyRequest<{ Querystring: { assignmentId: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { assignmentId } = req.query
+
+    if (!assignmentId) {
+      return reply.status(400).send({ error: 'assignmentId is required' })
+    }
+
+    const bids = await prisma.bid.findMany({
+      where: { 
+        assignmentId,
+        familyId 
+      },
+      include: {
+        child: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true
+          }
+        }
+      },
+      orderBy: { amountPence: 'asc' } // Lowest bid first
+    })
+
+    return { bids }
+  } catch (error) {
+    reply.status(500).send({ error: 'Failed to list bids' })
+  }
+}
+
 export const compete = async (req: FastifyRequest<{ Body: BidCompeteBody }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!

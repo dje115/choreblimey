@@ -617,56 +617,183 @@ const ChildDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Showdown Tab */}
+        {/* Showdown Tab - Rivalry Bidding */}
         {activeTab === 'showdown' && (
           <div className="space-y-6">
-            <h2 className="cb-heading-lg text-[var(--primary)]">⚔️ Sibling Showdown</h2>
-            <div className="cb-card bg-gradient-to-br from-purple-500 to-pink-500 text-white p-8 text-center">
-              <div className="text-8xl mb-4">👑</div>
-              <h3 className="text-3xl font-bold mb-2">Who's the Champion?</h3>
-              <p className="text-white/90 mb-6">Weekly leaderboard resets every Monday</p>
+            <div className="cb-card bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 text-white p-6">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="text-6xl">⚔️</div>
+                <div>
+                  <h2 className="text-3xl font-bold">Sibling Rivalry!</h2>
+                  <p className="text-white/90">Underbid your siblings to win DOUBLE STARS! 🏆</p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              {leaderboard.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-[var(--text-secondary)]">No competitors yet. Invite siblings to join!</p>
-                </div>
-              ) : (
-                leaderboard.map((entry, index) => (
-                  <div
-                    key={entry.childId}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${
-                      index === 0
-                        ? 'bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-400'
-                        : 'bg-white border-[var(--card-border)]'
-                    }`}
-                  >
-                    <div
-                      className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl ${
-                        index === 0
-                          ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white'
-                          : index === 1
-                          ? 'bg-gray-300 text-gray-700'
-                          : index === 2
-                          ? 'bg-orange-300 text-orange-900'
-                          : 'bg-[var(--card-border)] text-[var(--text-secondary)]'
-                      }`}
-                    >
-                      {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-lg text-[var(--text-primary)] truncate">{entry.nickname}</h4>
-                      <p className="text-sm text-[var(--text-secondary)]">
-                        {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)} earned
+            {/* Bidding Chores */}
+            <div>
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎯 Battle for These Chores</h3>
+              {(() => {
+                // Filter assignments where bidding is enabled
+                const biddingChores = assignments.filter((a: any) => a.biddingEnabled && a.chore?.active)
+                
+                if (biddingChores.length === 0) {
+                  return (
+                    <div className="cb-card p-8 text-center">
+                      <div className="text-6xl mb-4">😴</div>
+                      <h4 className="font-bold text-[var(--text-primary)] mb-2">No Rivalry Chores</h4>
+                      <p className="text-[var(--text-secondary)]">
+                        Ask your parents to enable sibling rivalry on some chores!
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-3xl font-bold text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
-                    </div>
+                  )
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {biddingChores.map((assignment: any) => {
+                      const chore = assignment.chore
+                      const baseReward = chore.baseRewardPence
+                      const minBid = chore.minBidPence || Math.floor(baseReward * 0.5)
+                      const maxBid = chore.maxBidPence || Math.floor(baseReward * 1.5)
+
+                      return (
+                        <div
+                          key={assignment.id}
+                          className="cb-card border-4 border-orange-400 bg-gradient-to-br from-orange-50 to-yellow-50 p-6"
+                        >
+                          <div className="flex items-start gap-4 mb-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-3xl flex-shrink-0">
+                              🔥
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-bold text-xl text-[var(--text-primary)] mb-1">
+                                {chore.title}
+                              </h4>
+                              <p className="text-sm text-[var(--text-secondary)] mb-3">
+                                {chore.description || 'Beat your siblings to win this chore!'}
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                <span className="cb-chip bg-yellow-500 text-white font-bold">
+                                  🏆 WIN: £{((baseReward * 2) / 100).toFixed(2)} (DOUBLE!)
+                                </span>
+                                <span className="cb-chip bg-orange-200 text-orange-800">
+                                  💰 Base: £{(baseReward / 100).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bidding Area */}
+                          <div className="bg-white rounded-xl p-4 border-2 border-orange-300">
+                            <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
+                              💪 Place Your Bid (Lower = Better!)
+                            </p>
+                            <div className="flex gap-3">
+                              <input
+                                type="number"
+                                min={(minBid / 100).toFixed(2)}
+                                max={(maxBid / 100).toFixed(2)}
+                                step="0.01"
+                                placeholder={`£${(minBid / 100).toFixed(2)} - £${(maxBid / 100).toFixed(2)}`}
+                                className="flex-1 px-4 py-3 border-2 border-[var(--card-border)] rounded-lg focus:border-orange-500 focus:outline-none"
+                                id={`bid-${assignment.id}`}
+                              />
+                              <button
+                                onClick={async () => {
+                                  const input = document.getElementById(`bid-${assignment.id}`) as HTMLInputElement
+                                  const bidAmount = parseFloat(input.value)
+                                  
+                                  if (!bidAmount || bidAmount < minBid / 100 || bidAmount > maxBid / 100) {
+                                    setToast({ 
+                                      message: `Bid must be between £${(minBid / 100).toFixed(2)} and £${(maxBid / 100).toFixed(2)}`, 
+                                      type: 'error' 
+                                    })
+                                    return
+                                  }
+
+                                  try {
+                                    await apiClient.competeInBid({
+                                      assignmentId: assignment.id,
+                                      childId: user?.childId || user?.id || '',
+                                      amountPence: Math.round(bidAmount * 100),
+                                      targetChildId: undefined
+                                    })
+                                    
+                                    setToast({ 
+                                      message: `⚔️ Bid placed! £${bidAmount.toFixed(2)} - May the best sibling win!`, 
+                                      type: 'success' 
+                                    })
+                                    input.value = ''
+                                    
+                                    // Reload to show updated bids
+                                    await loadDashboard()
+                                  } catch (error) {
+                                    console.error('Failed to place bid:', error)
+                                    setToast({ message: 'Failed to place bid. Try again!', type: 'error' })
+                                  }
+                                }}
+                                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-lg hover:from-orange-600 hover:to-red-600 transition-all"
+                              >
+                                ⚔️ BID!
+                              </button>
+                            </div>
+                            <p className="text-xs text-[var(--text-secondary)] mt-2">
+                              💡 Lowest bid wins! Winner gets DOUBLE STARS!
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))
-              )}
+                )
+              })()}
+            </div>
+
+            {/* Leaderboard */}
+            <div>
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🏆 This Week's Champions</h3>
+              <div className="space-y-3">
+                {leaderboard.length === 0 ? (
+                  <div className="cb-card p-8 text-center">
+                    <p className="text-[var(--text-secondary)]">No competitors yet. Invite siblings to join!</p>
+                  </div>
+                ) : (
+                  leaderboard.map((entry, index) => (
+                    <div
+                      key={entry.childId}
+                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${
+                        index === 0
+                          ? 'bg-gradient-to-r from-yellow-100 to-yellow-50 border-yellow-400'
+                          : 'bg-white border-[var(--card-border)]'
+                      }`}
+                    >
+                      <div
+                        className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl ${
+                          index === 0
+                            ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white'
+                            : index === 1
+                            ? 'bg-gray-300 text-gray-700'
+                            : index === 2
+                            ? 'bg-orange-300 text-orange-900'
+                            : 'bg-[var(--card-border)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-lg text-[var(--text-primary)] truncate">{entry.nickname}</h4>
+                        <p className="text-sm text-[var(--text-secondary)]">
+                          {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)} earned
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-3xl font-bold text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

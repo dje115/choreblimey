@@ -90,8 +90,48 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
       data: { status: 'approved' }
     })
 
+    // Check if this is a bidding chore and if child won the rivalry
+    let rewardAmount = completion.assignment.chore.baseRewardPence
+    let rivalryBonus = false
+    
+    if (completion.assignment.biddingEnabled) {
+      // Get all bids for this assignment
+      const bids = await prisma.bid.findMany({
+        where: { 
+          assignmentId: completion.assignmentId,
+          familyId 
+        },
+        orderBy: { amountPence: 'asc' },
+        include: { child: true }
+      })
+      
+      // Check if the completing child had the lowest bid
+      const lowestBid = bids[0]
+      if (lowestBid && lowestBid.childId === completion.childId) {
+        // DOUBLE STARS for rivalry winner! 🏆
+        rewardAmount = rewardAmount * 2
+        rivalryBonus = true
+        
+        // Create a rivalry victory event
+        await prisma.rivalryEvent.create({
+          data: {
+            familyId,
+            actorChildId: completion.childId,
+            targetChildId: null, // Beat all siblings
+            type: 'victory',
+            amountPence: rewardAmount,
+            metaJson: { 
+              completionId: id,
+              originalReward: completion.assignment.chore.baseRewardPence,
+              doubledReward: rewardAmount,
+              bidAmount: lowestBid.amountPence
+            }
+          }
+        })
+      }
+    }
+
     // Credit wallet
-    const rewardAmount = completion.assignment.chore.baseRewardPence
     const wallet = await prisma.wallet.upsert({
       where: {
         childId_familyId: {
@@ -117,7 +157,11 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
         type: 'credit',
         amountPence: rewardAmount,
         source: 'system',
-        metaJson: { completionId: id }
+        metaJson: { 
+          completionId: id,
+          rivalryBonus: rivalryBonus,
+          baseReward: completion.assignment.chore.baseRewardPence
+        }
       }
     })
 
@@ -167,6 +211,11 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
     return { 
       ok: true, 
       wallet: bonusWallet,
+      rivalryBonus: rivalryBonus ? {
+        originalReward: completion.assignment.chore.baseRewardPence,
+        doubledReward: rewardAmount,
+        message: '🏆 RIVALRY WINNER! DOUBLE STARS!'
+      } : undefined,
       streakBonus: bonusStars > 0 ? {
         stars: bonusStars,
         streakLength: streakStats.currentStreak

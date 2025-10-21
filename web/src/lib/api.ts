@@ -185,7 +185,11 @@ class ApiClient {
   }
 
   // Bidding endpoints
-  async competeInBid(data: { assignmentId: string; amountPence: number; disruptTargetChildId?: string }) {
+  async listBids(assignmentId: string) {
+    return this.get(`/bids?assignmentId=${assignmentId}`)
+  }
+
+  async competeInBid(data: { assignmentId: string; childId: string; amountPence: number; targetChildId?: string }) {
     return this.post('/bids/compete', data)
   }
 
