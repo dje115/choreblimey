@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { prisma } from '../db/prisma.ts'
-import { generateToken, generateJoinCode } from '../utils/crypto.ts'
-import { sendMagicLink } from '../utils/email.ts'
+import { prisma } from '../db/prisma.js'
+import { generateToken, generateJoinCode } from '../utils/crypto.js'
+import { sendMagicLink } from '../utils/email.js'
 
 interface FamilyCreateBody {
   nameCipher: string
@@ -15,6 +15,13 @@ interface FamilyInviteBody {
   nickname: string
   ageGroup?: string
   sendEmail?: boolean
+}
+
+interface FamilyUpdateBody {
+  nameCipher?: string
+  region?: string
+  maxBudgetPence?: number
+  budgetPeriod?: 'weekly' | 'monthly'
 }
 
 export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, reply: FastifyReply) => {
@@ -51,20 +58,64 @@ export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, re
 
 export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, reply: FastifyReply) => {
   try {
-    const { familyId } = req.claims!
+    console.log('=== FAMILY INVITE ENDPOINT CALLED ===')
+    const { sub: userId, familyId } = req.claims!
     const { email, role, nameCipher, nickname, ageGroup, sendEmail = true } = req.body
+
+    console.log('Family invite request - userId:', userId, 'familyId from claims:', familyId)
 
     if (!email || !nameCipher || !nickname) {
       return reply.status(400).send({ error: 'Email, family name, and child nickname are required' })
     }
 
-    // Verify family exists and user has permission
-    const family = await prisma.family.findFirst({
-      where: { id: familyId }
+    // First, let's find the user's family membership to get the correct familyId
+    const familyMembership = await prisma.familyMember.findFirst({
+      where: { userId },
+      include: { family: true }
     })
 
-    if (!family) {
-      return reply.status(404).send({ error: 'Family not found' })
+    console.log('Family membership lookup:', familyMembership ? 'found' : 'not found')
+
+    let actualFamilyId: string
+    let family: any
+
+    if (!familyMembership || !familyMembership.family) {
+      // User doesn't have a family - create one automatically
+      console.log('User has no family, creating one automatically for userId:', userId)
+      
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      })
+      
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' })
+      }
+      
+      // Create family for the user
+      const newFamily = await prisma.family.create({
+        data: {
+          nameCipher: `${user.email.split('@')[0]}'s Family`,
+          region: null
+        }
+      })
+      
+      // Add user as admin member
+      await prisma.familyMember.create({
+        data: {
+          familyId: newFamily.id,
+          userId: user.id,
+          role: 'parent_admin'
+        }
+      })
+      
+      console.log('Created family:', newFamily.id, 'for user:', userId)
+      
+      actualFamilyId = newFamily.id
+      family = newFamily
+    } else {
+      actualFamilyId = familyMembership.familyId
+      family = familyMembership.family
+      console.log('Using existing familyId:', actualFamilyId)
     }
 
     let result: any = {}
@@ -76,7 +127,7 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
 
       const joinCodeRecord = await prisma.childJoinCode.create({
         data: {
-          familyId,
+          familyId: actualFamilyId,
           code: joinCode,
           expiresAt
         }
@@ -101,7 +152,7 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
           email,
           token,
           type: 'magic_link',
-          familyId,
+          familyId: actualFamilyId,
           expiresAt
         }
       })
@@ -118,5 +169,308 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
     return result
   } catch (error) {
     reply.status(500).send({ error: 'Failed to send invitation' })
+  }
+}
+
+export const get = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+
+    if (!familyId) {
+      return reply.status(404).send({ error: 'User not part of a family' })
+    }
+
+    const family = await prisma.family.findUnique({
+      where: { id: familyId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                createdAt: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        },
+        children: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true,
+            gender: true,
+            createdAt: true
+          },
+          orderBy: { createdAt: 'asc' }
+        },
+        _count: {
+          select: {
+            members: true,
+            children: true,
+            chores: true
+          }
+        }
+      }
+    })
+
+    if (!family) {
+      return reply.status(404).send({ error: 'Family not found' })
+    }
+
+    return { family }
+  } catch (error) {
+    console.error('Failed to get family:', error)
+    reply.status(500).send({ error: 'Failed to get family information' })
+  }
+}
+
+export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, reply: FastifyReply) => {
+  try {
+    const { familyId: jwtFamilyId, sub: userId } = req.claims!
+    const { nameCipher, region, maxBudgetPence, budgetPeriod } = req.body
+
+    // Try to get familyId from JWT or find it from user's membership
+    let familyId = jwtFamilyId
+
+    if (!familyId) {
+      let membership = await prisma.familyMember.findFirst({
+        where: { userId }
+      })
+      
+      if (!membership) {
+        // User has no family - create one automatically (recovery logic)
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        })
+        
+        if (!user) {
+          return reply.status(404).send({ error: 'User not found' })
+        }
+        
+        // Create a family for this user
+        const newFamily = await prisma.family.create({
+          data: {
+            nameCipher: `${user.email.split('@')[0]}'s Family`,
+            region: null
+          }
+        })
+        
+        // Add user as admin
+        membership = await prisma.familyMember.create({
+          data: {
+            familyId: newFamily.id,
+            userId: user.id,
+            role: 'parent_admin'
+          }
+        })
+        
+        console.log('Auto-created family for user:', userId, 'familyId:', newFamily.id)
+      }
+      
+      familyId = membership.familyId
+    }
+
+    // Verify user has admin permissions
+    const userMembership = await prisma.familyMember.findFirst({
+      where: { 
+        familyId, 
+        userId 
+      }
+    })
+
+    if (!userMembership || !['parent_admin'].includes(userMembership.role)) {
+      return reply.status(403).send({ error: 'Only family admins can update family settings' })
+    }
+
+    // Build update data object (only include fields that were provided)
+    const updateData: any = {}
+    
+    if (nameCipher !== undefined) {
+      if (!nameCipher.trim()) {
+        return reply.status(400).send({ error: 'Family name cannot be empty' })
+      }
+      updateData.nameCipher = nameCipher.trim()
+    }
+    
+    if (region !== undefined) updateData.region = region || null
+    if (maxBudgetPence !== undefined) updateData.maxBudgetPence = maxBudgetPence
+    if (budgetPeriod !== undefined) updateData.budgetPeriod = budgetPeriod
+
+    const updatedFamily = await prisma.family.update({
+      where: { id: familyId },
+      data: updateData,
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                createdAt: true
+              }
+            }
+          }
+        },
+        children: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true,
+            gender: true,
+            createdAt: true
+          }
+        }
+      }
+    })
+
+    return { family: updatedFamily }
+  } catch (error) {
+    console.error('Failed to update family:', error)
+    reply.status(500).send({ error: 'Failed to update family' })
+  }
+}
+
+export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+
+    if (!familyId) {
+      return reply.status(404).send({ error: 'User not part of a family' })
+    }
+
+    const members = await prisma.familyMember.findMany({
+      where: { familyId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+
+    const children = await prisma.child.findMany({
+      where: { familyId },
+      select: {
+        id: true,
+        nickname: true,
+        ageGroup: true,
+        gender: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+
+    return { 
+      members: members.map(member => ({
+        id: member.id,
+        role: member.role,
+        joinedAt: member.createdAt,
+        user: member.user
+      })),
+      children
+    }
+  } catch (error) {
+    console.error('Failed to get family members:', error)
+    reply.status(500).send({ error: 'Failed to get family members' })
+  }
+}
+
+export const getBudget = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+
+    const family = await prisma.family.findUnique({
+      where: { id: familyId },
+      select: {
+        maxBudgetPence: true,
+        budgetPeriod: true,
+        budgetStartDate: true
+      }
+    })
+
+    if (!family) {
+      return reply.status(404).send({ error: 'Family not found' })
+    }
+
+    // Calculate allocated budget from active chores
+    const activeChores = await prisma.chore.findMany({
+      where: {
+        familyId,
+        active: true
+      },
+      select: {
+        baseRewardPence: true,
+        frequency: true
+      }
+    })
+
+    // Calculate weekly cost
+    let allocatedPence = 0
+    for (const chore of activeChores) {
+      if (chore.frequency === 'daily') {
+        allocatedPence += chore.baseRewardPence * 7 // 7 days per week
+      } else if (chore.frequency === 'weekly') {
+        allocatedPence += chore.baseRewardPence
+      }
+      // 'once' chores don't count towards weekly budget
+    }
+
+    // Convert to monthly if needed
+    if (family.budgetPeriod === 'monthly') {
+      allocatedPence = allocatedPence * 4 // Approx 4 weeks per month
+    }
+
+    const remainingPence = (family.maxBudgetPence || 0) - allocatedPence
+
+    return {
+      maxBudgetPence: family.maxBudgetPence,
+      budgetPeriod: family.budgetPeriod,
+      allocatedPence,
+      remainingPence,
+      percentUsed: family.maxBudgetPence ? Math.round((allocatedPence / family.maxBudgetPence) * 100) : 0
+    }
+  } catch (error) {
+    reply.status(500).send({ error: 'Failed to get budget' })
+  }
+}
+
+export const getJoinCodes = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+
+    if (!familyId) {
+      return reply.status(404).send({ error: 'User not part of a family' })
+    }
+
+    // Get active (unused and not expired) join codes for this family
+    const joinCodes = await prisma.childJoinCode.findMany({
+      where: {
+        familyId,
+        usedAt: null,
+        expiresAt: {
+          gt: new Date() // Greater than now (not expired)
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      select: {
+        id: true,
+        code: true,
+        createdAt: true,
+        expiresAt: true
+      }
+    })
+
+    return { joinCodes }
+  } catch (error) {
+    console.error('Failed to get join codes:', error)
+    reply.status(500).send({ error: 'Failed to get join codes' })
   }
 }

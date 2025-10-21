@@ -1,0 +1,322 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Baloo+2:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Nunito', 'Baloo 2', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  font-weight: 500;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--background);
+}
+
+.cb-app-shell {
+  background: linear-gradient(180deg, var(--background) 0%, var(--background-secondary) 100%);
+  min-height: 100vh;
+}
+
+.cb-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-xl);
+  border: 2px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  padding: 2rem;
+  position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cb-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-strong);
+}
+
+.cb-card-bar {
+  background: linear-gradient(135deg, rgba(255,138,0,0.25), rgba(45,155,240,0.25));
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cb-button-primary {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border: none;
+  border-radius: 999px;
+  padding: 0.9rem 1.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cb-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-strong);
+}
+
+.cb-button-secondary {
+  background: var(--secondary);
+  color: var(--primary-contrast);
+  border: none;
+  border-radius: 999px;
+  padding: 0.8rem 1.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cb-chip {
+  background: rgba(45, 155, 240, 0.12);
+  color: var(--secondary);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.cb-streak-halo {
+  background: var(--streak-glow);
+  border-radius: 50%;
+  filter: blur(0px);
+}
+
+.cb-heading-xl {
+  font-family: 'Baloo 2', cursive;
+  font-size: clamp(2.5rem, 3vw, 3.25rem);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.cb-heading-lg {
+  font-family: 'Baloo 2', cursive;
+  font-size: clamp(1.75rem, 2.2vw, 2.4rem);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.cb-heading-md {
+  font-family: 'Baloo 2', cursive;
+  font-size: clamp(1.25rem, 1.8vw, 1.8rem);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.cb-body {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.bounce-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.bounce-hover:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.cb-avatar-ring {
+  border-radius: 50%;
+  padding: 4px;
+  background: linear-gradient(135deg, rgba(255,138,0,0.9), rgba(45,155,240,0.9));
+  display: inline-flex;
+}
+
+.cb-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cb-card:hover .cb-confetti {
+  opacity: 1;
+}
+
+.cb-floating-action {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-strong);
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.cb-reduced-motion * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Beautiful bubbly components inspired by modern design */
+.bubble-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(var(--bubble-blur, 20px));
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius, 20px);
+  box-shadow: var(--shadow, 0 8px 32px rgba(0, 0, 0, 0.12));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.bubble-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.bubble-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.2));
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.bubble-button {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--border-radius, 20px);
+  padding: 16px 32px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bubble-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.bubble-button:hover::before {
+  left: 100%;
+}
+
+.bubble-button:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.bubble-button:active {
+  transform: translateY(0) scale(1.02);
+}
+
+.rounded-bubble {
+  border-radius: var(--border-radius, 20px) !important;
+}
+
+.fun-title {
+  font-family: 'Fredoka One', cursive;
+  font-weight: 400;
+}
+
+/* Animations */
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.bounce:hover {
+  animation: bounce 1s ease-in-out;
+}
+
+.pulse:hover {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Reduce motion for accessibility */
+.reduced-motion * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Glass morphism effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}

@@ -7,6 +7,8 @@ networks:
 volumes:
   pgdata: {}
   minio-data: {}
+  web_node_modules: {}
+  api_node_modules: {}
 
 services:
   postgres:
@@ -64,6 +66,9 @@ services:
       NODE_ENV: development
     ports:
       - "1501:1501"
+    volumes:
+      - ../api:/app/api
+      - api_node_modules:/app/api/node_modules
     depends_on:
       - postgres
       - minio
@@ -78,9 +83,12 @@ services:
     env_file:
       - ./dev.env
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:1501}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:1501/v1}
     ports:
       - "1500:1500"
+    volumes:
+      - ../web:/app/web
+      - web_node_modules:/app/web/node_modules
     depends_on:
       - api
     networks:

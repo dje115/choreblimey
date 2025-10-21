@@ -11,7 +11,12 @@ export async function routes(app: FastifyInstance) {
   app.post('/auth/child-join', ctrl.auth.childJoin)
 
   // Family management
+  app.get('/family', ctrl.family.get)
   app.post('/family', ctrl.family.create)
+  app.patch('/family', ctrl.family.update)
+  app.get('/family/members', ctrl.family.getMembers)
+  app.get('/family/budget', ctrl.family.getBudget)
+  app.get('/family/join-codes', ctrl.family.getJoinCodes)
   app.post('/family/invite', ctrl.family.invite)
 
   // Children management
@@ -23,6 +28,7 @@ export async function routes(app: FastifyInstance) {
   app.patch('/chores/:id', ctrl.chores.update)
 
   // Assignments
+  app.get('/assignments', ctrl.assignments.list)
   app.post('/assignments', ctrl.assignments.create)
   app.post('/assignments/link', ctrl.assignments.link)
 

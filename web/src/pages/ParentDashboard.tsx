@@ -1,0 +1,1289 @@
+import React, { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import { apiClient } from '../lib/api'
+import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTemplate } from '../data/choreTemplates'
+
+const ParentDashboard: React.FC = () => {
+  const { user, logout } = useAuth()
+  const [family, setFamily] = useState<any>(null)
+  const [members, setMembers] = useState<any[]>([])
+  const [children, setChildren] = useState<any[]>([])
+  const [chores, setChores] = useState<any[]>([])
+  const [assignments, setAssignments] = useState<any[]>([])
+  const [leaderboard, setLeaderboard] = useState<any[]>([])
+  const [budget, setBudget] = useState<any>(null)
+  const [joinCodes, setJoinCodes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  // Modals
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showFamilyModal, setShowFamilyModal] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showCreateChoreModal, setShowCreateChoreModal] = useState(false)
+  const [showChoreLibraryModal, setShowChoreLibraryModal] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  
+  // Forms
+  const [inviteData, setInviteData] = useState({ email: '', nickname: '', ageGroup: '5-8' })
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState('')
+  
+  const [familyName, setFamilyName] = useState('')
+  const [familyLoading, setFamilyLoading] = useState(false)
+  const [familyMessage, setFamilyMessage] = useState('')
+  
+  const [rivalrySettings, setRivalrySettings] = useState({
+    enabled: true,
+    minUnderbidDifference: 5,
+    streakProtectionDays: 3,
+    friendlyMode: true
+  })
+  
+  const [budgetSettings, setBudgetSettings] = useState({
+    maxBudgetPence: 0,
+    budgetPeriod: 'weekly' as 'weekly' | 'monthly'
+  })
+  
+  const [activeTab, setActiveTab] = useState<'all' | 'recurring' | 'pending' | 'completed'>('all')
+  
+  const [newChore, setNewChore] = useState({
+    title: '',
+    description: '',
+    frequency: 'daily' as 'daily' | 'weekly' | 'once',
+    proof: 'none' as 'none' | 'photo' | 'note',
+    baseRewardPence: 50
+  })
+
+  const [choreAssignments, setChoreAssignments] = useState<{
+    childIds: string[]
+    biddingEnabled: boolean
+  }>({
+    childIds: [],
+    biddingEnabled: false
+  })
+
+  useEffect(() => {
+    loadDashboard()
+  }, [])
+  
+  useEffect(() => {
+    if (family) {
+      setFamilyName(family.nameCipher || '')
+      if (family.maxBudgetPence) {
+        setBudgetSettings({
+          maxBudgetPence: family.maxBudgetPence,
+          budgetPeriod: family.budgetPeriod || 'weekly'
+        })
+      }
+    }
+  }, [family])
+
+  const loadDashboard = async () => {
+    try {
+      const [familyRes, membersRes, choresRes, assignmentsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
+        apiClient.getFamily(),
+        apiClient.getFamilyMembers(),
+        apiClient.listChores(),
+        apiClient.listAssignments(),
+        apiClient.getLeaderboard(),
+        apiClient.getFamilyBudget(),
+        apiClient.getFamilyJoinCodes()
+      ])
+
+      if (familyRes.status === 'fulfilled') setFamily(familyRes.value.family)
+      if (membersRes.status === 'fulfilled') {
+        setMembers(membersRes.value.members || [])
+        setChildren(membersRes.value.children || [])
+      }
+      if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
+      if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
+      if (leaderboardRes.status === 'fulfilled') setLeaderboard(leaderboardRes.value.leaderboard || [])
+      if (budgetRes.status === 'fulfilled') setBudget(budgetRes.value)
+      if (joinCodesRes.status === 'fulfilled') setJoinCodes(joinCodesRes.value.joinCodes || [])
+    } catch (error) {
+      console.error('Error loading dashboard:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setInviteLoading(true)
+    setInviteMessage('')
+
+    try {
+      const result = await apiClient.inviteToFamily({
+        email: inviteData.email,
+        role: 'child_player',
+        nameCipher: family?.nameCipher || 'Family',
+        nickname: inviteData.nickname,
+        ageGroup: inviteData.ageGroup,
+        sendEmail: true
+      })
+
+      setInviteMessage(`✅ Join code: ${result.joinCode} – Sent to ${inviteData.email}`)
+      setTimeout(() => {
+        setShowInviteModal(false)
+        setInviteMessage('')
+        setInviteData({ email: '', nickname: '', ageGroup: '5-8' })
+        loadDashboard()
+      }, 3000)
+    } catch (error: any) {
+      setInviteMessage(`❌ ${error.message}`)
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleUpdateFamily = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFamilyLoading(true)
+    setFamilyMessage('')
+
+    try {
+      await apiClient.updateFamily({ nameCipher: familyName })
+      setFamilyMessage('✅ Family name updated successfully!')
+      setFamily({ ...family, nameCipher: familyName })
+      setTimeout(() => {
+        setShowFamilyModal(false)
+        setFamilyMessage('')
+      }, 2000)
+    } catch (error: any) {
+      setFamilyMessage(`❌ ${error.message}`)
+    } finally {
+      setFamilyLoading(false)
+    }
+  }
+
+  const handleSelectChoreTemplate = (template: ChoreTemplate) => {
+    // Calculate suggested reward based on weekly budget
+    const weeklyBudgetPence = budget?.maxBudgetPence || 2000 // Default £20/week
+    const budgetToUse = budget?.budgetPeriod === 'monthly' ? weeklyBudgetPence / 4 : weeklyBudgetPence
+    const suggestedReward = calculateSuggestedReward(template, budgetToUse)
+
+    // Populate the form with template data
+    setNewChore({
+      title: template.title,
+      description: template.description,
+      frequency: template.frequency,
+      proof: 'none', // Parents can change this
+      baseRewardPence: suggestedReward
+    })
+
+    // Close library and open custom form
+    setShowChoreLibraryModal(false)
+    setShowCreateChoreModal(true)
+  }
+
+  const handleCreateChore = async (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log('🎯 handleCreateChore called')
+    console.log('📋 newChore:', newChore)
+    console.log('👨‍👩‍👧‍👦 choreAssignments:', choreAssignments)
+    
+    try {
+      // Create the chore first
+      console.log('📡 Creating chore...')
+      const result = await apiClient.createChore(newChore)
+      const choreId = result.chore.id
+      console.log('✅ Chore created with ID:', choreId)
+
+      // Create assignments for each selected child
+      console.log('👥 Selected child IDs:', choreAssignments.childIds)
+      console.log('🔢 Number of children:', choreAssignments.childIds.length)
+      
+      if (choreAssignments.childIds.length > 0) {
+        console.log('📡 Creating assignments for', choreAssignments.childIds.length, 'children...')
+        const assignmentPromises = choreAssignments.childIds.map(childId => {
+          console.log('  -> Creating assignment for childId:', childId)
+          return apiClient.createAssignment({
+            choreId,
+            childId,
+            biddingEnabled: choreAssignments.biddingEnabled
+          })
+        })
+        await Promise.all(assignmentPromises)
+        console.log('✅ All assignments created')
+      } else {
+        console.log('⚠️ No children selected - skipping assignment creation')
+      }
+
+      // Reset form and close modal
+      setShowCreateChoreModal(false)
+      setNewChore({
+        title: '',
+        description: '',
+        frequency: 'daily',
+        proof: 'none',
+        baseRewardPence: 50
+      })
+      setChoreAssignments({
+        childIds: [],
+        biddingEnabled: false
+      })
+      
+      // Reload dashboard
+      console.log('🔄 Reloading dashboard...')
+      await loadDashboard()
+      console.log('✅ Dashboard reloaded')
+    } catch (error) {
+      console.error('❌ Error creating chore:', error)
+      alert('Failed to create chore. Please try again.')
+    }
+  }
+
+  const filteredChores = chores.filter(chore => {
+    if (activeTab === 'all') return true
+    if (activeTab === 'recurring') return chore.frequency !== 'once'
+    if (activeTab === 'pending') return !chore.active
+    if (activeTab === 'completed') return chore.frequency === 'once' && !chore.active
+    return true
+  })
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[var(--primary)] border-t-transparent mx-auto mb-4"></div>
+          <p className="cb-body">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-[var(--background)] pb-20">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-40 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] text-white shadow-lg">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="cb-heading-xl mb-1">
+                🏠 {family?.nameCipher || 'Family Dashboard'}
+              </h1>
+              <p className="text-white/90 text-sm sm:text-base">
+                Turn chores into cheers! Welcome back, {user?.email?.split('@')[0]} 🎉
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
+                ⚙️ Settings
+              </button>
+              <button onClick={() => setShowFamilyModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
+                ✏️ Edit Family
+              </button>
+              <button onClick={logout} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
+                👋 Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Overview Tiles Grid */}
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+          {/* Total Chores */}
+          <div className="cb-card bg-gradient-to-br from-[var(--primary)] to-[#FF6B00] text-white p-6 shadow-xl bounce-hover">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
+                📝
+              </div>
+              <span className="text-5xl font-bold">{chores.length}</span>
+            </div>
+            <h3 className="font-bold text-lg mb-1">Total Chores</h3>
+            <p className="text-white/80 text-sm">Active across family</p>
+          </div>
+
+          {/* Active Children */}
+          <div className="cb-card bg-gradient-to-br from-[var(--secondary)] to-[#1E7DB8] text-white p-6 shadow-xl bounce-hover">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
+                👨‍👩‍👧‍👦
+              </div>
+              <span className="text-5xl font-bold">{children.length}</span>
+            </div>
+            <h3 className="font-bold text-lg mb-1">Family Members</h3>
+            <p className="text-white/80 text-sm">Kids on the team</p>
+          </div>
+
+          {/* Pending Reviews */}
+          <div className="cb-card bg-gradient-to-br from-[var(--warning)] to-[#F5A623] text-white p-6 shadow-xl bounce-hover">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
+                ⏳
+              </div>
+              <span className="text-5xl font-bold">0</span>
+            </div>
+            <h3 className="font-bold text-lg mb-1">Pending Review</h3>
+            <p className="text-white/80 text-sm">Awaiting approval</p>
+          </div>
+
+          {/* Budget Tracker */}
+          <div className={`cb-card text-white p-6 shadow-xl bounce-hover ${
+            !budget?.maxBudgetPence 
+              ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
+              : budget.percentUsed > 90 
+                ? 'bg-gradient-to-br from-red-500 to-pink-600'
+                : budget.percentUsed > 70
+                  ? 'bg-gradient-to-br from-orange-500 to-yellow-500'
+                  : 'bg-gradient-to-br from-[var(--success)] to-[#00A679]'
+          }`}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
+                💰
+              </div>
+              <div className="text-right">
+                {budget?.maxBudgetPence ? (
+                  <>
+                    <div className="text-5xl font-bold">{budget.percentUsed}%</div>
+                    <div className="text-sm text-white/70 mt-1">
+                      £{((budget.allocatedPence || 0) / 100).toFixed(2)} / £{(budget.maxBudgetPence / 100).toFixed(2)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-3xl font-bold">Not Set</div>
+                )}
+              </div>
+            </div>
+            <h3 className="font-bold text-lg mb-1">
+              {budget?.budgetPeriod === 'monthly' ? 'Monthly' : 'Weekly'} Budget
+            </h3>
+            <p className="text-white/80 text-sm">
+              {budget?.maxBudgetPence 
+                ? `£${((budget.remainingPence || 0) / 100).toFixed(2)} remaining`
+                : 'Set in Settings'
+              }
+            </p>
+          </div>
+        </section>
+
+        {/* Main Content Grid */}
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Left Column: Manage Chores (2 cols on desktop) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Manage Chores Section */}
+            <div className="cb-card p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="cb-heading-lg text-[var(--primary)]">🧹 Manage Chores</h2>
+                <button
+                  onClick={() => setShowChoreLibraryModal(true)}
+                  className="cb-button-primary text-sm"
+                >
+                  ➕ Add Chore
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6 flex-wrap">
+                {['all', 'recurring', 'pending', 'completed'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab as any)}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      activeTab === tab
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                    }`}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chore Cards Grid */}
+              {filteredChores.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🎯</div>
+                  <p className="cb-body text-[var(--text-secondary)]">
+                    No chores yet! Create one to get started.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {filteredChores.map((chore) => {
+                    // Find assignments for this chore
+                    const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
+                    const assignedChildren = choreAssigns.map((a: any) => a.child).filter(Boolean)
+                    const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
+
+                    return (
+                      <div
+                        key={chore.id}
+                        className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                            🧽
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
+                              {chore.title}
+                            </h4>
+                            <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                              {chore.description || 'No description'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Assigned Children */}
+                        {assignedChildren.length > 0 && (
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            {assignedChildren.map((child: any) => (
+                              <span
+                                key={child.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                              >
+                                👤 {child.nickname}
+                              </span>
+                            ))}
+                            {hasBidding && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
+                                ⚔️ Rivalry
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                              💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                            </span>
+                            <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
+                              {chore.frequency}
+                            </span>
+                            {chore.proof !== 'none' && (
+                              <span className="cb-chip bg-orange-50 text-orange-700">
+                                📸 {chore.proof}
+                              </span>
+                            )}
+                          </div>
+                          <button className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors">
+                            ⚙️
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Family Activity Feed */}
+            <div className="cb-card p-6">
+              <h2 className="cb-heading-lg text-[var(--primary)] mb-4">📊 Family Activity</h2>
+              <div className="space-y-3">
+                {[
+                  { child: 'Ellie', action: 'completed "Make bed"', reward: '+50p', time: '5 mins ago', icon: '✅' },
+                  { child: 'Ben', action: 'started "Wash dishes"', reward: '', time: '12 mins ago', icon: '🚀' },
+                  { child: 'Ellie', action: 'earned a 3-day streak!', reward: '+5⭐', time: '1 hour ago', icon: '🔥' },
+                ].map((activity, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                      {activity.icon}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-bold text-[var(--text-primary)]">{activity.child}</span>{' '}
+                        <span className="text-[var(--text-secondary)]">{activity.action}</span>
+                        {activity.reward && (
+                          <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                            {activity.reward}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">{activity.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Family & Leaderboard */}
+          <div className="space-y-6">
+            {/* Family Members */}
+            <div className="cb-card p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="cb-heading-md text-[var(--primary)]">👨‍👩‍👧‍👦 Family</h3>
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  className="cb-button-primary text-sm"
+                >
+                  ➕ Invite
+                </button>
+              </div>
+
+              {/* Outstanding Join Codes */}
+              {joinCodes.length > 0 && (
+                <div className="mb-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-[var(--radius-lg)]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">🎟️</span>
+                    <h4 className="font-bold text-[var(--text-primary)]">Active Join Codes</h4>
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mb-3">
+                    Share these codes with your kids to join the family!
+                  </p>
+                  <div className="space-y-2">
+                    {joinCodes.map((joinCode) => (
+                      <div
+                        key={joinCode.id}
+                        className="flex items-center gap-2 p-3 bg-white rounded-[var(--radius-md)] border-2 border-[var(--card-border)]"
+                      >
+                        <div className="flex-1">
+                          <div className="font-mono text-2xl font-bold text-[var(--primary)] tracking-wider">
+                            {joinCode.code}
+                          </div>
+                          <div className="text-xs text-[var(--text-secondary)] mt-1">
+                            Expires {new Date(joinCode.expiresAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(joinCode.code)
+                            alert('Code copied! 📋')
+                          }}
+                          className="px-4 py-2 bg-[var(--primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--secondary)] transition-all font-semibold text-sm"
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-[var(--text-secondary)] mt-3 italic text-center">
+                    Kids can enter this code on the join page or http://localhost:1500/child-join
+                  </p>
+                </div>
+              )}
+
+              {/* Children List */}
+              <div className="space-y-3">
+                {children.map((child) => (
+                  <div key={child.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)] hover:shadow-md transition-all">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl">
+                      {child.nickname.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
+                      <p className="text-xs text-[var(--text-secondary)]">{child.ageGroup} years</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-[var(--primary)]">0⭐</p>
+                      <p className="text-xs text-[var(--text-secondary)]">this week</p>
+                    </div>
+                  </div>
+                ))}
+                {children.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-6xl mb-2">👨‍👩‍👧</p>
+                    <p className="cb-body text-[var(--text-secondary)]">Invite children to join!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Weekly Leaderboard */}
+            <div className="cb-card p-6">
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🏆 Weekly Leaders</h3>
+              <div className="space-y-3">
+                {leaderboard.slice(0, 5).map((entry, index) => (
+                  <div key={entry.childId} className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                      index === 0 ? 'bg-gradient-to-br from-[var(--bonus-stars)] to-yellow-500 text-white' :
+                      index === 1 ? 'bg-gray-300 text-gray-700' :
+                      index === 2 ? 'bg-orange-300 text-orange-900' :
+                      'bg-[var(--card-border)] text-[var(--text-secondary)]'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[var(--text-primary)]">{entry.nickname}</p>
+                    </div>
+                    <p className="font-bold text-[var(--bonus-stars)]">{entry.totalStars}⭐</p>
+                  </div>
+                ))}
+                {leaderboard.length === 0 && (
+                  <p className="text-center py-4 text-[var(--text-secondary)]">No activity yet this week</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">⚙️ Family Settings</h3>
+            
+            <div className="space-y-6">
+              {/* Sibling Rivalry Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
+                  <div>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-1">⚔️ Sibling Rivalry</h4>
+                    <p className="text-sm text-[var(--text-secondary)]">Let kids compete for chores</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rivalrySettings.enabled}
+                      onChange={(e) => setRivalrySettings(prev => ({ ...prev, enabled: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--primary)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary)]"></div>
+                  </label>
+                </div>
+
+                {rivalrySettings.enabled && (
+                  <div className="space-y-4 pl-6 border-l-4 border-[var(--primary)]">
+                    <div>
+                      <label className="block font-semibold text-[var(--text-primary)] mb-2">
+                        Minimum underbid: {rivalrySettings.minUnderbidDifference}p
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        value={rivalrySettings.minUnderbidDifference}
+                        onChange={(e) => setRivalrySettings(prev => ({ ...prev, minUnderbidDifference: parseInt(e.target.value) }))}
+                        className="w-full accent-[var(--primary)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-[var(--text-primary)] mb-2">
+                        Streak protection: {rivalrySettings.streakProtectionDays} days
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="7"
+                        value={rivalrySettings.streakProtectionDays}
+                        onChange={(e) => setRivalrySettings(prev => ({ ...prev, streakProtectionDays: parseInt(e.target.value) }))}
+                        className="w-full accent-[var(--primary)]"
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={rivalrySettings.friendlyMode}
+                        onChange={(e) => setRivalrySettings(prev => ({ ...prev, friendlyMode: e.target.checked }))}
+                        className="w-5 h-5 accent-[var(--primary)]"
+                      />
+                      <div>
+                        <span className="font-semibold text-[var(--text-primary)]">Friendly Mode</span>
+                        <p className="text-xs text-[var(--text-secondary)]">Use humorous wording only</p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Budget Management Section */}
+              <div className="space-y-4">
+                <div className="p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
+                  <h4 className="font-bold text-[var(--text-primary)] mb-3">💰 Budget Management</h4>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4">
+                    Set a max pocket money budget to control spending
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-semibold text-[var(--text-primary)] mb-2 text-sm">
+                          Budget Period
+                        </label>
+                        <select
+                          value={budgetSettings.budgetPeriod}
+                          onChange={(e) => setBudgetSettings(prev => ({ ...prev, budgetPeriod: e.target.value as 'weekly' | 'monthly' }))}
+                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                        >
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block font-semibold text-[var(--text-primary)] mb-2 text-sm">
+                          Max Budget (£)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={(budgetSettings.maxBudgetPence / 100).toFixed(2)}
+                          onChange={(e) => setBudgetSettings(prev => ({ ...prev, maxBudgetPence: Math.round(parseFloat(e.target.value) * 100) }))}
+                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    
+                    {budget && budget.maxBudgetPence > 0 && (
+                      <>
+                        <div className="p-3 bg-white rounded-[var(--radius-md)] border-2 border-[var(--card-border)]">
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-[var(--text-secondary)]">Currently Allocated:</span>
+                            <span className="font-bold text-[var(--text-primary)]">£{((budget.allocatedPence || 0) / 100).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-[var(--text-secondary)]">Remaining:</span>
+                            <span className={`font-bold ${budget.remainingPence < 0 ? 'text-red-600' : 'text-[var(--success)]'}`}>
+                              £{((budget.remainingPence || 0) / 100).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
+                            <div 
+                              className={`h-3 rounded-full transition-all ${
+                                budget.percentUsed > 90 ? 'bg-red-500' : 
+                                budget.percentUsed > 70 ? 'bg-orange-500' : 
+                                'bg-[var(--success)]'
+                              }`}
+                              style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-[var(--text-secondary)] mt-2 text-center">
+                            {budget.percentUsed}% of budget allocated
+                          </p>
+                        </div>
+
+                        {/* Per-Child Breakdown */}
+                        {children.length > 0 && (
+                          <div className="mt-4 p-3 bg-gradient-to-br from-blue-50 to-purple-50 rounded-[var(--radius-md)] border-2 border-blue-200">
+                            <h5 className="font-bold text-[var(--text-primary)] mb-3 text-sm">
+                              📊 Estimated {budgetSettings.budgetPeriod === 'monthly' ? 'Monthly' : 'Weekly'} Earnings Per Child
+                            </h5>
+                            <div className="space-y-2">
+                              {children.map((child: any) => {
+                                // Calculate this child's potential earnings from active assignments
+                                const childAssignments = assignments.filter((a: any) => 
+                                  a.childId === child.id && a.chore?.active
+                                )
+                                
+                                console.log(`Calculating earnings for ${child.nickname}:`, {
+                                  totalAssignments: assignments.length,
+                                  childAssignments: childAssignments.length,
+                                  assignments: childAssignments.map(a => ({
+                                    chore: a.chore?.title,
+                                    frequency: a.chore?.frequency,
+                                    reward: a.chore?.baseRewardPence
+                                  }))
+                                })
+                                
+                                let weeklyEarnings = 0
+                                childAssignments.forEach((a: any) => {
+                                  if (a.chore?.frequency === 'daily') {
+                                    weeklyEarnings += (a.chore.baseRewardPence || 0) * 7
+                                  } else if (a.chore?.frequency === 'weekly') {
+                                    weeklyEarnings += (a.chore.baseRewardPence || 0)
+                                  }
+                                  // 'once' chores don't count towards regular budget
+                                })
+
+                                // Convert to monthly if needed
+                                const earnings = budgetSettings.budgetPeriod === 'monthly' 
+                                  ? weeklyEarnings * 4 
+                                  : weeklyEarnings
+
+                                return (
+                                  <div key={child.id} className="flex justify-between items-center text-sm bg-white/70 px-3 py-2 rounded-lg">
+                                    <span className="font-medium text-[var(--text-primary)]">
+                                      {child.nickname}
+                                    </span>
+                                    <span className="font-bold text-[var(--secondary)]">
+                                      £{(earnings / 100).toFixed(2)}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <p className="text-xs text-[var(--text-secondary)] mt-3 italic">
+                              * Based on assigned chores at base reward (no bonuses or bidding)
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Age Mode Info */}
+              <div>
+                <h4 className="font-bold text-[var(--text-primary)] mb-3">🎚️ Age Mode Profiles</h4>
+                <div className="grid gap-3">
+                  {[
+                    { mode: 'Kid Mode (≤10)', desc: 'Bright colors, friendly mascots', emoji: '🌟', color: 'var(--primary)' },
+                    { mode: 'Tween Mode (11-13)', desc: 'Gradients, achievement badges', emoji: '🎯', color: 'var(--secondary)' },
+                    { mode: 'Teen Mode (14-16)', desc: 'Dark theme, neon accents', emoji: '🌙', color: 'var(--text-primary)' }
+                  ].map((item) => (
+                    <div key={item.mode} className="flex items-center gap-3 p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
+                      <div className="text-3xl">{item.emoji}</div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-[var(--text-primary)]">{item.mode}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    // Save budget settings
+                    await apiClient.updateFamily({
+                      maxBudgetPence: budgetSettings.maxBudgetPence,
+                      budgetPeriod: budgetSettings.budgetPeriod
+                    })
+                    // TODO: Save rivalry settings when backend is ready
+                    await loadDashboard() // Reload to get updated budget
+                  } catch (error) {
+                    console.error('Failed to save settings:', error)
+                    alert('Failed to save settings. Please try again.')
+                  } finally {
+                    // Always close the modal
+                    setShowSettingsModal(false)
+                  }
+                }}
+                className="flex-1 cb-button-primary"
+              >
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">➕ Invite to Family</h3>
+            <form onSubmit={handleInvite} className="space-y-5">
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Email *</label>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  value={inviteData.email}
+                  onChange={(e) => setInviteData(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  placeholder="child@example.com"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Nickname *</label>
+                <input
+                  name="nickname"
+                  required
+                  value={inviteData.nickname}
+                  onChange={(e) => setInviteData(prev => ({ ...prev, nickname: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  placeholder="Super Ellie"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Age group</label>
+                <select
+                  name="ageGroup"
+                  value={inviteData.ageGroup}
+                  onChange={(e) => setInviteData(prev => ({ ...prev, ageGroup: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                >
+                  <option value="5-8">5-8 years</option>
+                  <option value="9-11">9-11 years</option>
+                  <option value="12-15">12-15 years</option>
+                </select>
+              </div>
+
+              {inviteMessage && (
+                <div className={`p-4 rounded-[var(--radius-md)] text-sm font-semibold ${
+                  inviteMessage.includes('✅')
+                    ? 'bg-[var(--success)]/10 text-[var(--success)] border-2 border-[var(--success)]/30'
+                    : 'bg-red-50 text-red-600 border-2 border-red-200'
+                }`}>
+                  {inviteMessage}
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInviteModal(false)
+                    setInviteMessage('')
+                    setInviteData({ email: '', nickname: '', ageGroup: '5-8' })
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviteLoading}
+                  className="flex-1 cb-button-primary disabled:opacity-50"
+                >
+                  {inviteLoading ? 'Sending…' : 'Send Invite'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Family Modal */}
+      {showFamilyModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">✏️ Edit Family Name</h3>
+            <form onSubmit={handleUpdateFamily} className="space-y-5">
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Family name</label>
+                <input
+                  value={familyName}
+                  onChange={(e) => setFamilyName(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  placeholder="The Sparkles"
+                  disabled={familyLoading}
+                />
+              </div>
+              {familyMessage && (
+                <div className={`p-4 rounded-[var(--radius-md)] text-sm font-semibold ${
+                  familyMessage.includes('✅')
+                    ? 'bg-[var(--success)]/10 text-[var(--success)] border-2 border-[var(--success)]/30'
+                    : 'bg-red-50 text-red-600 border-2 border-red-200'
+                }`}>
+                  {familyMessage}
+                </div>
+              )}
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFamilyModal(false)
+                    setFamilyMessage('')
+                    setFamilyName(family?.nameCipher || '')
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={familyLoading || !familyName}
+                  className="flex-1 cb-button-primary disabled:opacity-50"
+                >
+                  {familyLoading ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Chore Library Modal */}
+      {showChoreLibraryModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="cb-card w-full max-w-4xl my-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="cb-heading-lg text-[var(--primary)]">📚 Chore Library</h3>
+              <button
+                onClick={() => setShowChoreLibraryModal(false)}
+                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  selectedCategory === 'all'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                ✨ All
+              </button>
+              {Object.entries(categoryLabels).map(([key, { label, icon }]) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedCategory(key)}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                    selectedCategory === key
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Chore Templates Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[60vh] overflow-y-auto p-1">
+              {choreTemplates
+                .filter(template => selectedCategory === 'all' || template.category === selectedCategory)
+                .map((template) => {
+                  const weeklyBudgetPence = budget?.maxBudgetPence || 2000
+                  const budgetToUse = budget?.budgetPeriod === 'monthly' ? weeklyBudgetPence / 4 : weeklyBudgetPence
+                  const suggestedReward = calculateSuggestedReward(template, budgetToUse)
+
+                  return (
+                    <button
+                      key={template.id}
+                      onClick={() => handleSelectChoreTemplate(template)}
+                      className="text-left p-4 bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] hover:border-[var(--primary)] hover:shadow-lg transition-all"
+                    >
+                      <div className="flex items-start gap-3 mb-2">
+                        <span className="text-3xl">{template.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-[var(--text-primary)] text-sm mb-1">
+                            {template.title}
+                          </h4>
+                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                            {template.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                          💰 £{(suggestedReward / 100).toFixed(2)}
+                        </span>
+                        <span className="text-xs cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
+                          {template.frequency === 'daily' ? '📅 Daily' : template.frequency === 'weekly' ? '📆 Weekly' : '🎯 Once'}
+                        </span>
+                        {template.ageGroup && (
+                          <span className="text-xs cb-chip bg-purple-50 text-purple-700">
+                            {template.ageGroup}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+            </div>
+
+            {/* Custom Chore Option */}
+            <div className="mt-6 p-4 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--secondary)]/10 rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--primary)]/30">
+              <button
+                onClick={() => {
+                  setShowChoreLibraryModal(false)
+                  setShowCreateChoreModal(true)
+                }}
+                className="w-full text-center"
+              >
+                <div className="text-4xl mb-2">➕</div>
+                <h4 className="font-bold text-[var(--text-primary)] mb-1">Create Custom Chore</h4>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Build your own chore from scratch
+                </p>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Chore Modal */}
+      {showCreateChoreModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="cb-card w-full max-w-2xl my-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="cb-heading-lg text-[var(--primary)]">➕ Create New Chore</h3>
+              <button
+                onClick={() => setShowChoreLibraryModal(true)}
+                className="text-sm text-[var(--secondary)] hover:underline"
+              >
+                ← Back to Library
+              </button>
+            </div>
+            <form onSubmit={handleCreateChore} className="space-y-5">
+              {/* Chore Details */}
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Chore title *</label>
+                <input
+                  value={newChore.title}
+                  onChange={(e) => setNewChore(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  placeholder="Make your bed"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Description</label>
+                <textarea
+                  value={newChore.description}
+                  onChange={(e) => setNewChore(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all resize-none"
+                  rows={3}
+                  placeholder="Optional details..."
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Frequency</label>
+                  <select
+                    value={newChore.frequency}
+                    onChange={(e) => setNewChore(prev => ({ ...prev, frequency: e.target.value as any }))}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="once">One-time</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={(newChore.baseRewardPence / 100).toFixed(2)}
+                    onChange={(e) => setNewChore(prev => ({ ...prev, baseRewardPence: Math.round(parseFloat(e.target.value) * 100) }))}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                    placeholder="0.50"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
+                  <select
+                    value={newChore.proof}
+                    onChange={(e) => setNewChore(prev => ({ ...prev, proof: e.target.value as any }))}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  >
+                    <option value="none">Trust-based (No proof needed)</option>
+                    <option value="note">Ask for explanation note</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Assignment Section */}
+              <div className="border-t-2 border-[var(--card-border)] pt-5">
+                <h4 className="font-bold text-[var(--text-primary)] mb-3">👥 Assign to Children</h4>
+                {children.length === 0 ? (
+                  <p className="text-sm text-[var(--text-secondary)] italic">
+                    No children in family yet. Invite children to assign chores!
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {children.map((child: any) => (
+                      <label
+                        key={child.id}
+                        className="flex items-center gap-3 p-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:border-[var(--primary)] transition-all cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={choreAssignments.childIds.includes(child.id)}
+                          onChange={(e) => {
+                            console.log(`✅ Checkbox for ${child.nickname} (${child.id}) changed to:`, e.target.checked)
+                            if (e.target.checked) {
+                              setChoreAssignments(prev => {
+                                const updated = {
+                                  ...prev,
+                                  childIds: [...prev.childIds, child.id]
+                                }
+                                console.log('📦 Updated choreAssignments:', updated)
+                                return updated
+                              })
+                            } else {
+                              setChoreAssignments(prev => {
+                                const updated = {
+                                  ...prev,
+                                  childIds: prev.childIds.filter(id => id !== child.id)
+                                }
+                                console.log('📦 Updated choreAssignments:', updated)
+                                return updated
+                              })
+                            }
+                          }}
+                          className="w-5 h-5 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold text-[var(--text-primary)]">{child.nickname}</div>
+                          {child.ageGroup && (
+                            <div className="text-xs text-[var(--text-secondary)]">Age: {child.ageGroup}</div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Bidding Toggle */}
+              {choreAssignments.childIds.length > 1 && (
+                <div className="border-t-2 border-[var(--card-border)] pt-5">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={choreAssignments.biddingEnabled}
+                      onChange={(e) => setChoreAssignments(prev => ({ ...prev, biddingEnabled: e.target.checked }))}
+                      className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
+                    />
+                    <div>
+                      <div className="font-bold text-[var(--text-primary)]">⚔️ Enable Sibling Rivalry (Underbid)</div>
+                      <p className="text-sm text-[var(--text-secondary)] mt-1">
+                        Allow siblings to compete for this chore by bidding lower amounts
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateChoreModal(false)
+                    setNewChore({
+                      title: '',
+                      description: '',
+                      frequency: 'daily',
+                      proof: 'none',
+                      baseRewardPence: 50
+                    })
+                    setChoreAssignments({
+                      childIds: [],
+                      biddingEnabled: false
+                    })
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 cb-button-primary"
+                >
+                  Create Chore
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default ParentDashboard

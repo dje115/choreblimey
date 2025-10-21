@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { prisma } from '../db/prisma.ts'
+import { prisma } from '../db/prisma.js'
 
 interface AssignmentCreateBody {
   choreId: string
@@ -10,6 +10,55 @@ interface AssignmentCreateBody {
 interface AssignmentLinkBody {
   assignmentId1: string
   assignmentId2: string
+}
+
+export const list = async (req: FastifyRequest<{ Querystring: { childId?: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, childId: jwtChildId, role } = req.claims!
+    const { childId: queryChildId } = req.query
+
+    // Determine which childId to use
+    let childId = queryChildId
+    if (role === 'child_player' && !childId) {
+      childId = jwtChildId // Child accessing their own assignments
+    }
+
+    const whereClause: any = { familyId }
+    if (childId) {
+      whereClause.childId = childId
+    }
+
+    const assignments = await prisma.assignment.findMany({
+      where: whereClause,
+      include: {
+        chore: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            frequency: true,
+            proof: true,
+            baseRewardPence: true,
+            minBidPence: true,
+            maxBidPence: true,
+            active: true
+          }
+        },
+        child: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    return { assignments }
+  } catch (error) {
+    reply.status(500).send({ error: 'Failed to list assignments' })
+  }
 }
 
 export const create = async (req: FastifyRequest<{ Body: AssignmentCreateBody }>, reply: FastifyReply) => {

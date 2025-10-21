@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
 })
 
 export async function sendMagicLink(email: string, token: string): Promise<void> {
-  const magicLinkUrl = `${process.env.WEB_URL || 'http://localhost:1500'}/auth/callback?token=${token}`
+  const magicLinkUrl = `${process.env.WEB_URL || 'http://localhost:1500'}/?token=${token}`
   
   const mailOptions = {
     from: process.env.SMTP_FROM || 'no-reply@choreblimey.local',

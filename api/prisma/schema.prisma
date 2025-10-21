@@ -7,11 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum BudgetPeriod {
+  weekly
+  monthly
+}
+
 model Family {
   id            String          @id @default(uuid())
   createdAt     DateTime        @default(now())
   nameCipher    String
   region        String?
+  
+  // Budget management
+  maxBudgetPence Int?           // Max pocket money budget
+  budgetPeriod   BudgetPeriod?  @default(weekly) // weekly or monthly
+  budgetStartDate DateTime?      // When the current budget period started
 
   // Back-relations
   members       FamilyMember[]
@@ -63,6 +73,12 @@ model FamilyMember {
   @@index([familyId, role])
 }
 
+enum Gender {
+  male
+  female
+  other
+}
+
 model Child {
   id             String   @id @default(uuid())
   familyId       String
@@ -71,6 +87,7 @@ model Child {
   dobCipher      String?
   avatarId       String?
   ageGroup       String?
+  gender         Gender?
   createdAt      DateTime @default(now())
 
   family       Family      @relation(fields: [familyId], references: [id])
@@ -93,7 +110,6 @@ enum Frequency {
 
 enum ProofType {
   none
-  photo
   note
 }
 
@@ -122,6 +138,7 @@ model Chore {
   startDate       DateTime?
   endDate         DateTime?
   active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
 
   family      Family       @relation(fields: [familyId], references: [id])
   assignments Assignment[]
@@ -131,12 +148,13 @@ model Chore {
 }
 
 model Assignment {
-  id                 String  @id @default(uuid())
+  id                 String   @id @default(uuid())
   choreId            String
   familyId           String
   childId            String?
-  biddingEnabled     Boolean @default(false)
+  biddingEnabled     Boolean  @default(false)
   linkedAssignmentId String?
+  createdAt          DateTime @default(now())
 
   chore       Chore      @relation(fields: [choreId], references: [id])
   family      Family     @relation(fields: [familyId], references: [id])
@@ -272,12 +290,16 @@ model Reward {
   type         RewardType
   sku          String?
   title        String
+  description  String?
   imageUrl     String?
   amazonUrl    String?
   affiliateTag String?
+  daysOutUrl   String?   // For days out/experiences affiliate links
   starsRequired Int
   pricePence   Int?
-  ageTag       String?
+  ageTag       String?   // e.g., "5-8", "9-11", "12-15"
+  genderTag    String?   // e.g., "male", "female", "both"
+  category     String?   // e.g., "toys", "books", "experiences", "allowance"
   createdAt    DateTime  @default(now())
 
   family      Family       @relation(fields: [familyId], references: [id])

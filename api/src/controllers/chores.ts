@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { prisma } from '../db/prisma.ts'
+import { prisma } from '../db/prisma.js'
 
 interface ChoreCreateBody {
   title: string
@@ -37,6 +37,7 @@ export const list = async (req: FastifyRequest, reply: FastifyReply) => {
 
     return { chores }
   } catch (error) {
+    console.error('Error fetching chores:', error)
     reply.status(500).send({ error: 'Failed to fetch chores' })
   }
 }

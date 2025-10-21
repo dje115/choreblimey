@@ -17,6 +17,7 @@ interface ChildJoinBody {
   qrData?: string
   nickname: string
   ageGroup?: string
+  gender?: string
 }
 
 export const signupParent = async (req: FastifyRequest<{ Body: SignupParentBody }>, reply: FastifyReply) => {
@@ -58,6 +59,7 @@ export const signupParent = async (req: FastifyRequest<{ Body: SignupParentBody 
 export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }>, reply: FastifyReply) => {
   try {
     const { token } = req.query
+    console.log('Callback received token:', token)
 
     if (!token) {
       return reply.status(400).send({ error: 'Token is required' })
@@ -80,14 +82,17 @@ export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }
     })
 
     if (!authToken) {
+      console.log('Token not found:', token)
       return reply.status(404).send({ error: 'Invalid token' })
     }
 
     if (authToken.expiresAt < new Date()) {
+      console.log('Token expired:', authToken.expiresAt)
       return reply.status(400).send({ error: 'Token has expired' })
     }
 
     if (authToken.usedAt) {
+      console.log('Token already used:', authToken.usedAt)
       return reply.status(400).send({ error: 'Token has already been used' })
     }
 
@@ -129,8 +134,42 @@ export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }
         })
       }
     } else {
-      // This is a new parent - we'll create family in the next step
-      familyId = null
+      // Check if user already has a family
+      const existingFamilyMember = await prisma.familyMember.findFirst({
+        where: { userId: user.id }
+      })
+      
+      console.log('Existing family member lookup:', existingFamilyMember ? 'found' : 'not found')
+      
+      if (existingFamilyMember) {
+        familyId = existingFamilyMember.familyId
+        role = existingFamilyMember.role
+        console.log('Using existing family:', familyId)
+      } else {
+        console.log('Creating new family for user:', user.id)
+        // This is a new parent - create a family automatically
+        const family = await prisma.family.create({
+          data: {
+            nameCipher: `${user.email.split('@')[0]}'s Family`, // Temporary name
+            region: null
+          }
+        })
+
+        console.log('Created family:', family.id)
+
+        // Add user as admin member of the new family
+        await prisma.familyMember.create({
+          data: {
+            familyId: family.id,
+            userId: user.id,
+            role: 'parent_admin'
+          }
+        })
+
+        familyId = family.id
+        role = 'parent_admin'
+        console.log('Set familyId to:', familyId)
+      }
     }
 
     // Generate JWT
@@ -145,15 +184,19 @@ export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }
       { expiresIn: '7d' }
     )
 
-    return {
+    const response = {
       token: jwtToken,
       user: {
         id: user.id,
-        email: user.email
+        email: user.email,
+        role
       },
       familyId,
       needsFamily: !familyId
     }
+    
+    console.log('Callback response:', { userId: user.id, email: user.email, role, familyId })
+    return response
   } catch (error) {
     reply.status(500).send({ error: 'Failed to process callback' })
   }
@@ -161,7 +204,7 @@ export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }
 
 export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, reply: FastifyReply) => {
   try {
-    const { code, qrData, nickname, ageGroup } = req.body
+    const { code, qrData, nickname, ageGroup, gender } = req.body
 
     if (!nickname) {
       return reply.status(400).send({ error: 'Nickname is required' })
@@ -209,7 +252,8 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       data: {
         familyId,
         nickname,
-        ageGroup: ageGroup || null
+        ageGroup: ageGroup || null,
+        gender: gender ? (gender as 'male' | 'female' | 'other') : null
       }
     })
 
@@ -223,12 +267,15 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
     })
 
     // Generate JWT for child (they get child_player role)
+    console.log('Creating child JWT with familyId:', familyId, 'childId:', child.id)
     const jwtToken = jwt.sign(
       {
         sub: child.id,
         role: 'child_player',
-        familyId,
-        childId: child.id
+        familyId: familyId || '',
+        childId: child.id,
+        ageGroup: child.ageGroup,
+        nickname: child.nickname
       },
       process.env.JWT_SECRET!,
       { expiresIn: '7d' }

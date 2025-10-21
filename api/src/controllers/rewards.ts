@@ -6,12 +6,56 @@ interface RedemptionBody {
   childId: string
 }
 
-export const list = async (req: FastifyRequest, reply: FastifyReply) => {
+export const list = async (req: FastifyRequest<{ Querystring: { childId?: string } }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
+    const { childId } = req.query
+
+    // Base query for family rewards
+    let whereClause: any = { familyId }
+
+    // If childId is provided, filter by age and gender
+    if (childId) {
+      const child = await prisma.child.findFirst({
+        where: { id: childId, familyId }
+      })
+
+      if (child) {
+        // Build age and gender filtering
+        const ageGenderConditions: any[] = []
+
+        // Age filtering
+        if (child.ageGroup) {
+          ageGenderConditions.push({
+            OR: [
+              { ageTag: null }, // No age restriction
+              { ageTag: child.ageGroup }, // Exact age match
+              { ageTag: 'all' } // All ages
+            ]
+          })
+        }
+
+        // Gender filtering
+        if (child.gender) {
+          ageGenderConditions.push({
+            OR: [
+              { genderTag: null }, // No gender restriction
+              { genderTag: child.gender }, // Exact gender match
+              { genderTag: 'both' }, // Both genders
+              { genderTag: 'all' } // All genders
+            ]
+          })
+        }
+
+        // Apply age and gender filters if we have conditions
+        if (ageGenderConditions.length > 0) {
+          whereClause.AND = ageGenderConditions
+        }
+      }
+    }
 
     const rewards = await prisma.reward.findMany({
-      where: { familyId },
+      where: whereClause,
       orderBy: { starsRequired: 'asc' }
     })
 
