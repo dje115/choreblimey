@@ -85,6 +85,9 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
       }
     })
 
+    // Invalidate family cache so parent dashboard shows new pending completion immediately
+    await cache.invalidateFamily(familyId)
+
     return { completion }
   } catch (error) {
     console.error('Error creating completion:', error)
@@ -290,6 +293,9 @@ export const reject = async (req: FastifyRequest<{ Params: { id: string }, Body:
         note: reason ? `Rejected: ${reason}` : completion.note
       }
     })
+
+    // Invalidate family cache so dashboard updates immediately
+    await cache.invalidateFamily(familyId)
 
     return { ok: true }
   } catch (error) {
