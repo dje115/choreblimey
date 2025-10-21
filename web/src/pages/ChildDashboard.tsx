@@ -362,7 +362,7 @@ const ChildDashboard: React.FC = () => {
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-4xl sm:text-5xl font-bold mb-2" style={{ fontFamily: "'Baloo 2', cursive" }}>
-                Hey Champion! 🌟
+                Hey {user?.nickname || 'Champion'}! 🌟
               </h1>
               <p className="text-white/90 text-lg">Time to earn those stars!</p>
             </div>
