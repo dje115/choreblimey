@@ -717,10 +717,10 @@ const ChildDashboard: React.FC = () => {
               <div className="mt-4 bg-white/20 rounded-xl p-4 text-sm">
                 <p className="font-semibold mb-2">💡 How it works:</p>
                 <ul className="space-y-1 text-white/90">
-                  <li>• You offer to do the chore for LESS money (your bid)</li>
-                  <li>• Lowest bid wins the chore!</li>
+                  <li>• Chore usually pays £0.10 → Offer £0.10 or LESS to claim it</li>
+                  <li>• Lowest offer wins the chore!</li>
                   <li>• Winner gets DOUBLE STARS ⭐⭐ (not double money!) 🎉</li>
-                  <li>• Example: Bid £0.05, win 2⭐ instead of 1⭐!</li>
+                  <li>• Example: Offer £0.05, win 2⭐ instead of 1⭐! Parent saves money, you get double rewards!</li>
                 </ul>
               </div>
             </div>
@@ -752,8 +752,10 @@ const ChildDashboard: React.FC = () => {
                     {biddingChores.map((assignment: any) => {
                       const chore = assignment.chore
                       const baseReward = chore.baseRewardPence
-                      const minBid = chore.minBidPence || Math.floor(baseReward * 0.5)
-                      const maxBid = chore.maxBidPence || Math.floor(baseReward * 1.5)
+                      // For challenge mode: you can bid UP TO the base reward (or lower to win)
+                      // Min: £0.01 (must be positive), Max: base reward
+                      const minBid = 1 // 1 pence minimum
+                      const maxBid = baseReward // Can't bid more than base reward
                       const champion = choreChampions.get(assignment.id)
                       const isChampion = champion && champion.childId === (user?.childId || user?.id)
                       const hasChampion = Boolean(champion)
@@ -789,7 +791,10 @@ const ChildDashboard: React.FC = () => {
                                   🏆 WIN: {Math.floor((baseReward * 2) / 10)}⭐ (DOUBLE STARS!)
                                 </span>
                                 <span className="cb-chip bg-orange-200 text-orange-800">
-                                  💰 Offer: £{(minBid / 100).toFixed(2)} - £{(maxBid / 100).toFixed(2)}
+                                  💰 Usually: £{(baseReward / 100).toFixed(2)}
+                                </span>
+                                <span className="cb-chip bg-green-200 text-green-800">
+                                  💪 Offer £{(baseReward / 100).toFixed(2)} or LESS to win!
                                 </span>
                               </div>
                             </div>
@@ -875,18 +880,18 @@ const ChildDashboard: React.FC = () => {
                             <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
                               {hasChampion && !isChampion 
                                 ? `💪 STEAL IT! Offer less than £${(champion.amountPence / 100).toFixed(2)}:` 
-                                : '💪 I\'ll Do It For:'}
+                                : `💪 I'll Do It For (up to £${(baseReward / 100).toFixed(2)}):`}
                             </p>
                             <div className="flex gap-3">
                               <input
                                 type="number"
-                                min={(minBid / 100).toFixed(2)}
+                                min="0.01"
                                 max={hasChampion && !isChampion ? ((champion.amountPence - 1) / 100).toFixed(2) : (maxBid / 100).toFixed(2)}
                                 step="0.01"
                                 placeholder={
                                   hasChampion && !isChampion 
                                     ? `Less than £${(champion.amountPence / 100).toFixed(2)}`
-                                    : `£${(minBid / 100).toFixed(2)} - £${(maxBid / 100).toFixed(2)}`
+                                    : `Up to £${(baseReward / 100).toFixed(2)}`
                                 }
                                 className="flex-1 px-4 py-3 border-2 border-[var(--card-border)] rounded-lg focus:border-orange-500 focus:outline-none"
                                 id={`bid-${assignment.id}`}
@@ -896,12 +901,33 @@ const ChildDashboard: React.FC = () => {
                                   const input = document.getElementById(`bid-${assignment.id}`) as HTMLInputElement
                                   const bidAmount = parseFloat(input.value)
                                   
-                                  if (!bidAmount || bidAmount < minBid / 100 || bidAmount > maxBid / 100) {
+                                  // Validation: must be between £0.01 and base reward (or less than current champion if stealing)
+                                  if (!bidAmount || bidAmount < 0.01) {
                                     setToast({ 
-                                      message: `Must be between £${(minBid / 100).toFixed(2)} and £${(maxBid / 100).toFixed(2)}`, 
+                                      message: `Offer must be at least £0.01!`, 
                                       type: 'error' 
                                     })
                                     return
+                                  }
+                                  
+                                  if (hasChampion && !isChampion) {
+                                    // Stealing: must be less than current champion's bid
+                                    if (bidAmount >= champion.amountPence / 100) {
+                                      setToast({ 
+                                        message: `Must be LESS than £${(champion.amountPence / 100).toFixed(2)} to steal it!`, 
+                                        type: 'error' 
+                                      })
+                                      return
+                                    }
+                                  } else {
+                                    // Claiming: must be up to base reward
+                                    if (bidAmount > baseReward / 100) {
+                                      setToast({ 
+                                        message: `Can't offer more than £${(baseReward / 100).toFixed(2)} (the usual price)!`, 
+                                        type: 'error' 
+                                      })
+                                      return
+                                    }
                                   }
 
                                   try {
