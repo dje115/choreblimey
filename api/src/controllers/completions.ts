@@ -3,15 +3,21 @@ import { prisma } from '../db/prisma.js'
 
 interface CompletionCreateBody {
   assignmentId: string
-  childId: string
   proofUrl?: string
   note?: string
 }
 
 export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>, reply: FastifyReply) => {
   try {
-    const { familyId } = req.claims!
-    const { assignmentId, childId, proofUrl, note } = req.body
+    const { familyId, childId, sub } = req.claims!
+    const { assignmentId, proofUrl, note } = req.body
+
+    // Get childId from JWT claims (child_player role) or from sub if not present
+    const actualChildId = childId || sub
+
+    if (!actualChildId) {
+      return reply.status(400).send({ error: 'Child ID not found in authentication' })
+    }
 
     // Verify assignment belongs to family
     const assignment = await prisma.assignment.findFirst({
@@ -25,18 +31,23 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
 
     // Verify child belongs to family
     const child = await prisma.child.findFirst({
-      where: { id: childId, familyId }
+      where: { id: actualChildId, familyId }
     })
 
     if (!child) {
       return reply.status(404).send({ error: 'Child not found' })
     }
 
+    // Verify assignment is assigned to this child (if it has a specific child assigned)
+    if (assignment.childId && assignment.childId !== actualChildId) {
+      return reply.status(403).send({ error: 'This chore is not assigned to you' })
+    }
+
     const completion = await prisma.completion.create({
       data: {
         assignmentId,
         familyId,
-        childId,
+        childId: actualChildId,
         proofUrl: proofUrl || null,
         note: note || null
       }
@@ -44,6 +55,7 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
 
     return { completion }
   } catch (error) {
+    console.error('Error creating completion:', error)
     reply.status(500).send({ error: 'Failed to create completion' })
   }
 }
