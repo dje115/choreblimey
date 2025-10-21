@@ -324,29 +324,31 @@ const ParentDashboard: React.FC = () => {
   const filteredChores = chores.filter(chore => {
     if (activeTab === 'all') return chore.active !== false // Show all active chores
     if (activeTab === 'recurring') return chore.frequency !== 'once' && chore.active !== false
-    if (activeTab === 'pending') return false // No longer using this tab
-    if (activeTab === 'completed') return false // No longer using this tab
     return true
   })
 
-  // Group chores by child for better organization
-  const choresByChild = children.map(child => {
-    const childChores = filteredChores.filter(chore => {
-      // Find assignments for this chore that belong to this child
-      const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id && a.childId === child.id)
-      return choreAssigns.length > 0
-    })
+  // For pending/completed tabs, group completions by child
+  const completionsByChild = children.map(child => {
+    let childCompletions: any[] = []
+    
+    if (activeTab === 'pending') {
+      // Show pending completions for this child
+      childCompletions = pendingCompletions.filter((c: any) => c.childId === child.id)
+    } else if (activeTab === 'completed') {
+      // Show approved/rejected completions for this child (last 10)
+      childCompletions = recentCompletions
+        .filter((c: any) => c.childId === child.id && c.status !== 'pending')
+        .slice(0, 10)
+    }
+    
     return {
       child,
-      chores: childChores
+      completions: childCompletions
     }
   })
 
-  // Also get unassigned chores
-  const unassignedChores = filteredChores.filter(chore => {
-    const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
-    return choreAssigns.length === 0 || choreAssigns.every((a: any) => !a.childId)
-  })
+  const showChoresList = activeTab === 'all' || activeTab === 'recurring'
+  const showCompletionsList = activeTab === 'pending' || activeTab === 'completed'
 
   if (loading) {
     return (
@@ -511,19 +513,104 @@ const ParentDashboard: React.FC = () => {
                 ))}
               </div>
 
-              {/* Chore Cards Grouped by Child */}
-              {filteredChores.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🎯</div>
-                  <p className="cb-body text-[var(--text-secondary)]">
-                    No chores yet! Create one to get started.
-                  </p>
-                </div>
-              ) : (
+              {/* Show chores grid for All/Recurring tabs */}
+              {showChoresList && (
+                <>
+                  {filteredChores.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">🎯</div>
+                      <p className="cb-body text-[var(--text-secondary)]">
+                        No chores yet! Create one to get started.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {filteredChores.map((chore) => {
+                        // Find assignments for this chore
+                        const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
+                        const assignedChildren = choreAssigns.map((a: any) => a.child).filter(Boolean)
+                        const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
+
+                        return (
+                          <div
+                            key={chore.id}
+                            className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all cursor-pointer"
+                            onClick={() => {
+                              setSelectedChore(chore)
+                              setShowEditChoreModal(true)
+                            }}
+                          >
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                                🧽
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
+                                  {chore.title}
+                                </h4>
+                                <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                                  {chore.description || 'No description'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Assigned Children */}
+                            {assignedChildren.length > 0 && (
+                              <div className="mb-3 flex flex-wrap gap-2">
+                                {assignedChildren.map((child: any) => (
+                                  <span
+                                    key={child.id}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                                  >
+                                    👤 {child.nickname}
+                                  </span>
+                                ))}
+                                {hasBidding && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
+                                    ⚔️ Rivalry
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                  💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                </span>
+                                <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
+                                  {chore.frequency}
+                                </span>
+                                {chore.proof !== 'none' && (
+                                  <span className="cb-chip bg-orange-50 text-orange-700">
+                                    📸 {chore.proof}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedChore(chore)
+                                  setShowEditChoreModal(true)
+                                }}
+                                className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
+                              >
+                                ⚙️
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Show completions grouped by child for Pending/Completed tabs */}
+              {showCompletionsList && (
                 <div className="space-y-6">
-                  {/* Chores grouped by child */}
-                  {choresByChild.map(({ child, chores: childChores }) => {
-                    if (childChores.length === 0) return null
+                  {completionsByChild.map(({ child, completions: childCompletions }) => {
+                    if (childCompletions.length === 0) return null
                     
                     return (
                       <div key={child.id} className="space-y-3">
@@ -531,64 +618,63 @@ const ParentDashboard: React.FC = () => {
                           <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl font-bold text-white">
                             {child.nickname.charAt(0)}
                           </div>
-                          <h3 className="cb-heading-md text-[var(--primary)]">{child.nickname}'s Chores</h3>
+                          <h3 className="cb-heading-md text-[var(--primary)]">{child.nickname}'s {activeTab === 'pending' ? 'Pending' : 'Completed'}</h3>
                           <span className="ml-auto text-sm font-semibold text-[var(--text-secondary)]">
-                            {childChores.length} chore{childChores.length !== 1 ? 's' : ''}
+                            {childCompletions.length} item{childCompletions.length !== 1 ? 's' : ''}
                           </span>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {childChores.map((chore) => {
-                            const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id && a.childId === child.id)
-                            const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
+                        <div className="space-y-3">
+                          {childCompletions.map((completion: any) => {
+                            const timeAgo = getTimeAgo(new Date(completion.timestamp))
+                            const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
 
                             return (
                               <div
-                                key={chore.id}
-                                className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all cursor-pointer"
-                                onClick={() => {
-                                  setSelectedChore(chore)
-                                  setShowEditChoreModal(true)
-                                }}
+                                key={completion.id}
+                                className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
                               >
-                                <div className="flex items-start gap-3 mb-3">
+                                <div className="flex items-start gap-3">
                                   <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl flex-shrink-0">
-                                    🧽
+                                    {icon}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
-                                      {chore.title}
+                                    <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                      {completion.assignment?.chore?.title || 'Chore'}
                                     </h4>
-                                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                                      {chore.description || 'No description'}
-                                    </p>
-                                  </div>
-                                </div>
+                                    <p className="text-xs text-[var(--text-secondary)] mb-2">{timeAgo}</p>
+                                    
+                                    {completion.note && (
+                                      <div className="mt-2 p-2 bg-blue-50 border-l-2 border-blue-400 rounded text-xs">
+                                        <span className="font-semibold">Note:</span> {completion.note}
+                                      </div>
+                                    )}
 
-                                <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                      💰 £{(chore.baseRewardPence / 100).toFixed(2)}
-                                    </span>
-                                    <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
-                                      {chore.frequency}
-                                    </span>
-                                    {hasBidding && (
-                                      <span className="cb-chip bg-purple-50 text-purple-700">
-                                        ⚔️ Rivalry
-                                      </span>
+                                    {completion.status === 'pending' && (
+                                      <div className="flex gap-2 mt-3">
+                                        <button
+                                          onClick={() => handleApproveCompletion(completion.id)}
+                                          className="flex-1 px-3 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold text-sm transition-all"
+                                        >
+                                          ✅ Approve
+                                        </button>
+                                        <button
+                                          onClick={() => handleRejectCompletion(completion.id)}
+                                          className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold text-sm transition-all"
+                                        >
+                                          ❌ Reject
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {completion.status === 'approved' && (
+                                      <div className="mt-2">
+                                        <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                          +£{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setSelectedChore(chore)
-                                      setShowEditChoreModal(true)
-                                    }}
-                                    className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
-                                  >
-                                    ⚙️
-                                  </button>
                                 </div>
                               </div>
                             )
@@ -598,76 +684,12 @@ const ParentDashboard: React.FC = () => {
                     )
                   })}
 
-                  {/* Unassigned chores */}
-                  {unassignedChores.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 pb-2 border-b-2 border-gray-400">
-                        <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-xl">
-                          📋
-                        </div>
-                        <h3 className="cb-heading-md text-gray-600">Unassigned Chores</h3>
-                        <span className="ml-auto text-sm font-semibold text-[var(--text-secondary)]">
-                          {unassignedChores.length} chore{unassignedChores.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {unassignedChores.map((chore) => {
-                          const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
-                          const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
-
-                          return (
-                            <div
-                              key={chore.id}
-                              className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all cursor-pointer"
-                              onClick={() => {
-                                setSelectedChore(chore)
-                                setShowEditChoreModal(true)
-                              }}
-                            >
-                              <div className="flex items-start gap-3 mb-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center text-xl flex-shrink-0">
-                                  🧽
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
-                                    {chore.title}
-                                  </h4>
-                                  <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                                    {chore.description || 'No description'}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                    💰 £{(chore.baseRewardPence / 100).toFixed(2)}
-                                  </span>
-                                  <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
-                                    {chore.frequency}
-                                  </span>
-                                  {hasBidding && (
-                                    <span className="cb-chip bg-purple-50 text-purple-700">
-                                      ⚔️ Rivalry
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedChore(chore)
-                                    setShowEditChoreModal(true)
-                                  }}
-                                  className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
-                                >
-                                  ⚙️
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                  {completionsByChild.every(({ completions }) => completions.length === 0) && (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">{activeTab === 'pending' ? '⏳' : '✅'}</div>
+                      <p className="cb-body text-[var(--text-secondary)]">
+                        No {activeTab} items yet!
+                      </p>
                     </div>
                   )}
                 </div>
