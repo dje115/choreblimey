@@ -103,7 +103,13 @@ const ChildDashboard: React.FC = () => {
         setRewards(rewardsRes.value.rewards || [])
       }
       if (leaderboardRes.status === 'fulfilled') {
-        setLeaderboard(leaderboardRes.value.leaderboard || [])
+        // Transform leaderboard data to flatten child object
+        const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: any) => ({
+          ...entry,
+          nickname: entry.child?.nickname || 'Unknown',
+          ageGroup: entry.child?.ageGroup
+        }))
+        setLeaderboard(transformedLeaderboard)
       }
     } catch (err: any) {
       console.error('Error loading dashboard:', err)
@@ -429,12 +435,14 @@ const ChildDashboard: React.FC = () => {
                     >
                       {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-lg text-[var(--text-primary)]">{entry.nickname}</h4>
-                      <p className="text-sm text-[var(--text-secondary)]">This week's star</p>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-lg text-[var(--text-primary)] truncate">{entry.nickname}</h4>
+                      <p className="text-sm text-[var(--text-secondary)]">
+                        {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)} earned
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-3xl font-bold text-[var(--bonus-stars)]">{entry.totalStars}⭐</p>
+                      <p className="text-3xl font-bold text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
                     </div>
                   </div>
                 ))

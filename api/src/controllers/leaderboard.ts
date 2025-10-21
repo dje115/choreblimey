@@ -32,19 +32,32 @@ export const weekly = async (req: FastifyRequest, reply: FastifyReply) => {
           childId,
           child: completion.child,
           completedChores: 0,
-          totalRewardPence: 0
+          totalRewardPence: 0,
+          totalStars: 0
         }
       }
       acc[childId].completedChores++
-      acc[childId].totalRewardPence += completion.assignment.chore.baseRewardPence
+      const rewardPence = completion.assignment.chore.baseRewardPence
+      acc[childId].totalRewardPence += rewardPence
+      // Convert pence to stars: 1 star = 10 pence (£0.10)
+      acc[childId].totalStars += Math.floor(rewardPence / 10)
       return acc
     }, {} as Record<string, any>)
 
-    // Convert to array and sort by reward amount
+    // Convert to array and sort by stars (primary) then by reward amount (tiebreaker)
     const leaderboard = Object.values(childStats)
-      .sort((a: any, b: any) => b.totalRewardPence - a.totalRewardPence)
+      .sort((a: any, b: any) => {
+        if (b.totalStars !== a.totalStars) {
+          return b.totalStars - a.totalStars
+        }
+        return b.totalRewardPence - a.totalRewardPence
+      })
+      .map((stat: any, index: number) => ({
+        ...stat,
+        rank: index + 1
+      }))
 
-    return { leaderboard }
+    return { leaderboard, weekStart }
   } catch (error) {
     reply.status(500).send({ error: 'Failed to get leaderboard' })
   }

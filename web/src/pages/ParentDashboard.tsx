@@ -100,7 +100,15 @@ const ParentDashboard: React.FC = () => {
       if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
       if (completionsRes.status === 'fulfilled') setPendingCompletions(completionsRes.value.completions || [])
-      if (leaderboardRes.status === 'fulfilled') setLeaderboard(leaderboardRes.value.leaderboard || [])
+      if (leaderboardRes.status === 'fulfilled') {
+        // Transform leaderboard data to flatten child object
+        const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: any) => ({
+          ...entry,
+          nickname: entry.child?.nickname || 'Unknown',
+          ageGroup: entry.child?.ageGroup
+        }))
+        setLeaderboard(transformedLeaderboard)
+      }
       if (budgetRes.status === 'fulfilled') setBudget(budgetRes.value)
       if (joinCodesRes.status === 'fulfilled') setJoinCodes(joinCodesRes.value.joinCodes || [])
     } catch (error) {
@@ -678,23 +686,34 @@ const ParentDashboard: React.FC = () => {
               <h3 className="cb-heading-md text-[var(--primary)] mb-4">🏆 Weekly Leaders</h3>
               <div className="space-y-3">
                 {leaderboard.slice(0, 5).map((entry, index) => (
-                  <div key={entry.childId} className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      index === 0 ? 'bg-gradient-to-br from-[var(--bonus-stars)] to-yellow-500 text-white' :
-                      index === 1 ? 'bg-gray-300 text-gray-700' :
-                      index === 2 ? 'bg-orange-300 text-orange-900' :
-                      'bg-[var(--card-border)] text-[var(--text-secondary)]'
-                    }`}>
-                      {index + 1}
+                  <div key={entry.childId} className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-md)] p-3 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                        index === 0 ? 'bg-gradient-to-br from-[var(--bonus-stars)] to-yellow-500 text-white shadow-lg' :
+                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700' :
+                        index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-orange-900' :
+                        'bg-[var(--card-border)] text-[var(--text-secondary)]'
+                      }`}>
+                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[var(--text-primary)] truncate">{entry.nickname}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-xl text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-[var(--text-primary)]">{entry.nickname}</p>
-                    </div>
-                    <p className="font-bold text-[var(--bonus-stars)]">{entry.totalStars}⭐</p>
                   </div>
                 ))}
                 {leaderboard.length === 0 && (
-                  <p className="text-center py-4 text-[var(--text-secondary)]">No activity yet this week</p>
+                  <div className="text-center py-8">
+                    <div className="text-5xl mb-3">🏆</div>
+                    <p className="text-[var(--text-secondary)] font-medium">No activity yet this week</p>
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">Complete chores to appear on the leaderboard!</p>
+                  </div>
                 )}
               </div>
             </div>
