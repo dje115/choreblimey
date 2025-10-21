@@ -1582,9 +1582,34 @@ const ParentDashboard: React.FC = () => {
 
             {/* Chore Templates Grid */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[60vh] overflow-y-auto p-1">
-              {choreTemplates
-                .filter(template => selectedCategory === 'all' || template.category === selectedCategory)
-                .map((template) => {
+              {(() => {
+                const filteredTemplates = choreTemplates.filter(template => {
+                  // Filter by category
+                  const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory
+                  
+                  // Exclude chores that already exist (case-insensitive title comparison)
+                  const alreadyExists = chores.some(chore => 
+                    chore.title.toLowerCase().trim() === template.title.toLowerCase().trim()
+                  )
+                  
+                  return matchesCategory && !alreadyExists
+                })
+
+                if (filteredTemplates.length === 0) {
+                  return (
+                    <div className="col-span-full text-center py-12">
+                      <div className="text-6xl mb-4">✅</div>
+                      <h4 className="font-bold text-[var(--text-primary)] mb-2">All set!</h4>
+                      <p className="text-[var(--text-secondary)]">
+                        You've already created all the chores in this category.
+                        <br />
+                        Try a different category or create a custom chore below!
+                      </p>
+                    </div>
+                  )
+                }
+
+                return filteredTemplates.map((template) => {
                   const weeklyBudgetPence = budget?.maxBudgetPence || 2000
                   const budgetToUse = budget?.budgetPeriod === 'monthly' ? weeklyBudgetPence / 4 : weeklyBudgetPence
                   const suggestedReward = calculateSuggestedReward(template, budgetToUse)
@@ -1621,7 +1646,8 @@ const ParentDashboard: React.FC = () => {
                       </div>
                     </button>
                   )
-                })}
+                })
+              })()}
             </div>
 
             {/* Custom Chore Option */}
