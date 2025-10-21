@@ -35,6 +35,7 @@ model Family {
   penaltyRules  PenaltyRule[]
   wallets       Wallet[]
   transactions  Transaction[]
+  payouts       Payout[]
   rewards       Reward[]
   redemptions   Redemption[]
   rivalry       RivalryEvent[]
@@ -98,6 +99,7 @@ model Child {
   bids         Bid[]
   completions  Completion[]
   redemptions  Redemption[]
+  payouts      Payout[]
   joinCodeUsed ChildJoinCode?
 
   @@index([familyId])
@@ -279,6 +281,22 @@ model Transaction {
   family  Family @relation(fields: [familyId], references: [id])
 
   @@index([familyId, createdAt])
+}
+
+model Payout {
+  id          String   @id @default(uuid())
+  familyId    String
+  childId     String
+  amountPence Int
+  paidBy      String?  // userId of parent who paid
+  method      String?  // "cash", "bank_transfer", "other"
+  note        String?
+  createdAt   DateTime @default(now())
+
+  family  Family @relation(fields: [familyId], references: [id])
+  child   Child  @relation(fields: [childId], references: [id])
+
+  @@index([familyId, childId, createdAt])
 }
 
 enum RewardType {

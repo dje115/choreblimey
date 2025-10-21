@@ -56,6 +56,15 @@ const ParentDashboard: React.FC = () => {
   const [newJoinCode, setNewJoinCode] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   
+  // Payout system
+  const [showPayoutModal, setShowPayoutModal] = useState(false)
+  const [payoutChild, setPayoutChild] = useState<any>(null)
+  const [payoutAmount, setPayoutAmount] = useState('')
+  const [payoutMethod, setPayoutMethod] = useState<'cash' | 'bank_transfer' | 'other'>('cash')
+  const [payoutNote, setPayoutNote] = useState('')
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [processingPayout, setProcessingPayout] = useState(false)
+  
   // Forms
   const [inviteData, setInviteData] = useState({ email: '', nickname: '', ageGroup: '5-8' })
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -113,7 +122,7 @@ const ParentDashboard: React.FC = () => {
 
   const loadDashboard = async () => {
     try {
-      const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
+      const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes, payoutsRes] = await Promise.allSettled([
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listChores(),
@@ -123,7 +132,8 @@ const ParentDashboard: React.FC = () => {
         apiClient.getRedemptions('pending'),
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
-        apiClient.getFamilyJoinCodes()
+        apiClient.getFamilyJoinCodes(),
+        apiClient.getPayouts() // All payouts
       ])
 
       if (familyRes.status === 'fulfilled') setFamily(familyRes.value.family)
@@ -159,6 +169,7 @@ const ParentDashboard: React.FC = () => {
       }
       if (budgetRes.status === 'fulfilled') setBudget(budgetRes.value)
       if (joinCodesRes.status === 'fulfilled') setJoinCodes(joinCodesRes.value.joinCodes || [])
+      if (payoutsRes.status === 'fulfilled') setPayouts(payoutsRes.value.payouts || [])
     } catch (error) {
       console.error('Error loading dashboard:', error)
     } finally {
@@ -351,6 +362,47 @@ const ParentDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fulfilling redemption:', error)
       setToast({ message: 'Failed to fulfill. Please try again.', type: 'error' })
+    }
+  }
+
+  const handleProcessPayout = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setProcessingPayout(true)
+    
+    try {
+      const amountPence = Math.round(parseFloat(payoutAmount) * 100)
+      
+      if (isNaN(amountPence) || amountPence <= 0) {
+        setToast({ message: 'Please enter a valid amount', type: 'error' })
+        return
+      }
+
+      await apiClient.createPayout({
+        childId: payoutChild.id,
+        amountPence,
+        method: payoutMethod,
+        note: payoutNote || undefined
+      })
+
+      setShowConfetti(true)
+      setToast({ message: `💰 £${payoutAmount} paid out to ${payoutChild.nickname}!`, type: 'success' })
+      setTimeout(() => setShowConfetti(false), 2000)
+      
+      // Reset form
+      setShowPayoutModal(false)
+      setPayoutAmount('')
+      setPayoutNote('')
+      setPayoutMethod('cash')
+      setPayoutChild(null)
+      
+      // Reload dashboard
+      await loadDashboard()
+    } catch (error: any) {
+      console.error('Error processing payout:', error)
+      const errorMsg = error.message || 'Failed to process payout'
+      setToast({ message: errorMsg, type: 'error' })
+    } finally {
+      setProcessingPayout(false)
     }
   }
 
@@ -1158,6 +1210,92 @@ const ParentDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Pocket Money & Payouts */}
+            <div className="cb-card p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="cb-heading-md text-[var(--primary)]">💰 Pocket Money</h3>
+              </div>
+
+              {children.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-4xl mb-2">💵</p>
+                  <p className="cb-body text-[var(--text-secondary)]">No children yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {children.map((child: any) => {
+                    const childWallet = wallets.find((w: any) => w.childId === child.id)
+                    const balancePence = childWallet?.balancePence || 0
+
+                    // Calculate total paid out
+                    const childPayouts = payouts.filter((p: any) => p.childId === child.id)
+                    const totalPaidPence = childPayouts.reduce((sum: number, p: any) => sum + p.amountPence, 0)
+
+                    return (
+                      <div key={child.id} className="bg-gradient-to-br from-green-50 to-teal-50 border-2 border-green-200 rounded-[var(--radius-lg)] p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                              {child.nickname.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
+                              <p className="text-xs text-[var(--text-secondary)]">{Math.floor(balancePence / 10)}⭐ available</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setPayoutChild(child)
+                              setPayoutAmount((balancePence / 100).toFixed(2))
+                              setShowPayoutModal(true)
+                            }}
+                            disabled={balancePence <= 0}
+                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                          >
+                            💸 Pay Out
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="bg-white/60 rounded-lg p-2">
+                            <p className="text-xs text-[var(--text-secondary)]">Unpaid</p>
+                            <p className="font-bold text-green-700">£{(balancePence / 100).toFixed(2)}</p>
+                          </div>
+                          <div className="bg-white/60 rounded-lg p-2">
+                            <p className="text-xs text-[var(--text-secondary)]">Paid Out</p>
+                            <p className="font-bold text-gray-600">£{(totalPaidPence / 100).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Recent Payouts */}
+              {payouts.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">📝 Recent Payouts</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {payouts.slice(0, 5).map((payout: any) => (
+                      <div key={payout.id} className="flex items-center justify-between p-2 bg-[var(--background)] rounded-lg text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">💵</span>
+                          <div>
+                            <p className="font-medium text-[var(--text-primary)]">{payout.child?.nickname}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {new Date(payout.createdAt).toLocaleDateString()} • {payout.method || 'cash'}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="font-bold text-green-600">£{(payout.amountPence / 100).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Weekly Leaderboard */}
@@ -2332,6 +2470,121 @@ const ParentDashboard: React.FC = () => {
                 💾 Save Changes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payout Modal */}
+      {showPayoutModal && payoutChild && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">💸 Pay Out Pocket Money</h3>
+            
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-[var(--radius-lg)] border-2 border-green-200">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                  {payoutChild.nickname.charAt(0)}
+                </div>
+                <div>
+                  <h4 className="font-bold text-[var(--text-primary)]">{payoutChild.nickname}</h4>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    {Math.floor((wallets.find((w: any) => w.childId === payoutChild.id)?.balancePence || 0) / 10)}⭐ available
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleProcessPayout} className="space-y-5">
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Amount (£) *</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={payoutAmount}
+                  onChange={(e) => setPayoutAmount(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all text-lg font-bold"
+                  placeholder="10.00"
+                  required
+                />
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Max: £{((wallets.find((w: any) => w.childId === payoutChild.id)?.balancePence || 0) / 100).toFixed(2)}
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Payment Method *</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('cash')}
+                    className={`px-4 py-3 rounded-[var(--radius-md)] font-semibold transition-all ${
+                      payoutMethod === 'cash'
+                        ? 'bg-[var(--primary)] text-white shadow-lg'
+                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
+                    }`}
+                  >
+                    💵 Cash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('bank_transfer')}
+                    className={`px-4 py-3 rounded-[var(--radius-md)] font-semibold transition-all ${
+                      payoutMethod === 'bank_transfer'
+                        ? 'bg-[var(--primary)] text-white shadow-lg'
+                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
+                    }`}
+                  >
+                    🏦 Transfer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayoutMethod('other')}
+                    className={`px-4 py-3 rounded-[var(--radius-md)] font-semibold transition-all ${
+                      payoutMethod === 'other'
+                        ? 'bg-[var(--primary)] text-white shadow-lg'
+                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
+                    }`}
+                  >
+                    📝 Other
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Note (optional)</label>
+                <textarea
+                  value={payoutNote}
+                  onChange={(e) => setPayoutNote(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all resize-none"
+                  rows={2}
+                  placeholder="e.g., Paid for cinema trip"
+                />
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPayoutModal(false)
+                    setPayoutAmount('')
+                    setPayoutNote('')
+                    setPayoutMethod('cash')
+                    setPayoutChild(null)
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingPayout}
+                  className="flex-1 cb-button-primary disabled:opacity-50"
+                >
+                  {processingPayout ? '⏳ Processing...' : '💸 Confirm Payout'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

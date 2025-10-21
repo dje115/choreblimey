@@ -242,6 +242,20 @@ class ApiClient {
   async getStreakStats(childId: string) {
     return this.get(`/streaks/${childId}`)
   }
+
+  // Payouts
+  async createPayout(data: { childId: string; amountPence: number; method?: string; note?: string }) {
+    return this.post('/payouts', data)
+  }
+
+  async getPayouts(childId?: string) {
+    const url = childId ? `/payouts?childId=${childId}` : '/payouts'
+    return this.get(url)
+  }
+
+  async getUnpaidBalance(childId: string) {
+    return this.get(`/payouts/unpaid/${childId}`)
+  }
 }
 
 export const apiClient = new ApiClient()

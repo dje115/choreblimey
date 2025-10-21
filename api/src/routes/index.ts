@@ -50,6 +50,11 @@ export async function routes(app: FastifyInstance) {
   app.post('/wallet/:childId/credit', ctrl.wallet.credit)
   app.post('/wallet/:childId/debit', ctrl.wallet.debit)
 
+  // Payouts
+  app.post('/payouts', ctrl.payouts.create)
+  app.get('/payouts', ctrl.payouts.list)
+  app.get('/payouts/unpaid/:childId', ctrl.payouts.getUnpaidBalance)
+
   // Leaderboard and rivalry
   app.get('/leaderboard', ctrl.leaderboard.weekly)
   app.get('/rivalry-feed', ctrl.rivalry.feed)
