@@ -395,26 +395,26 @@ const ChildDashboard: React.FC = () => {
                     return (
                       <div
                         key={completion.id}
-                        className={`bg-white border-2 ${badge.border} rounded-2xl p-4 hover:shadow-lg transition-all`}
+                        className={`bg-[#1a1d2e] border-2 ${badge.border} rounded-2xl p-4 hover:shadow-lg transition-all`}
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)]/30 to-[var(--secondary)]/30 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-xl flex items-center justify-center text-2xl flex-shrink-0 shadow-md">
                             🧹
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">
+                            <h4 className="font-bold text-sm text-white truncate">
                               {chore.title}
                             </h4>
-                            <p className="text-xs text-[var(--text-secondary)]">{timeAgo}</p>
+                            <p className="text-xs text-gray-400">{timeAgo}</p>
                           </div>
                         </div>
 
-                        <div className={`${badge.bg} ${badge.text} border ${badge.border} rounded-lg px-3 py-2 text-center text-xs font-semibold mb-2`}>
+                        <div className={`${badge.bg} ${badge.text} border-2 ${badge.border} rounded-xl px-3 py-2 text-center text-xs font-bold mb-2 shadow-sm`}>
                           {badge.icon} {badge.label}
                         </div>
 
                         <div className="text-center">
-                          <span className="text-sm font-bold text-[var(--success)]">
+                          <span className="text-base font-bold text-[var(--bonus-stars)]">
                             💰 £{(chore.baseRewardPence / 100).toFixed(2)}
                           </span>
                         </div>
