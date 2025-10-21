@@ -40,6 +40,8 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
     }
 
     // CHALLENGE MODE: If bidding is enabled, only the current champion can complete it
+    let bidAmountPence: number | null = null
+    
     if (assignment.biddingEnabled) {
       const bids = await prisma.bid.findMany({
         where: { 
@@ -56,6 +58,8 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
             error: 'Challenge locked! Only the current champion can complete this chore. Beat their offer first!' 
           })
         }
+        // Save the bid amount for the completion record
+        bidAmountPence = currentChampion.amountPence
       } else {
         // No one has claimed it yet
         return reply.status(403).send({ 
@@ -75,7 +79,8 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
         familyId,
         childId: actualChildId,
         proofUrl: proofUrl || null,
-        note: note || null
+        note: note || null,
+        bidAmountPence: bidAmountPence
       }
     })
 

@@ -729,8 +729,11 @@ const ChildDashboard: React.FC = () => {
             <div>
               <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎯 Challenge Chores</h3>
               {(() => {
-                // Filter assignments where bidding is enabled
-                const biddingChores = assignments.filter((a: any) => a.biddingEnabled && a.chore?.active)
+                // Filter assignments where bidding is enabled AND not already completed/submitted
+                const biddingChores = assignments.filter((a: any) => {
+                  const hasCompletion = completions.some(c => c.assignmentId === a.id)
+                  return a.biddingEnabled && a.chore?.active && !hasCompletion
+                })
                 
                 if (biddingChores.length === 0) {
                   return (

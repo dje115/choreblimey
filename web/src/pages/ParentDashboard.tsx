@@ -873,7 +873,15 @@ const ParentDashboard: React.FC = () => {
                             </div>
                             <div className="text-right flex-shrink-0">
                               <div className="text-xl font-bold text-[var(--success)]">
-                                💰 £{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}
+                                {completion.bidAmountPence ? (
+                                  <>
+                                    <div className="text-sm text-orange-600 font-bold">⚔️ Challenge Bid</div>
+                                    <div>💰 £{(completion.bidAmountPence / 100).toFixed(2)}</div>
+                                    <div className="text-xs text-yellow-600">🏆 Gets 2⭐ (double!)</div>
+                                  </>
+                                ) : (
+                                  <>💰 £{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}</>
+                                )}
                               </div>
                               <div className="text-xs text-[var(--text-secondary)]">
                                 {new Date(completion.timestamp).toLocaleString()}

@@ -183,14 +183,15 @@ model Bid {
 }
 
 model Completion {
-  id           String            @id @default(uuid())
-  assignmentId String
-  familyId     String
-  childId      String
-  timestamp    DateTime          @default(now())
-  proofUrl     String?
-  note         String?
-  status       CompletionStatus  @default(pending)
+  id              String            @id @default(uuid())
+  assignmentId    String
+  familyId        String
+  childId         String
+  timestamp       DateTime          @default(now())
+  proofUrl        String?
+  note            String?
+  status          CompletionStatus  @default(pending)
+  bidAmountPence  Int?              // The actual bid amount if this was a challenge chore
 
   assignment Assignment @relation(fields: [assignmentId], references: [id])
   family     Family     @relation(fields: [familyId], references: [id])
