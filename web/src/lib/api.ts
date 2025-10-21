@@ -208,14 +208,23 @@ class ApiClient {
     return this.get('/rivalry-feed')
   }
 
-  // Rewards
+  // Rewards and Redemptions
   async getRewards(childId?: string) {
     const url = childId ? `/rewards?childId=${childId}` : '/rewards'
     return this.get(url)
   }
 
-  async redeemReward(data: { rewardId: string; childId: string }) {
+  async redeemReward(data: { rewardId: string; childId?: string }) {
     return this.post('/redemptions', data)
+  }
+
+  async getRedemptions(status?: string) {
+    const url = status ? `/redemptions?status=${status}` : '/redemptions'
+    return this.get(url)
+  }
+
+  async fulfillRedemption(redemptionId: string) {
+    return this.post(`/redemptions/${redemptionId}/fulfill`, {})
   }
 }
 

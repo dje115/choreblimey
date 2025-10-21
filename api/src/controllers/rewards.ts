@@ -67,8 +67,15 @@ export const list = async (req: FastifyRequest<{ Querystring: { childId?: string
 
 export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, reply: FastifyReply) => {
   try {
-    const { familyId } = req.claims!
+    const { familyId, childId: jwtChildId } = req.claims!
     const { rewardId, childId } = req.body
+
+    // Use childId from JWT if available (child accessing their own rewards)
+    const actualChildId = childId || jwtChildId
+
+    if (!actualChildId) {
+      return reply.status(400).send({ error: 'Child ID is required' })
+    }
 
     // Verify reward belongs to family
     const reward = await prisma.reward.findFirst({
@@ -81,27 +88,166 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
 
     // Verify child belongs to family
     const child = await prisma.child.findFirst({
-      where: { id: childId, familyId }
+      where: { id: actualChildId, familyId }
     })
 
     if (!child) {
       return reply.status(404).send({ error: 'Child not found' })
     }
 
-    // TODO: Check if child has enough stars (would need to track stars separately)
-    // For now, just create the redemption
+    // Get child's wallet
+    const wallet = await prisma.wallet.findFirst({
+      where: { childId: actualChildId, familyId }
+    })
 
-    const redemption = await prisma.redemption.create({
-      data: {
-        rewardId,
-        familyId,
-        childId,
-        status: 'pending'
+    if (!wallet) {
+      return reply.status(404).send({ error: 'Wallet not found' })
+    }
+
+    // Calculate stars (10 pence = 1 star)
+    const currentStars = Math.floor(wallet.balancePence / 10)
+
+    // Check if child has enough stars
+    if (currentStars < reward.starsRequired) {
+      return reply.status(400).send({ 
+        error: 'Not enough stars',
+        required: reward.starsRequired,
+        current: currentStars
+      })
+    }
+
+    // Calculate pence to deduct (stars * 10)
+    const penceToDeduct = reward.starsRequired * 10
+
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Deduct from wallet
+      const updatedWallet = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: {
+          balancePence: { decrement: penceToDeduct }
+        }
+      })
+
+      // Create transaction record
+      await tx.transaction.create({
+        data: {
+          walletId: wallet.id,
+          familyId,
+          type: 'debit',
+          amountPence: penceToDeduct,
+          source: 'system',
+          metaJson: { 
+            rewardId,
+            rewardTitle: reward.title,
+            starsSpent: reward.starsRequired
+          }
+        }
+      })
+
+      // Create redemption
+      const redemption = await tx.redemption.create({
+        data: {
+          rewardId,
+          familyId,
+          childId: actualChildId,
+          status: 'pending'
+        },
+        include: {
+          reward: true,
+          child: {
+            select: {
+              id: true,
+              nickname: true,
+              ageGroup: true
+            }
+          }
+        }
+      })
+
+      return { redemption, wallet: updatedWallet }
+    })
+
+    return result
+  } catch (error) {
+    console.error('Failed to redeem reward:', error)
+    reply.status(500).send({ error: 'Failed to create redemption' })
+  }
+}
+
+export const listRedemptions = async (req: FastifyRequest<{ Querystring: { status?: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { status } = req.query
+
+    const whereClause: any = { familyId }
+    if (status) {
+      whereClause.status = status
+    }
+
+    const redemptions = await prisma.redemption.findMany({
+      where: whereClause,
+      include: {
+        reward: true,
+        child: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true
+          }
+        }
+      },
+      orderBy: { redeemedAt: 'desc' },
+      take: 50
+    })
+
+    return { redemptions }
+  } catch (error) {
+    console.error('Failed to list redemptions:', error)
+    reply.status(500).send({ error: 'Failed to list redemptions' })
+  }
+}
+
+export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+
+    // Find redemption
+    const redemption = await prisma.redemption.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!redemption) {
+      return reply.status(404).send({ error: 'Redemption not found' })
+    }
+
+    if (redemption.status !== 'pending') {
+      return reply.status(400).send({ error: 'Redemption has already been processed' })
+    }
+
+    // Update redemption status
+    const updatedRedemption = await prisma.redemption.update({
+      where: { id },
+      data: { 
+        status: 'fulfilled',
+        fulfilledAt: new Date()
+      },
+      include: {
+        reward: true,
+        child: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true
+          }
+        }
       }
     })
 
-    return { redemption }
+    return { redemption: updatedRedemption }
   } catch (error) {
-    reply.status(500).send({ error: 'Failed to create redemption' })
+    console.error('Failed to fulfill redemption:', error)
+    reply.status(500).send({ error: 'Failed to fulfill redemption' })
   }
 }

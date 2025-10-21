@@ -68,6 +68,9 @@ const ChildDashboard: React.FC = () => {
   const [completionNote, setCompletionNote] = useState('')
   const [completingChore, setCompletingChore] = useState(false)
 
+  // Reward claiming state
+  const [claimingReward, setClaimingReward] = useState<string | null>(null)
+
   // Detect age mode from user profile
   const getAgeMode = (): 'kid' | 'tween' | 'teen' => {
     const age = user?.ageGroup
@@ -157,6 +160,34 @@ const ChildDashboard: React.FC = () => {
       setTimeout(() => setError(''), 3000)
     } finally {
       setCompletingChore(false)
+    }
+  }
+
+  const handleClaimReward = async (reward: Reward) => {
+    if (!user?.childId && !user?.id) return
+    
+    const childId = user.childId || user.id
+    
+    try {
+      setClaimingReward(reward.id)
+      await apiClient.redeemReward({
+        rewardId: reward.id,
+        childId
+      })
+
+      // Reload dashboard to update wallet and rewards
+      await loadDashboard()
+      
+      // Show success message
+      setSuccessMessage(`🎉 ${reward.title} claimed! Ask your parent to get it for you`)
+      setTimeout(() => setSuccessMessage(''), 4000)
+    } catch (error: any) {
+      console.error('Failed to claim reward:', error)
+      const errorMsg = error.response?.data?.error || 'Failed to claim reward'
+      setError(errorMsg)
+      setTimeout(() => setError(''), 3000)
+    } finally {
+      setClaimingReward(null)
     }
   }
 
@@ -485,14 +516,15 @@ const ChildDashboard: React.FC = () => {
                           {reward.starsRequired}⭐
                         </span>
                         <button
-                          disabled={totalStars < reward.starsRequired}
+                          onClick={() => handleClaimReward(reward)}
+                          disabled={totalStars < reward.starsRequired || claimingReward === reward.id}
                           className={`px-4 py-2 rounded-full font-bold text-sm ${
                             totalStars >= reward.starsRequired
                               ? 'bg-[var(--primary)] text-white hover:scale-105'
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           } transition-all`}
                         >
-                          {totalStars >= reward.starsRequired ? '🎉 Claim' : '🔒 Locked'}
+                          {claimingReward === reward.id ? '⏳ Claiming...' : totalStars >= reward.starsRequired ? '🎉 Claim' : '🔒 Locked'}
                         </button>
                       </div>
                     </div>

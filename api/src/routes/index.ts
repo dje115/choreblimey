@@ -50,7 +50,9 @@ export async function routes(app: FastifyInstance) {
   app.get('/leaderboard', ctrl.leaderboard.weekly)
   app.get('/rivalry-feed', ctrl.rivalry.feed)
 
-  // Rewards
+  // Rewards and Redemptions
   app.get('/rewards', ctrl.rewards.list)
   app.post('/redemptions', ctrl.rewards.redeem)
+  app.get('/redemptions', ctrl.rewards.listRedemptions)
+  app.post('/redemptions/:id/fulfill', ctrl.rewards.fulfillRedemption)
 }

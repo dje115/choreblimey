@@ -11,6 +11,7 @@ const ParentDashboard: React.FC = () => {
   const [chores, setChores] = useState<any[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
   const [pendingCompletions, setPendingCompletions] = useState<any[]>([])
+  const [pendingRedemptions, setPendingRedemptions] = useState<any[]>([])
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [budget, setBudget] = useState<any>(null)
   const [joinCodes, setJoinCodes] = useState<any[]>([])
@@ -81,12 +82,13 @@ const ParentDashboard: React.FC = () => {
 
   const loadDashboard = async () => {
     try {
-      const [familyRes, membersRes, choresRes, assignmentsRes, completionsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
+      const [familyRes, membersRes, choresRes, assignmentsRes, completionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listChores(),
         apiClient.listAssignments(),
         apiClient.listCompletions('pending'),
+        apiClient.getRedemptions('pending'),
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
         apiClient.getFamilyJoinCodes()
@@ -100,6 +102,7 @@ const ParentDashboard: React.FC = () => {
       if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
       if (completionsRes.status === 'fulfilled') setPendingCompletions(completionsRes.value.completions || [])
+      if (redemptionsRes.status === 'fulfilled') setPendingRedemptions(redemptionsRes.value.redemptions || [])
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
         const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: any) => ({
@@ -267,6 +270,17 @@ const ParentDashboard: React.FC = () => {
     }
   }
 
+  const handleFulfillRedemption = async (redemptionId: string) => {
+    try {
+      await apiClient.fulfillRedemption(redemptionId)
+      alert('✅ Reward marked as delivered!')
+      await loadDashboard()
+    } catch (error) {
+      console.error('Error fulfilling redemption:', error)
+      alert('Failed to fulfill. Please try again.')
+    }
+  }
+
   const filteredChores = chores.filter(chore => {
     if (activeTab === 'all') return true
     if (activeTab === 'recurring') return chore.frequency !== 'once'
@@ -317,7 +331,7 @@ const ParentDashboard: React.FC = () => {
 
       <div className="container mx-auto px-4 py-8">
         {/* Overview Tiles Grid */}
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-8">
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
           {/* Total Chores */}
           <div className="cb-card bg-gradient-to-br from-[var(--primary)] to-[#FF6B00] text-white p-6 shadow-xl bounce-hover">
             <div className="flex items-start justify-between mb-4">
@@ -352,6 +366,18 @@ const ParentDashboard: React.FC = () => {
             </div>
             <h3 className="font-bold text-lg mb-1">Pending Review</h3>
             <p className="text-white/80 text-sm">Awaiting approval</p>
+          </div>
+
+          {/* Pending Rewards */}
+          <div className="cb-card bg-gradient-to-br from-purple-500 to-pink-600 text-white p-6 shadow-xl bounce-hover">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
+                🎁
+              </div>
+              <span className="text-5xl font-bold">{pendingRedemptions.length}</span>
+            </div>
+            <h3 className="font-bold text-lg mb-1">Pending Rewards</h3>
+            <p className="text-white/80 text-sm">To be delivered</p>
           </div>
 
           {/* Budget Tracker */}
@@ -558,6 +584,81 @@ const ParentDashboard: React.FC = () => {
                               className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
                             >
                               ❌ Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pending Rewards Section */}
+            {pendingRedemptions.length > 0 && (
+              <div className="cb-card p-6 border-4 border-purple-400">
+                <h2 className="cb-heading-lg text-purple-600 mb-6">🎁 Pending Rewards ({pendingRedemptions.length})</h2>
+                <div className="space-y-4">
+                  {pendingRedemptions.map((redemption: any) => (
+                    <div
+                      key={redemption.id}
+                      className="bg-[var(--background)] border-2 border-purple-200 rounded-[var(--radius-lg)] p-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                          🎁
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                {redemption.reward?.title || 'Reward'}
+                              </h4>
+                              <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                Claimed by <span className="font-semibold text-purple-600">{redemption.child?.nickname || 'Unknown'}</span>
+                              </p>
+                              {redemption.reward?.description && (
+                                <p className="text-xs text-[var(--text-secondary)] mb-2">
+                                  {redemption.reward.description}
+                                </p>
+                              )}
+                              {redemption.reward?.amazonUrl && (
+                                <a 
+                                  href={redemption.reward.amazonUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  🔗 View on Amazon
+                                </a>
+                              )}
+                              {redemption.reward?.daysOutUrl && (
+                                <a 
+                                  href={redemption.reward.daysOutUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  🔗 View Details
+                                </a>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-xl font-bold text-[var(--bonus-stars)]">
+                                ⭐ {redemption.reward?.starsRequired || 0} stars
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)]">
+                                {new Date(redemption.redeemedAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              onClick={() => handleFulfillRedemption(redemption.id)}
+                              className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ✅ Mark as Delivered
                             </button>
                           </div>
                         </div>
