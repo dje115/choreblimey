@@ -289,7 +289,9 @@ const ParentDashboard: React.FC = () => {
         setToast({ message: '✅ Chore approved! Wallet credited', type: 'success' })
       }
       
-      await loadDashboard() // Reload to update counts and pending list
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
     } catch (error) {
       console.error('Error approving completion:', error)
       setToast({ message: 'Failed to approve. Please try again.', type: 'error' })
@@ -301,7 +303,10 @@ const ParentDashboard: React.FC = () => {
     try {
       await apiClient.rejectCompletion(completionId, reason || undefined)
       setToast({ message: 'Chore rejected', type: 'warning' })
-      await loadDashboard() // Reload to update counts and pending list
+      
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
     } catch (error) {
       console.error('Error rejecting completion:', error)
       setToast({ message: 'Failed to reject. Please try again.', type: 'error' })

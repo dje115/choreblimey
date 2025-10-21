@@ -159,11 +159,12 @@ const ChildDashboard: React.FC = () => {
       setSelectedAssignment(null)
       setCompletionNote('')
       
-      // Reload dashboard to show updated status
-      await loadDashboard()
-      
       // Show success toast
       setToast({ message: '✨ Nice work! Submitted for approval', type: 'success' })
+      
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
     } catch (error) {
       console.error('Failed to submit completion:', error)
       setToast({ message: 'Failed to submit. Please try again.', type: 'error' })
