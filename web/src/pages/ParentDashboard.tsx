@@ -10,6 +10,7 @@ const ParentDashboard: React.FC = () => {
   const [children, setChildren] = useState<any[]>([])
   const [chores, setChores] = useState<any[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
+  const [pendingCompletions, setPendingCompletions] = useState<any[]>([])
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [budget, setBudget] = useState<any>(null)
   const [joinCodes, setJoinCodes] = useState<any[]>([])
@@ -80,11 +81,12 @@ const ParentDashboard: React.FC = () => {
 
   const loadDashboard = async () => {
     try {
-      const [familyRes, membersRes, choresRes, assignmentsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
+      const [familyRes, membersRes, choresRes, assignmentsRes, completionsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listChores(),
         apiClient.listAssignments(),
+        apiClient.listCompletions('pending'),
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
         apiClient.getFamilyJoinCodes()
@@ -97,6 +99,7 @@ const ParentDashboard: React.FC = () => {
       }
       if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
+      if (completionsRes.status === 'fulfilled') setPendingCompletions(completionsRes.value.completions || [])
       if (leaderboardRes.status === 'fulfilled') setLeaderboard(leaderboardRes.value.leaderboard || [])
       if (budgetRes.status === 'fulfilled') setBudget(budgetRes.value)
       if (joinCodesRes.status === 'fulfilled') setJoinCodes(joinCodesRes.value.joinCodes || [])
@@ -233,6 +236,29 @@ const ParentDashboard: React.FC = () => {
     }
   }
 
+  const handleApproveCompletion = async (completionId: string) => {
+    try {
+      await apiClient.approveCompletion(completionId)
+      alert('✅ Chore approved! Wallet credited.')
+      await loadDashboard() // Reload to update counts and pending list
+    } catch (error) {
+      console.error('Error approving completion:', error)
+      alert('Failed to approve. Please try again.')
+    }
+  }
+
+  const handleRejectCompletion = async (completionId: string) => {
+    const reason = prompt('Why are you rejecting this? (optional)')
+    try {
+      await apiClient.rejectCompletion(completionId, reason || undefined)
+      alert('❌ Chore rejected.')
+      await loadDashboard() // Reload to update counts and pending list
+    } catch (error) {
+      console.error('Error rejecting completion:', error)
+      alert('Failed to reject. Please try again.')
+    }
+  }
+
   const filteredChores = chores.filter(chore => {
     if (activeTab === 'all') return true
     if (activeTab === 'recurring') return chore.frequency !== 'once'
@@ -314,7 +340,7 @@ const ParentDashboard: React.FC = () => {
               <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
                 ⏳
               </div>
-              <span className="text-5xl font-bold">0</span>
+              <span className="text-5xl font-bold">{pendingCompletions.length}</span>
             </div>
             <h3 className="font-bold text-lg mb-1">Pending Review</h3>
             <p className="text-white/80 text-sm">Awaiting approval</p>
@@ -470,6 +496,69 @@ const ParentDashboard: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Pending Approvals Section */}
+            {pendingCompletions.length > 0 && (
+              <div className="cb-card p-6 border-4 border-[var(--warning)]">
+                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length})</h2>
+                <div className="space-y-4">
+                  {pendingCompletions.map((completion: any) => (
+                    <div
+                      key={completion.id}
+                      className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                          ✅
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                {completion.assignment?.chore?.title || 'Chore'}
+                              </h4>
+                              <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                Completed by <span className="font-semibold text-[var(--primary)]">{completion.child?.nickname || 'Unknown'}</span>
+                              </p>
+                              {completion.note && (
+                                <div className="mt-2 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                  <p className="text-sm text-gray-700">
+                                    <span className="font-semibold">Note:</span> {completion.note}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-xl font-bold text-[var(--success)]">
+                                💰 £{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)]">
+                                {new Date(completion.timestamp).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              onClick={() => handleApproveCompletion(completion.id)}
+                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ✅ Approve & Pay
+                            </button>
+                            <button
+                              onClick={() => handleRejectCompletion(completion.id)}
+                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ❌ Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Family Activity Feed */}
             <div className="cb-card p-6">

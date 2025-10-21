@@ -36,8 +36,10 @@ export async function routes(app: FastifyInstance) {
   app.post('/bids/compete', ctrl.bids.compete)
 
   // Completions
+  app.get('/completions', ctrl.completions.list)
   app.post('/completions', ctrl.completions.create)
   app.post('/completions/:id/approve', ctrl.completions.approve)
+  app.post('/completions/:id/reject', ctrl.completions.reject)
 
   // Wallet
   app.get('/wallet/:childId', ctrl.wallet.get)

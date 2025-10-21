@@ -160,12 +160,21 @@ class ApiClient {
   }
 
   // Completion endpoints
+  async listCompletions(status?: string) {
+    const url = status ? `/completions?status=${status}` : '/completions'
+    return this.get(url)
+  }
+
   async createCompletion(data: { assignmentId: string; proofUrl?: string; note?: string }) {
     return this.post('/completions', data)
   }
 
   async approveCompletion(completionId: string) {
     return this.post(`/completions/${completionId}/approve`)
+  }
+
+  async rejectCompletion(completionId: string, reason?: string) {
+    return this.post(`/completions/${completionId}/reject`, { reason })
   }
 
   // Bidding endpoints

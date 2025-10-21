@@ -79,6 +79,10 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
       return reply.status(404).send({ error: 'Completion not found' })
     }
 
+    if (completion.status !== 'pending') {
+      return reply.status(400).send({ error: 'Completion has already been processed' })
+    }
+
     // Update completion status
     await prisma.completion.update({
       where: { id },
@@ -118,6 +122,79 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
 
     return { ok: true, wallet }
   } catch (error) {
+    console.error('Error approving completion:', error)
     reply.status(500).send({ error: 'Failed to approve completion' })
+  }
+}
+
+export const reject = async (req: FastifyRequest<{ Params: { id: string }, Body: { reason?: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+    const { reason } = req.body
+
+    // Find completion
+    const completion = await prisma.completion.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!completion) {
+      return reply.status(404).send({ error: 'Completion not found' })
+    }
+
+    if (completion.status !== 'pending') {
+      return reply.status(400).send({ error: 'Completion has already been processed' })
+    }
+
+    // Update completion status
+    await prisma.completion.update({
+      where: { id },
+      data: { 
+        status: 'rejected',
+        note: reason ? `Rejected: ${reason}` : completion.note
+      }
+    })
+
+    return { ok: true }
+  } catch (error) {
+    console.error('Error rejecting completion:', error)
+    reply.status(500).send({ error: 'Failed to reject completion' })
+  }
+}
+
+export const list = async (req: FastifyRequest<{ Querystring: { status?: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { status } = req.query
+
+    const whereClause: any = { familyId }
+    if (status) {
+      whereClause.status = status
+    }
+
+    const completions = await prisma.completion.findMany({
+      where: whereClause,
+      include: {
+        assignment: {
+          include: {
+            chore: true
+          }
+        },
+        child: {
+          select: {
+            id: true,
+            nickname: true,
+            ageGroup: true
+          }
+        }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: 50 // Limit to recent 50
+    })
+
+    return { completions }
+  } catch (error) {
+    console.error('Error listing completions:', error)
+    reply.status(500).send({ error: 'Failed to list completions' })
   }
 }
