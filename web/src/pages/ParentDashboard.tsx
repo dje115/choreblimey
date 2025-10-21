@@ -1806,6 +1806,148 @@ const ParentDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Edit Chore Modal */}
+      {showEditChoreModal && selectedChore && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="cb-card w-full max-w-2xl my-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="cb-heading-lg text-[var(--primary)]">✏️ Edit Chore</h3>
+              <button
+                onClick={() => {
+                  setShowEditChoreModal(false)
+                  setSelectedChore(null)
+                }}
+                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              try {
+                await apiClient.updateChore(selectedChore.id, {
+                  title: selectedChore.title,
+                  description: selectedChore.description,
+                  frequency: selectedChore.frequency,
+                  proof: selectedChore.proof,
+                  baseRewardPence: selectedChore.baseRewardPence,
+                  active: selectedChore.active
+                })
+                
+                setToast({ message: '✅ Chore updated successfully!', type: 'success' })
+                setShowEditChoreModal(false)
+                setSelectedChore(null)
+                
+                // Reload to show changes
+                await new Promise(resolve => setTimeout(resolve, 300))
+                await loadDashboard()
+              } catch (error) {
+                console.error('Failed to update chore:', error)
+                setToast({ message: 'Failed to update chore. Please try again.', type: 'error' })
+              }
+            }} className="space-y-5">
+              {/* Chore Details */}
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Chore title *</label>
+                <input
+                  value={selectedChore.title}
+                  onChange={(e) => setSelectedChore({ ...selectedChore, title: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  placeholder="Make your bed"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Description</label>
+                <textarea
+                  value={selectedChore.description || ''}
+                  onChange={(e) => setSelectedChore({ ...selectedChore, description: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all resize-none"
+                  rows={3}
+                  placeholder="Optional details..."
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Frequency</label>
+                  <select
+                    value={selectedChore.frequency}
+                    onChange={(e) => setSelectedChore({ ...selectedChore, frequency: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="once">One-time</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={(selectedChore.baseRewardPence / 100).toFixed(2)}
+                    onChange={(e) => setSelectedChore({ ...selectedChore, baseRewardPence: Math.round(parseFloat(e.target.value) * 100) })}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                    placeholder="0.50"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
+                  <select
+                    value={selectedChore.proof}
+                    onChange={(e) => setSelectedChore({ ...selectedChore, proof: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  >
+                    <option value="none">Trust-based (No proof needed)</option>
+                    <option value="note">Ask for explanation note</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Active Toggle */}
+              <div className="border-t-2 border-[var(--card-border)] pt-5">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedChore.active !== false}
+                    onChange={(e) => setSelectedChore({ ...selectedChore, active: e.target.checked })}
+                    className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
+                  />
+                  <div>
+                    <div className="font-bold text-[var(--text-primary)]">✅ Active</div>
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">
+                      Inactive chores won't appear in children's task lists
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditChoreModal(false)
+                    setSelectedChore(null)
+                  }}
+                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 cb-button-primary"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notifications */}
       {toast && (
         <Toast
