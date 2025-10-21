@@ -91,6 +91,14 @@ model Child {
   ageGroup       String?
   gender         Gender?
   theme          String?  @default("superhero") // Theme selection: superhero, unicorn, ocean, sunset, neon-city, galaxy, high-contrast
+  
+  // Birthday tracking for age-appropriate rewards (COPPA/GDPR-friendly)
+  birthMonth     Int?     // 1-12, optional
+  birthYear      Int?     // e.g., 2015, optional
+  
+  // Interests for personalized rewards (JSON array of tags)
+  interestsJson  Json?    // e.g., ["pets","reading","music","sports"]
+  
   createdAt      DateTime @default(now())
 
   family       Family      @relation(fields: [familyId], references: [id])
@@ -330,16 +338,22 @@ model Reward {
 }
 
 model Redemption {
-  id        String   @id @default(uuid())
-  rewardId  String
-  familyId  String
-  childId   String
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  rewardId       String?  // Custom reward (parent-created)
+  affiliateRewardId String?  // Affiliate reward (from providers)
+  familyId       String
+  childId        String
+  costPaid       Int      // Stars spent
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
 
-  reward  Reward @relation(fields: [rewardId], references: [id])
-  family  Family @relation(fields: [familyId], references: [id])
-  child   Child  @relation(fields: [childId], references: [id])
+  reward          Reward?     @relation(fields: [rewardId], references: [id])
+  affiliateReward RewardItem? @relation(fields: [affiliateRewardId], references: [id])
+  family          Family      @relation(fields: [familyId], references: [id])
+  child           Child       @relation(fields: [childId], references: [id])
+  
+  @@index([familyId, status])
+  @@index([childId, createdAt])
 }
 
 model RivalryEvent {
@@ -401,4 +415,150 @@ model ChildJoinCode {
 
   @@index([code])
   @@index([expiresAt])
+}
+
+// ============================================================================
+// AFFILIATE REWARDS SYSTEM
+// ============================================================================
+
+enum RewardProvider {
+  amazon
+  ebay
+  argos
+  ticketmaster
+  custom
+}
+
+enum AgeTag {
+  kid_5_8
+  tween_9_11
+  teen_12_15
+  all_ages
+}
+
+// Affiliate provider configuration (admin-only)
+model RewardSource {
+  id            String         @id @default(uuid())
+  provider      RewardProvider
+  affiliateTag  String         // e.g., Amazon Associates tracking ID
+  apiKey        String?        // Encrypted API key for PA-API
+  apiSecret     String?        // Encrypted API secret
+  enabled       Boolean        @default(true)
+  region        String?        // e.g., "UK", "US"
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([provider, region])
+  @@index([provider, enabled])
+}
+
+// Reward items from affiliate providers
+model RewardItem {
+  id              String         @id @default(uuid())
+  provider        RewardProvider
+  externalId      String?        // Provider's product ID (e.g., ASIN)
+  title           String
+  description     String?        @db.Text
+  imageUrl        String?
+  affiliateUrl    String         // Full affiliate link with tracking
+  
+  // Pricing (in pence, cached from provider)
+  pricePence      Int?
+  priceUpdatedAt  DateTime?      // For 24h cache rule (Amazon PA-API requirement)
+  
+  // Categorization
+  ageTag          AgeTag         @default(all_ages)
+  category        String?        // toys, books, craft, STEM, sports, experiences, gift_cards
+  interestTags    Json?          // ["pets","reading","music"] for matching
+  
+  // Gamification
+  starsRequired   Int?           // Suggested stars needed (derived from price)
+  
+  // Quality & ranking signals
+  popularityScore Float          @default(0.0) // Based on clicks/conversions
+  featured        Boolean        @default(false) // Admin-curated
+  blocked         Boolean        @default(false) // Admin-blocked
+  
+  // Metadata
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  lastSyncedAt    DateTime?      // Last time refreshed from provider
+  
+  // Relations
+  clicks          RewardClick[]
+  purchases       RewardPurchase[]
+  redemptions     Redemption[]
+
+  @@index([provider, ageTag, blocked])
+  @@index([featured, blocked])
+  @@index([popularityScore])
+  @@index([priceUpdatedAt]) // For cache expiry queries
+}
+
+// Click tracking (privacy-safe, no PII)
+model RewardClick {
+  id         String    @id @default(uuid())
+  rewardId   String
+  familyId   String
+  childId    String?   // Optional: which child viewed it
+  userId     String?   // Optional: parent who clicked
+  clickedAt  DateTime  @default(now())
+  userAgent  String?   // For bot detection
+  
+  reward     RewardItem @relation(fields: [rewardId], references: [id])
+  
+  @@index([rewardId, clickedAt])
+  @@index([familyId, clickedAt])
+}
+
+// Purchase tracking (optional, for conversion metrics)
+// Note: This is populated via webhook/callback if provider supports it
+model RewardPurchase {
+  id              String    @id @default(uuid())
+  rewardId        String
+  familyId        String
+  clickId         String?   // Link to original click
+  
+  // Purchase details (no PII, just metrics)
+  purchasedAt     DateTime  @default(now())
+  amountPence     Int?      // Purchase value
+  commissionPence Int?      // Earned commission
+  
+  // Provider metadata (for reconciliation)
+  providerOrderId String?   // Provider's order reference
+  status          String?   // pending, confirmed, cancelled
+  
+  reward          RewardItem @relation(fields: [rewardId], references: [id])
+  
+  @@index([rewardId, purchasedAt])
+  @@index([familyId, purchasedAt])
+}
+
+// Parent reward preferences (budget, categories, etc.)
+model ParentRewardPreferences {
+  id               String   @id @default(uuid())
+  familyId         String   @unique
+  
+  // Budget controls
+  maxRewardPence   Int?     // Max reward value to show
+  
+  // Category filters
+  allowedCategories Json?   // ["toys","books","craft"] - null = all
+  blockedCategories Json?   // ["electronics","sweets"]
+  
+  // Content controls
+  curatedOnlyMode  Boolean  @default(false) // Only show featured items
+  affiliateOptIn   Boolean  @default(true)  // Consent to show affiliate items
+  
+  // Birthday magic
+  birthdayBonusEnabled Boolean @default(true) // Double stars in birthday month
+  
+  // Pinned/blocked items
+  pinnedRewardIds  Json?    // Array of reward IDs to show first
+  blockedRewardIds Json?    // Array of reward IDs to never show
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([familyId])
 }
