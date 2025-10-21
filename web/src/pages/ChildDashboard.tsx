@@ -78,8 +78,9 @@ const ChildDashboard: React.FC = () => {
   // Reward claiming state
   const [claimingReward, setClaimingReward] = useState<string | null>(null)
 
-  // Challenge mode: Track who's the champion for each chore
+  // Challenge mode: Track who's the champion for each chore and all bids
   const [choreChampions, setChoreChampions] = useState<Map<string, any>>(new Map())
+  const [choreBids, setChoreBids] = useState<Map<string, any[]>>(new Map())
 
   // Detect age mode from user profile
   const getAgeMode = (): 'kid' | 'tween' | 'teen' => {
@@ -117,14 +118,17 @@ const ChildDashboard: React.FC = () => {
         const assignmentsList = assignmentsRes.value.assignments || []
         setAssignments(assignmentsList)
         
-        // Load bids for challenge chores to show current champions
+        // Load bids for challenge chores to show current champions and all bids
         const challengeAssignments = assignmentsList.filter((a: any) => a.biddingEnabled)
         const championsMap = new Map()
+        const bidsMap = new Map()
         
         for (const assignment of challengeAssignments) {
           try {
             const { bids } = await apiClient.listBids(assignment.id)
             if (bids && bids.length > 0) {
+              // Store all bids for this assignment
+              bidsMap.set(assignment.id, bids)
               // Lowest bid is the champion
               championsMap.set(assignment.id, bids[0])
             }
@@ -134,6 +138,7 @@ const ChildDashboard: React.FC = () => {
         }
         
         setChoreChampions(championsMap)
+        setChoreBids(bidsMap)
       }
       if (completionsRes.status === 'fulfilled') {
         setCompletions(completionsRes.value.completions || [])
@@ -712,9 +717,10 @@ const ChildDashboard: React.FC = () => {
               <div className="mt-4 bg-white/20 rounded-xl p-4 text-sm">
                 <p className="font-semibold mb-2">💡 How it works:</p>
                 <ul className="space-y-1 text-white/90">
-                  <li>• Offer to do a chore for LESS money than usual</li>
-                  <li>• Lowest offer wins the chore!</li>
-                  <li>• Winner gets DOUBLE STARS when parents approve! 🎉</li>
+                  <li>• You offer to do the chore for LESS money (your bid)</li>
+                  <li>• Lowest bid wins the chore!</li>
+                  <li>• Winner gets DOUBLE STARS ⭐⭐ (not double money!) 🎉</li>
+                  <li>• Example: Bid £0.05, win 2⭐ instead of 1⭐!</li>
                 </ul>
               </div>
             </div>
@@ -777,51 +783,108 @@ const ChildDashboard: React.FC = () => {
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 <span className="cb-chip bg-yellow-500 text-white font-bold">
-                                  🏆 WIN: £{((baseReward * 2) / 100).toFixed(2)} (DOUBLE!)
+                                  🏆 WIN: {Math.floor((baseReward * 2) / 10)}⭐ (DOUBLE STARS!)
                                 </span>
                                 <span className="cb-chip bg-orange-200 text-orange-800">
-                                  💰 Usually: £{(baseReward / 100).toFixed(2)}
+                                  💰 Offer: £{(minBid / 100).toFixed(2)} - £{(maxBid / 100).toFixed(2)}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Current Champion Status */}
-                          {hasChampion && (
-                            <div className={`mb-4 rounded-xl p-4 border-2 ${
-                              isChampion
-                                ? 'bg-yellow-100 border-yellow-400'
-                                : 'bg-red-100 border-red-400'
-                            }`}>
-                              <div className="flex items-center gap-3">
-                                <div className="text-3xl">{isChampion ? '👑' : '⚠️'}</div>
-                                <div className="flex-1">
-                                  <p className={`font-bold ${isChampion ? 'text-yellow-800' : 'text-red-800'}`}>
-                                    {isChampion ? `YOU'RE THE CHAMPION!` : `${champion.child?.nickname} is winning!`}
-                                  </p>
-                                  <p className={`text-sm ${isChampion ? 'text-yellow-700' : 'text-red-700'}`}>
-                                    {isChampion 
-                                      ? `Your offer: £${(champion.amountPence / 100).toFixed(2)} • Go to Today tab to complete it!`
-                                      : `Their offer: £${(champion.amountPence / 100).toFixed(2)} • Beat it to steal the chore!`
-                                    }
-                                  </p>
+                          {/* Current Bids Display */}
+                          {(() => {
+                            const bids = choreBids.get(assignment.id) || []
+                            
+                            if (bids.length > 0) {
+                              return (
+                                <div className="mb-4">
+                                  <h5 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2">
+                                    📊 Current Offers:
+                                  </h5>
+                                  <div className="space-y-2">
+                                    {bids.map((bid: any, index: number) => {
+                                      const isCurrentChampion = index === 0
+                                      const isMyBid = bid.childId === (user?.childId || user?.id)
+                                      
+                                      return (
+                                        <div
+                                          key={bid.id}
+                                          className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
+                                            isCurrentChampion && isMyBid
+                                              ? 'bg-yellow-100 border-yellow-400'
+                                              : isCurrentChampion
+                                              ? 'bg-red-100 border-red-400'
+                                              : isMyBid
+                                              ? 'bg-blue-50 border-blue-300'
+                                              : 'bg-gray-50 border-gray-300'
+                                          }`}
+                                        >
+                                          <div className="text-2xl">
+                                            {isCurrentChampion ? '👑' : isMyBid ? '💪' : '😐'}
+                                          </div>
+                                          <div className="flex-1">
+                                            <p className={`font-bold text-sm ${
+                                              isCurrentChampion && isMyBid
+                                                ? 'text-yellow-800'
+                                                : isCurrentChampion
+                                                ? 'text-red-800'
+                                                : isMyBid
+                                                ? 'text-blue-800'
+                                                : 'text-gray-700'
+                                            }`}>
+                                              {isMyBid ? 'You' : bid.child?.nickname}
+                                              {isCurrentChampion && ' (WINNING!)'}
+                                            </p>
+                                            <p className="text-xs text-gray-600">
+                                              Offered £{(bid.amountPence / 100).toFixed(2)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                  
+                                  {/* Champion Status */}
+                                  {hasChampion && (
+                                    <div className={`mt-3 rounded-xl p-3 border-2 ${
+                                      isChampion
+                                        ? 'bg-yellow-100 border-yellow-400'
+                                        : 'bg-red-100 border-red-400'
+                                    }`}>
+                                      <p className={`text-xs font-bold ${isChampion ? 'text-yellow-800' : 'text-red-800'}`}>
+                                        {isChampion 
+                                          ? `✨ You have the lowest offer! Go to Today tab to complete it!`
+                                          : `⚠️ ${champion.child?.nickname} has the lowest offer! Offer less to steal it!`
+                                        }
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            </div>
-                          )}
+                              )
+                            }
+                            
+                            return null
+                          })()}
 
                           {/* Claim/Steal Area */}
                           <div className="bg-white rounded-xl p-4 border-2 border-orange-300">
                             <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-                              {hasChampion && !isChampion ? '💪 STEAL IT! Offer Less:' : '💪 I\'ll Do It For:'}
+                              {hasChampion && !isChampion 
+                                ? `💪 STEAL IT! Offer less than £${(champion.amountPence / 100).toFixed(2)}:` 
+                                : '💪 I\'ll Do It For:'}
                             </p>
                             <div className="flex gap-3">
                               <input
                                 type="number"
                                 min={(minBid / 100).toFixed(2)}
-                                max={(maxBid / 100).toFixed(2)}
+                                max={hasChampion && !isChampion ? ((champion.amountPence - 1) / 100).toFixed(2) : (maxBid / 100).toFixed(2)}
                                 step="0.01"
-                                placeholder={`£${(minBid / 100).toFixed(2)} - £${(maxBid / 100).toFixed(2)}`}
+                                placeholder={
+                                  hasChampion && !isChampion 
+                                    ? `Less than £${(champion.amountPence / 100).toFixed(2)}`
+                                    : `£${(minBid / 100).toFixed(2)} - £${(maxBid / 100).toFixed(2)}`
+                                }
                                 className="flex-1 px-4 py-3 border-2 border-[var(--card-border)] rounded-lg focus:border-orange-500 focus:outline-none"
                                 id={`bid-${assignment.id}`}
                               />
@@ -873,7 +936,7 @@ const ChildDashboard: React.FC = () => {
                               </button>
                             </div>
                             <p className="text-xs text-[var(--text-secondary)] mt-2">
-                              💡 Lowest offer wins! Winner gets DOUBLE STARS when done!
+                              💡 Lowest money offer wins! Winner gets DOUBLE STARS ⭐⭐ (not double money!)
                             </p>
                           </div>
                         </div>
