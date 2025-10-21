@@ -17,9 +17,11 @@ class ApiClient {
     return localStorage.getItem('auth_token')
   }
 
-  private getHeaders(includeAuth: boolean = true): HeadersInit {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+  private getHeaders(includeAuth: boolean = true, includeContentType: boolean = true): HeadersInit {
+    const headers: HeadersInit = {}
+
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json'
     }
 
     if (includeAuth) {
@@ -53,7 +55,7 @@ class ApiClient {
   async post<T = any>(endpoint: string, data?: any, includeAuth: boolean = true): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(includeAuth, !!data), // Only include Content-Type if there's data
       body: data ? JSON.stringify(data) : undefined,
     })
 
@@ -63,7 +65,7 @@ class ApiClient {
   async patch<T = any>(endpoint: string, data?: any, includeAuth: boolean = true): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PATCH',
-      headers: this.getHeaders(includeAuth),
+      headers: this.getHeaders(includeAuth, !!data), // Only include Content-Type if there's data
       body: data ? JSON.stringify(data) : undefined,
     })
 
