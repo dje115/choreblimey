@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
+import { updateStreak, getChildStreakStats, calculateStreakBonusStars } from '../utils/streaks.js'
 
 interface CompletionCreateBody {
   assignmentId: string
@@ -120,7 +121,57 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
       }
     })
 
-    return { ok: true, wallet }
+    // Update streak for this chore
+    await updateStreak(
+      familyId,
+      completion.childId,
+      completion.assignment.choreId,
+      completion.timestamp
+    )
+
+    // Get updated streak stats
+    const streakStats = await getChildStreakStats(familyId, completion.childId)
+    
+    // Check if they hit a streak milestone and award bonus
+    const bonusStars = calculateStreakBonusStars(streakStats.currentStreak)
+    let bonusWallet = wallet
+    
+    if (bonusStars > 0) {
+      // Award bonus stars (convert to pence: 1 star = 10 pence)
+      const bonusPence = bonusStars * 10
+      
+      bonusWallet = await prisma.wallet.update({
+        where: { id: wallet.id },
+        data: {
+          balancePence: { increment: bonusPence }
+        }
+      })
+
+      // Create bonus transaction
+      await prisma.transaction.create({
+        data: {
+          walletId: wallet.id,
+          familyId,
+          type: 'credit',
+          amountPence: bonusPence,
+          source: 'system',
+          metaJson: { 
+            type: 'streak_bonus',
+            streakLength: streakStats.currentStreak,
+            bonusStars
+          }
+        }
+      })
+    }
+
+    return { 
+      ok: true, 
+      wallet: bonusWallet,
+      streakBonus: bonusStars > 0 ? {
+        stars: bonusStars,
+        streakLength: streakStats.currentStreak
+      } : undefined
+    }
   } catch (error) {
     console.error('Error approving completion:', error)
     reply.status(500).send({ error: 'Failed to approve completion' })

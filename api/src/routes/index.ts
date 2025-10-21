@@ -55,4 +55,7 @@ export async function routes(app: FastifyInstance) {
   app.post('/redemptions', ctrl.rewards.redeem)
   app.get('/redemptions', ctrl.rewards.listRedemptions)
   app.post('/redemptions/:id/fulfill', ctrl.rewards.fulfillRedemption)
+
+  // Streaks
+  app.get('/streaks/:childId', ctrl.streaks.getStats)
 }

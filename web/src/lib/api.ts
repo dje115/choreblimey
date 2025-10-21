@@ -226,6 +226,11 @@ class ApiClient {
   async fulfillRedemption(redemptionId: string) {
     return this.post(`/redemptions/${redemptionId}/fulfill`, {})
   }
+
+  // Streaks
+  async getStreakStats(childId: string) {
+    return this.get(`/streaks/${childId}`)
+  }
 }
 
 export const apiClient = new ApiClient()
