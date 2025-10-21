@@ -3,6 +3,7 @@ import { prisma } from '../db/prisma.js'
 import jwt from 'jsonwebtoken'
 import { generateToken, generateJoinCode } from '../utils/crypto.js'
 import { sendMagicLink } from '../utils/email.js'
+import { cache } from '../utils/cache.js'
 
 interface SignupParentBody {
   email: string
@@ -265,6 +266,9 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
         usedByChildId: child.id
       }
     })
+
+    // Invalidate family cache so parent dashboard shows new child immediately
+    await cache.invalidateFamily(familyId)
 
     // Generate JWT for child (they get child_player role)
     console.log('Creating child JWT with familyId:', familyId, 'childId:', child.id)

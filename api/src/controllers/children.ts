@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { generateJoinCode } from '../utils/crypto.js'
+import { cache } from '../utils/cache.js'
 
 interface CreateChildBody {
   nickname: string
@@ -49,6 +50,9 @@ export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, rep
       }
     })
 
+    // Invalidate family cache so parent dashboard shows new child immediately
+    await cache.invalidateFamily(familyId)
+
     return {
       child: {
         id: child.id,
@@ -88,6 +92,9 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
         theme: theme !== undefined ? theme : undefined
       }
     })
+
+    // Invalidate family cache so changes are reflected immediately
+    await cache.invalidateFamily(familyId)
 
     return {
       child: {
