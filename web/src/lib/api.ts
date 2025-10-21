@@ -149,12 +149,18 @@ class ApiClient {
   }
 
   // Assignment endpoints
-  async listAssignments() {
-    return this.get('/assignments')
+  async listAssignments(childId?: string) {
+    const params = childId ? `?childId=${childId}` : ''
+    return this.get(`/assignments${params}`)
   }
 
   async createAssignment(data: { choreId: string; childId?: string; biddingEnabled?: boolean }) {
     return this.post('/assignments', data)
+  }
+
+  async listCompletions(status?: string) {
+    const params = status ? `?status=${status}` : ''
+    return this.get(`/completions${params}`)
   }
 
   async linkAssignments(data: { assignmentId1: string; assignmentId2: string }) {

@@ -55,9 +55,11 @@ const ChildDashboard: React.FC = () => {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [chores, setChores] = useState<Chore[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
+  const [completions, setCompletions] = useState<any[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [error, setError] = useState<string>('')
+  const [successMessage, setSuccessMessage] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('today')
   
   // Completion modal state
@@ -86,9 +88,10 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, assignmentsRes, rewardsRes, leaderboardRes] = await Promise.allSettled([
+      const [walletRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
-        apiClient.listAssignments(),
+        apiClient.listAssignments(childId),
+        apiClient.listCompletions(), // Get all completions to filter out submitted chores
         apiClient.getRewards(childId),
         apiClient.getLeaderboard()
       ])
@@ -98,6 +101,9 @@ const ChildDashboard: React.FC = () => {
       }
       if (assignmentsRes.status === 'fulfilled') {
         setAssignments(assignmentsRes.value.assignments || [])
+      }
+      if (completionsRes.status === 'fulfilled') {
+        setCompletions(completionsRes.value.completions || [])
       }
       if (rewardsRes.status === 'fulfilled') {
         setRewards(rewardsRes.value.rewards || [])
@@ -142,10 +148,13 @@ const ChildDashboard: React.FC = () => {
       // Reload dashboard to show updated status
       await loadDashboard()
       
-      alert('🎉 Great job! Your chore is submitted for approval!')
+      // Show success message with auto-dismiss
+      setSuccessMessage('Nice work! Submitted for approval ✓')
+      setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error) {
       console.error('Failed to submit completion:', error)
-      alert('Failed to submit chore. Please try again.')
+      setError('Failed to submit. Please try again.')
+      setTimeout(() => setError(''), 3000)
     } finally {
       setCompletingChore(false)
     }
@@ -248,19 +257,28 @@ const ChildDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <h2 className="cb-heading-lg text-[var(--primary)]">🎯 Today's Missions</h2>
               <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                {assignments.filter(a => a.chore?.active).length} active
+                {assignments.filter(a => {
+                  const hasCompletion = completions.some(c => c.assignmentId === a.id)
+                  return a.chore?.active && !hasCompletion
+                }).length} active
               </span>
             </div>
 
-            {assignments.length === 0 ? (
+            {assignments.filter(a => {
+              const hasCompletion = completions.some(c => c.assignmentId === a.id)
+              return a.chore?.active && !hasCompletion
+            }).length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-8xl mb-4">🎉</div>
-                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">All done!</h3>
-                <p className="text-[var(--text-secondary)]">No chores assigned yet. Enjoy your free time!</p>
+                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">All caught up!</h3>
+                <p className="text-[var(--text-secondary)]">No pending chores right now. Great work!</p>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {assignments.filter(a => a.chore?.active).map((assignment) => {
+                {assignments.filter(a => {
+                  const hasCompletion = completions.some(c => c.assignmentId === a.id)
+                  return a.chore?.active && !hasCompletion
+                }).map((assignment) => {
                   const chore = assignment.chore
                   return (
                     <div
@@ -451,6 +469,12 @@ const ChildDashboard: React.FC = () => {
           </div>
         )}
 
+        {successMessage && (
+          <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-green-500 text-white p-4 rounded-2xl shadow-2xl animate-bounce">
+            {successMessage}
+          </div>
+        )}
+        
         {error && (
           <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-red-500 text-white p-4 rounded-2xl shadow-2xl">
             ❌ {error}
