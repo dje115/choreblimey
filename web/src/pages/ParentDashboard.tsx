@@ -1498,16 +1498,6 @@ const ParentDashboard: React.FC = () => {
                                   a.childId === child.id && a.chore?.active
                                 )
                                 
-                                console.log(`Calculating earnings for ${child.nickname}:`, {
-                                  totalAssignments: assignments.length,
-                                  childAssignments: childAssignments.length,
-                                  assignments: childAssignments.map(a => ({
-                                    chore: a.chore?.title,
-                                    frequency: a.chore?.frequency,
-                                    reward: a.chore?.baseRewardPence
-                                  }))
-                                })
-                                
                                 let weeklyEarnings = 0
                                 childAssignments.forEach((a: any) => {
                                   if (a.chore?.frequency === 'daily') {
@@ -1972,25 +1962,16 @@ const ParentDashboard: React.FC = () => {
                           type="checkbox"
                           checked={choreAssignments.childIds.includes(child.id)}
                           onChange={(e) => {
-                            console.log(`✅ Checkbox for ${child.nickname} (${child.id}) changed to:`, e.target.checked)
                             if (e.target.checked) {
-                              setChoreAssignments(prev => {
-                                const updated = {
-                                  ...prev,
-                                  childIds: [...prev.childIds, child.id]
-                                }
-                                console.log('📦 Updated choreAssignments:', updated)
-                                return updated
-                              })
+                              setChoreAssignments(prev => ({
+                                ...prev,
+                                childIds: [...prev.childIds, child.id]
+                              }))
                             } else {
-                              setChoreAssignments(prev => {
-                                const updated = {
-                                  ...prev,
-                                  childIds: prev.childIds.filter(id => id !== child.id)
-                                }
-                                console.log('📦 Updated choreAssignments:', updated)
-                                return updated
-                              })
+                              setChoreAssignments(prev => ({
+                                ...prev,
+                                childIds: prev.childIds.filter(id => id !== child.id)
+                              }))
                             }
                           }}
                           className="w-5 h-5 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"

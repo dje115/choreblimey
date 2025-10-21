@@ -17,7 +17,7 @@ await app.register(helmet, {
 })
 
 await app.register(rateLimit, {
-  max: 100,
+  max: 500, // Increased from 100 to handle dashboard loads with multiple children/chores
   timeWindow: '1 minute'
 })
 
