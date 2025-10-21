@@ -81,6 +81,7 @@ const ChildDashboard: React.FC = () => {
   // Challenge mode: Track who's the champion for each chore and all bids
   const [choreChampions, setChoreChampions] = useState<Map<string, any>>(new Map())
   const [choreBids, setChoreBids] = useState<Map<string, any[]>>(new Map())
+  const [choreStreaks, setChoreStreaks] = useState<Map<string, any>>(new Map())
 
   // Detect age mode from user profile
   const getAgeMode = (): 'kid' | 'tween' | 'teen' => {
@@ -118,27 +119,50 @@ const ChildDashboard: React.FC = () => {
         const assignmentsList = assignmentsRes.value.assignments || []
         setAssignments(assignmentsList)
         
-        // Load bids for challenge chores to show current champions and all bids
+        // Load bids and streaks for challenge chores
         const challengeAssignments = assignmentsList.filter((a: any) => a.biddingEnabled)
         const championsMap = new Map()
         const bidsMap = new Map()
+        const streaksMap = new Map()
         
         for (const assignment of challengeAssignments) {
           try {
+            // Load bids
             const { bids } = await apiClient.listBids(assignment.id)
             if (bids && bids.length > 0) {
-              // Store all bids for this assignment
               bidsMap.set(assignment.id, bids)
-              // Lowest bid is the champion
               championsMap.set(assignment.id, bids[0])
             }
+            
+            // Load streak data for all children on this chore
+            // We'll check if any child has an active streak on this specific chore
+            try {
+              const streakResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:1501'}/v1/streaks`, {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'Content-Type': 'application/json'
+                }
+              })
+              
+              if (streakResponse.ok) {
+                const { stats } = await streakResponse.json()
+                // Find streak for this specific chore
+                const choreStreak = stats?.individualStreaks?.find((s: any) => s.chore?.id === assignment.chore?.id)
+                if (choreStreak && choreStreak.current > 0) {
+                  streaksMap.set(assignment.id, choreStreak)
+                }
+              }
+            } catch (error) {
+              console.error('Failed to load streak for assignment:', assignment.id, error)
+            }
           } catch (error) {
-            console.error('Failed to load bids for assignment:', assignment.id, error)
+            console.error('Failed to load data for assignment:', assignment.id, error)
           }
         }
         
         setChoreChampions(championsMap)
         setChoreBids(bidsMap)
+        setChoreStreaks(streaksMap)
       }
       if (completionsRes.status === 'fulfilled') {
         setCompletions(completionsRes.value.completions || [])
@@ -720,7 +744,8 @@ const ChildDashboard: React.FC = () => {
                   <li>• Chore usually pays £0.10 → Offer £0.10 or LESS to claim it</li>
                   <li>• Lowest offer wins the chore!</li>
                   <li>• Winner gets DOUBLE STARS ⭐⭐ (not double money!) 🎉</li>
-                  <li>• Example: Offer £0.05, win 2⭐ instead of 1⭐! Parent saves money, you get double rewards!</li>
+                  <li>• <strong>🔥 Streak bonus:</strong> If you have a streak, claim it quick or lose it!</li>
+                  <li>• <strong>💪 Break streaks:</strong> Steal chores from siblings to break their streaks!</li>
                 </ul>
               </div>
             </div>
@@ -759,6 +784,9 @@ const ChildDashboard: React.FC = () => {
                       const champion = choreChampions.get(assignment.id)
                       const isChampion = champion && champion.childId === (user?.childId || user?.id)
                       const hasChampion = Boolean(champion)
+                      const streak = choreStreaks.get(assignment.id)
+                      const hasMyStreak = streak && !streak.isDisrupted
+                      const streakDays = streak?.current || 0
 
                       return (
                         <div
@@ -780,9 +808,16 @@ const ChildDashboard: React.FC = () => {
                               {isChampion ? '👑' : '🔥'}
                             </div>
                             <div className="flex-1">
-                              <h4 className="font-bold text-xl text-[var(--text-primary)] mb-1">
-                                {chore.title}
-                              </h4>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-bold text-xl text-[var(--text-primary)]">
+                                  {chore.title}
+                                </h4>
+                                {hasMyStreak && streakDays >= 2 && (
+                                  <span className="cb-chip bg-orange-500 text-white text-xs font-bold animate-pulse">
+                                    🔥 {streakDays}-day streak!
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-sm text-[var(--text-secondary)] mb-3">
                                 {chore.description || 'Offer to do this for less to win!'}
                               </p>
@@ -799,6 +834,35 @@ const ChildDashboard: React.FC = () => {
                               </div>
                             </div>
                           </div>
+
+                          {/* Streak Motivation Banner */}
+                          {hasMyStreak && streakDays >= 2 && (
+                            <div className="mb-4 rounded-xl p-4 bg-gradient-to-r from-orange-500 to-red-500 text-white border-2 border-red-600 animate-pulse">
+                              <div className="flex items-center gap-3">
+                                <div className="text-4xl">🔥</div>
+                                <div className="flex-1">
+                                  <p className="font-bold text-lg">PROTECT YOUR STREAK!</p>
+                                  <p className="text-sm text-white/90">
+                                    You have a {streakDays}-day streak on this chore! Claim it NOW or lose it! ⚠️
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {!hasMyStreak && hasChampion && streakDays >= 2 && (
+                            <div className="mb-4 rounded-xl p-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-2 border-purple-600">
+                              <div className="flex items-center gap-3">
+                                <div className="text-4xl">💪</div>
+                                <div className="flex-1">
+                                  <p className="font-bold text-lg">BREAK THEIR STREAK!</p>
+                                  <p className="text-sm text-white/90">
+                                    {champion.child?.nickname} has a {streakDays}-day streak! Steal this chore and break it! 😈
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Current Bids Display */}
                           {(() => {
