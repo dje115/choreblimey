@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTemplate } from '../data/choreTemplates'
+import Toast from '../components/Toast'
+import Confetti from '../components/Confetti'
 
 const ParentDashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -16,6 +18,10 @@ const ParentDashboard: React.FC = () => {
   const [budget, setBudget] = useState<any>(null)
   const [joinCodes, setJoinCodes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Toast & Confetti
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
+  const [showConfetti, setShowConfetti] = useState(false)
   
   // Modals
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -243,18 +249,30 @@ const ParentDashboard: React.FC = () => {
       console.log('✅ Dashboard reloaded')
     } catch (error) {
       console.error('❌ Error creating chore:', error)
-      alert('Failed to create chore. Please try again.')
+      setToast({ message: 'Failed to create chore. Please try again.', type: 'error' })
     }
   }
 
   const handleApproveCompletion = async (completionId: string) => {
     try {
-      await apiClient.approveCompletion(completionId)
-      alert('✅ Chore approved! Wallet credited.')
+      const result = await apiClient.approveCompletion(completionId)
+      
+      // Check if there's a streak bonus
+      if (result.streakBonus) {
+        setShowConfetti(true)
+        setToast({ 
+          message: `🎉 Approved! +${result.streakBonus.stars} BONUS stars for ${result.streakBonus.streakLength}-day streak!`, 
+          type: 'success' 
+        })
+        setTimeout(() => setShowConfetti(false), 2000)
+      } else {
+        setToast({ message: '✅ Chore approved! Wallet credited', type: 'success' })
+      }
+      
       await loadDashboard() // Reload to update counts and pending list
     } catch (error) {
       console.error('Error approving completion:', error)
-      alert('Failed to approve. Please try again.')
+      setToast({ message: 'Failed to approve. Please try again.', type: 'error' })
     }
   }
 
@@ -262,22 +280,24 @@ const ParentDashboard: React.FC = () => {
     const reason = prompt('Why are you rejecting this? (optional)')
     try {
       await apiClient.rejectCompletion(completionId, reason || undefined)
-      alert('❌ Chore rejected.')
+      setToast({ message: 'Chore rejected', type: 'warning' })
       await loadDashboard() // Reload to update counts and pending list
     } catch (error) {
       console.error('Error rejecting completion:', error)
-      alert('Failed to reject. Please try again.')
+      setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
     }
   }
 
   const handleFulfillRedemption = async (redemptionId: string) => {
     try {
       await apiClient.fulfillRedemption(redemptionId)
-      alert('✅ Reward marked as delivered!')
+      setShowConfetti(true)
+      setToast({ message: '🎁 Reward marked as delivered!', type: 'success' })
+      setTimeout(() => setShowConfetti(false), 2000)
       await loadDashboard()
     } catch (error) {
       console.error('Error fulfilling redemption:', error)
-      alert('Failed to fulfill. Please try again.')
+      setToast({ message: 'Failed to fulfill. Please try again.', type: 'error' })
     }
   }
 
@@ -741,7 +761,7 @@ const ParentDashboard: React.FC = () => {
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(joinCode.code)
-                            alert('Code copied! 📋')
+                            setToast({ message: '📋 Code copied to clipboard!', type: 'info' })
                           }}
                           className="px-4 py-2 bg-[var(--primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--secondary)] transition-all font-semibold text-sm"
                         >
@@ -1063,7 +1083,7 @@ const ParentDashboard: React.FC = () => {
                     await loadDashboard() // Reload to get updated budget
                   } catch (error) {
                     console.error('Failed to save settings:', error)
-                    alert('Failed to save settings. Please try again.')
+                    setToast({ message: 'Failed to save settings. Please try again.', type: 'error' })
                   } finally {
                     // Always close the modal
                     setShowSettingsModal(false)
@@ -1491,6 +1511,18 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Confetti Celebration */}
+      <Confetti active={showConfetti} />
     </div>
   )
 }

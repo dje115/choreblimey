@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
+import Toast from '../components/Toast'
+import Confetti from '../components/Confetti'
 
 interface Wallet {
   balancePence: number
@@ -62,6 +64,10 @@ const ChildDashboard: React.FC = () => {
   const [error, setError] = useState<string>('')
   const [successMessage, setSuccessMessage] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('today')
+  
+  // Toast & Confetti
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
+  const [showConfetti, setShowConfetti] = useState(false)
   
   // Completion modal state
   const [showCompletionModal, setShowCompletionModal] = useState(false)
@@ -156,13 +162,11 @@ const ChildDashboard: React.FC = () => {
       // Reload dashboard to show updated status
       await loadDashboard()
       
-      // Show success message with auto-dismiss
-      setSuccessMessage('Nice work! Submitted for approval ✓')
-      setTimeout(() => setSuccessMessage(''), 3000)
+      // Show success toast
+      setToast({ message: '✨ Nice work! Submitted for approval', type: 'success' })
     } catch (error) {
       console.error('Failed to submit completion:', error)
-      setError('Failed to submit. Please try again.')
-      setTimeout(() => setError(''), 3000)
+      setToast({ message: 'Failed to submit. Please try again.', type: 'error' })
     } finally {
       setCompletingChore(false)
     }
@@ -183,14 +187,14 @@ const ChildDashboard: React.FC = () => {
       // Reload dashboard to update wallet and rewards
       await loadDashboard()
       
-      // Show success message
-      setSuccessMessage(`🎉 ${reward.title} claimed! Ask your parent to get it for you`)
-      setTimeout(() => setSuccessMessage(''), 4000)
+      // Show success with confetti celebration!
+      setShowConfetti(true)
+      setToast({ message: `🎉 ${reward.title} claimed! Ask your parent to get it for you`, type: 'success' })
+      setTimeout(() => setShowConfetti(false), 2000)
     } catch (error: any) {
       console.error('Failed to claim reward:', error)
       const errorMsg = error.response?.data?.error || 'Failed to claim reward'
-      setError(errorMsg)
-      setTimeout(() => setError(''), 3000)
+      setToast({ message: errorMsg, type: 'error' })
     } finally {
       setClaimingReward(null)
     }
@@ -764,6 +768,18 @@ const ChildDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Confetti Celebration */}
+      <Confetti active={showConfetti} />
     </div>
   )
 }
