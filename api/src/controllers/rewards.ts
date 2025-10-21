@@ -197,7 +197,7 @@ export const listRedemptions = async (req: FastifyRequest<{ Querystring: { statu
           }
         }
       },
-      orderBy: { redeemedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 50
     })
 
@@ -230,8 +230,7 @@ export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: stri
     const updatedRedemption = await prisma.redemption.update({
       where: { id },
       data: { 
-        status: 'fulfilled',
-        fulfilledAt: new Date()
+        status: 'fulfilled'
       },
       include: {
         reward: true,
