@@ -158,9 +158,8 @@ class ApiClient {
     return this.post('/assignments', data)
   }
 
-  async listCompletions(status?: string) {
-    const params = status ? `?status=${status}` : ''
-    return this.get(`/completions${params}`)
+  async deleteAssignment(assignmentId: string) {
+    return this.delete(`/assignments/${assignmentId}`)
   }
 
   async linkAssignments(data: { assignmentId1: string; assignmentId2: string }) {

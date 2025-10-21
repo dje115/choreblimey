@@ -143,3 +143,29 @@ export const link = async (req: FastifyRequest<{ Body: AssignmentLinkBody }>, re
     reply.status(500).send({ error: 'Failed to link assignments' })
   }
 }
+
+export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+
+    // Verify assignment belongs to family
+    const assignment = await prisma.assignment.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!assignment) {
+      return reply.status(404).send({ error: 'Assignment not found' })
+    }
+
+    // Delete the assignment
+    await prisma.assignment.delete({
+      where: { id }
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to delete assignment:', error)
+    reply.status(500).send({ error: 'Failed to delete assignment' })
+  }
+}

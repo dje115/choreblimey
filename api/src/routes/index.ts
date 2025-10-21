@@ -31,6 +31,7 @@ export async function routes(app: FastifyInstance) {
   app.get('/assignments', ctrl.assignments.list)
   app.post('/assignments', ctrl.assignments.create)
   app.post('/assignments/link', ctrl.assignments.link)
+  app.delete('/assignments/:id', ctrl.assignments.remove)
 
   // Bidding
   app.post('/bids/compete', ctrl.bids.compete)

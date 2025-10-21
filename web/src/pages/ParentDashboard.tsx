@@ -581,7 +581,16 @@ const ParentDashboard: React.FC = () => {
                             key={chore.id}
                             className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all cursor-pointer"
                             onClick={() => {
+                              // Pre-populate current assignments
+                              const currentAssignments = assignments.filter((a: any) => a.choreId === chore.id)
+                              const assignedChildIds = currentAssignments.map((a: any) => a.childId).filter(Boolean)
+                              const hasBidding = currentAssignments.some((a: any) => a.biddingEnabled)
+                              
                               setSelectedChore(chore)
+                              setChoreAssignments({
+                                childIds: assignedChildIds,
+                                biddingEnabled: hasBidding
+                              })
                               setShowEditChoreModal(true)
                             }}
                           >
@@ -635,7 +644,17 @@ const ParentDashboard: React.FC = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
+                                  
+                                  // Pre-populate current assignments
+                                  const currentAssignments = assignments.filter((a: any) => a.choreId === chore.id)
+                                  const assignedChildIds = currentAssignments.map((a: any) => a.childId).filter(Boolean)
+                                  const hasBidding = currentAssignments.some((a: any) => a.biddingEnabled)
+                                  
                                   setSelectedChore(chore)
+                                  setChoreAssignments({
+                                    childIds: assignedChildIds,
+                                    biddingEnabled: hasBidding
+                                  })
                                   setShowEditChoreModal(true)
                                 }}
                                 className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
@@ -1816,6 +1835,7 @@ const ParentDashboard: React.FC = () => {
                 onClick={() => {
                   setShowEditChoreModal(false)
                   setSelectedChore(null)
+                  setChoreAssignments({ childIds: [], biddingEnabled: false })
                 }}
                 className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
@@ -1825,6 +1845,7 @@ const ParentDashboard: React.FC = () => {
             <form onSubmit={async (e) => {
               e.preventDefault()
               try {
+                // 1. Update the chore details
                 await apiClient.updateChore(selectedChore.id, {
                   title: selectedChore.title,
                   description: selectedChore.description,
@@ -1834,9 +1855,34 @@ const ParentDashboard: React.FC = () => {
                   active: selectedChore.active
                 })
                 
+                // 2. Get existing assignments for this chore
+                const existingAssignments = assignments.filter((a: any) => a.choreId === selectedChore.id)
+                const existingChildIds = existingAssignments.map((a: any) => a.childId).filter(Boolean)
+                
+                // 3. Determine which assignments to add/remove
+                const childIdsToAdd = choreAssignments.childIds.filter(id => !existingChildIds.includes(id))
+                const childIdsToRemove = existingChildIds.filter(id => !choreAssignments.childIds.includes(id))
+                
+                // 4. Remove old assignments
+                for (const assignment of existingAssignments) {
+                  if (assignment.childId && childIdsToRemove.includes(assignment.childId)) {
+                    await apiClient.deleteAssignment(assignment.id)
+                  }
+                }
+                
+                // 5. Add new assignments
+                for (const childId of childIdsToAdd) {
+                  await apiClient.createAssignment({
+                    choreId: selectedChore.id,
+                    childId,
+                    biddingEnabled: choreAssignments.biddingEnabled && choreAssignments.childIds.length > 1
+                  })
+                }
+                
                 setToast({ message: '✅ Chore updated successfully!', type: 'success' })
                 setShowEditChoreModal(false)
                 setSelectedChore(null)
+                setChoreAssignments({ childIds: [], biddingEnabled: false })
                 
                 // Reload to show changes
                 await new Promise(resolve => setTimeout(resolve, 300))
@@ -1905,6 +1951,70 @@ const ParentDashboard: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* Assignment Section */}
+              <div className="border-t-2 border-[var(--card-border)] pt-5">
+                <h4 className="font-bold text-[var(--text-primary)] mb-3">👥 Assigned to Children</h4>
+                {children.length === 0 ? (
+                  <p className="text-sm text-[var(--text-secondary)] italic">
+                    No children in family yet. Invite children to assign chores!
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {children.map((child: any) => (
+                      <label
+                        key={child.id}
+                        className="flex items-center gap-3 p-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:border-[var(--primary)] transition-all cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={choreAssignments.childIds.includes(child.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setChoreAssignments(prev => ({
+                                ...prev,
+                                childIds: [...prev.childIds, child.id]
+                              }))
+                            } else {
+                              setChoreAssignments(prev => ({
+                                ...prev,
+                                childIds: prev.childIds.filter(id => id !== child.id)
+                              }))
+                            }
+                          }}
+                          className="w-5 h-5 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold text-[var(--text-primary)]">{child.nickname}</div>
+                          {child.ageGroup && (
+                            <div className="text-xs text-[var(--text-secondary)]">Age: {child.ageGroup}</div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Bidding Toggle */}
+              {choreAssignments.childIds.length > 1 && (
+                <div className="border-t-2 border-[var(--card-border)] pt-5">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={choreAssignments.biddingEnabled}
+                      onChange={(e) => setChoreAssignments(prev => ({ ...prev, biddingEnabled: e.target.checked }))}
+                      className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
+                    />
+                    <div>
+                      <div className="font-bold text-[var(--text-primary)]">⚔️ Enable Sibling Rivalry (Underbid)</div>
+                      <p className="text-sm text-[var(--text-secondary)] mt-1">
+                        Allow siblings to compete for this chore by bidding lower amounts
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
 
               {/* Active Toggle */}
               <div className="border-t-2 border-[var(--card-border)] pt-5">
