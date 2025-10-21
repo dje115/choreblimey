@@ -39,6 +39,31 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
       return reply.status(404).send({ error: 'Child not found' })
     }
 
+    // CHALLENGE MODE: If bidding is enabled, only the current champion can complete it
+    if (assignment.biddingEnabled) {
+      const bids = await prisma.bid.findMany({
+        where: { 
+          assignmentId,
+          familyId 
+        },
+        orderBy: { amountPence: 'asc' } // Lowest bid first
+      })
+
+      if (bids.length > 0) {
+        const currentChampion = bids[0]
+        if (currentChampion.childId !== actualChildId) {
+          return reply.status(403).send({ 
+            error: 'Challenge locked! Only the current champion can complete this chore. Beat their offer first!' 
+          })
+        }
+      } else {
+        // No one has claimed it yet
+        return reply.status(403).send({ 
+          error: 'No one has claimed this challenge yet! Go to Showdown and claim it first!' 
+        })
+      }
+    }
+
     // Verify assignment is assigned to this child (if it has a specific child assigned)
     if (assignment.childId && assignment.childId !== actualChildId) {
       return reply.status(403).send({ error: 'This chore is not assigned to you' })

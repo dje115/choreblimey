@@ -78,6 +78,9 @@ const ChildDashboard: React.FC = () => {
   // Reward claiming state
   const [claimingReward, setClaimingReward] = useState<string | null>(null)
 
+  // Challenge mode: Track who's the champion for each chore
+  const [choreChampions, setChoreChampions] = useState<Map<string, any>>(new Map())
+
   // Detect age mode from user profile
   const getAgeMode = (): 'kid' | 'tween' | 'teen' => {
     const age = user?.ageGroup
@@ -111,7 +114,26 @@ const ChildDashboard: React.FC = () => {
         setWallet(walletRes.value.wallet)
       }
       if (assignmentsRes.status === 'fulfilled') {
-        setAssignments(assignmentsRes.value.assignments || [])
+        const assignmentsList = assignmentsRes.value.assignments || []
+        setAssignments(assignmentsList)
+        
+        // Load bids for challenge chores to show current champions
+        const challengeAssignments = assignmentsList.filter((a: any) => a.biddingEnabled)
+        const championsMap = new Map()
+        
+        for (const assignment of challengeAssignments) {
+          try {
+            const { bids } = await apiClient.listBids(assignment.id)
+            if (bids && bids.length > 0) {
+              // Lowest bid is the champion
+              championsMap.set(assignment.id, bids[0])
+            }
+          } catch (error) {
+            console.error('Failed to load bids for assignment:', assignment.id, error)
+          }
+        }
+        
+        setChoreChampions(championsMap)
       }
       if (completionsRes.status === 'fulfilled') {
         setCompletions(completionsRes.value.completions || [])
@@ -359,17 +381,76 @@ const ChildDashboard: React.FC = () => {
                           </div>
                         )}
 
-                        {assignment.biddingEnabled && (
-                          <div className="mb-3 text-xs text-center text-purple-300 font-semibold bg-purple-500/20 rounded-lg py-2">
-                            ⚔️ Rivalry Mode Active
-                          </div>
-                        )}
+                        {assignment.biddingEnabled && (() => {
+                          const champion = choreChampions.get(assignment.id)
+                          const isChampion = champion && champion.childId === (user?.childId || user?.id)
+                          const hasBids = choreChampions.has(assignment.id)
+                          
+                          if (!hasBids) {
+                            return (
+                              <div className="mb-3">
+                                <div className="text-xs text-center text-orange-300 font-semibold bg-orange-500/20 rounded-lg py-2 mb-2">
+                                  ⚔️ CHALLENGE MODE
+                                </div>
+                                <div className="text-xs text-center text-gray-300 bg-red-500/20 rounded-lg py-2">
+                                  🔒 No one claimed yet! Go to Showdown to claim it
+                                </div>
+                              </div>
+                            )
+                          }
+                          
+                          if (isChampion) {
+                            return (
+                              <div className="mb-3">
+                                <div className="text-xs text-center text-yellow-300 font-bold bg-yellow-500/30 rounded-lg py-2 border-2 border-yellow-400 animate-pulse">
+                                  👑 YOU'RE THE CHAMPION! You can complete this!
+                                </div>
+                              </div>
+                            )
+                          }
+                          
+                          return (
+                            <div className="mb-3">
+                              <div className="text-xs text-center text-orange-300 font-semibold bg-orange-500/20 rounded-lg py-2 mb-2">
+                                ⚔️ CHALLENGE MODE
+                              </div>
+                              <div className="text-xs text-center text-gray-300 bg-red-500/20 rounded-lg py-2">
+                                🔒 {champion?.child?.nickname} claimed this! Beat their offer in Showdown
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         <button 
-                          onClick={() => handleMarkAsDone(assignment)}
-                          className="w-full cb-button-primary py-3 text-sm hover:scale-105 transition-transform font-bold shadow-lg"
+                          onClick={() => {
+                            if (assignment.biddingEnabled) {
+                              const champion = choreChampions.get(assignment.id)
+                              const isChampion = champion && champion.childId === (user?.childId || user?.id)
+                              const hasBids = choreChampions.has(assignment.id)
+                              
+                              if (!hasBids) {
+                                setToast({ message: '🔒 Go to Showdown tab to claim this challenge first!', type: 'warning' })
+                                return
+                              }
+                              
+                              if (!isChampion) {
+                                setToast({ message: `🔒 ${champion?.child?.nickname} is the champion! Beat their offer in Showdown first!`, type: 'warning' })
+                                return
+                              }
+                            }
+                            
+                            handleMarkAsDone(assignment)
+                          }}
+                          className={`w-full py-3 text-sm font-bold shadow-lg transition-all ${
+                            assignment.biddingEnabled && (!choreChampions.has(assignment.id) || choreChampions.get(assignment.id)?.childId !== (user?.childId || user?.id))
+                              ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                              : 'cb-button-primary hover:scale-105'
+                          }`}
                         >
-                          ✅ Mark as Done
+                          {assignment.biddingEnabled && choreChampions.get(assignment.id)?.childId === (user?.childId || user?.id)
+                            ? '🏆 Do It & Win!'
+                            : '✅ Mark as Done'
+                          }
                         </button>
                       </div>
                     </div>
@@ -624,15 +705,23 @@ const ChildDashboard: React.FC = () => {
               <div className="flex items-center gap-4 mb-3">
                 <div className="text-6xl">⚔️</div>
                 <div>
-                  <h2 className="text-3xl font-bold">Sibling Rivalry!</h2>
-                  <p className="text-white/90">Underbid your siblings to win DOUBLE STARS! 🏆</p>
+                  <h2 className="text-3xl font-bold">Challenge Mode!</h2>
+                  <p className="text-white/90">Offer to do chores for LESS money = WIN DOUBLE STARS! 🏆</p>
                 </div>
+              </div>
+              <div className="mt-4 bg-white/20 rounded-xl p-4 text-sm">
+                <p className="font-semibold mb-2">💡 How it works:</p>
+                <ul className="space-y-1 text-white/90">
+                  <li>• Offer to do a chore for LESS money than usual</li>
+                  <li>• Lowest offer wins the chore!</li>
+                  <li>• Winner gets DOUBLE STARS when parents approve! 🎉</li>
+                </ul>
               </div>
             </div>
 
             {/* Bidding Chores */}
             <div>
-              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎯 Battle for These Chores</h3>
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎯 Challenge Chores</h3>
               {(() => {
                 // Filter assignments where bidding is enabled
                 const biddingChores = assignments.filter((a: any) => a.biddingEnabled && a.chore?.active)
@@ -641,9 +730,9 @@ const ChildDashboard: React.FC = () => {
                   return (
                     <div className="cb-card p-8 text-center">
                       <div className="text-6xl mb-4">😴</div>
-                      <h4 className="font-bold text-[var(--text-primary)] mb-2">No Rivalry Chores</h4>
+                      <h4 className="font-bold text-[var(--text-primary)] mb-2">No Challenge Chores</h4>
                       <p className="text-[var(--text-secondary)]">
-                        Ask your parents to enable sibling rivalry on some chores!
+                        Ask your parents to turn on Challenge Mode for some chores!
                       </p>
                     </div>
                   )
@@ -656,38 +745,75 @@ const ChildDashboard: React.FC = () => {
                       const baseReward = chore.baseRewardPence
                       const minBid = chore.minBidPence || Math.floor(baseReward * 0.5)
                       const maxBid = chore.maxBidPence || Math.floor(baseReward * 1.5)
+                      const champion = choreChampions.get(assignment.id)
+                      const isChampion = champion && champion.childId === (user?.childId || user?.id)
+                      const hasChampion = Boolean(champion)
 
                       return (
                         <div
                           key={assignment.id}
-                          className="cb-card border-4 border-orange-400 bg-gradient-to-br from-orange-50 to-yellow-50 p-6"
+                          className={`cb-card border-4 p-6 ${
+                            isChampion 
+                              ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-yellow-100' 
+                              : hasChampion
+                              ? 'border-red-400 bg-gradient-to-br from-red-50 to-orange-50'
+                              : 'border-orange-400 bg-gradient-to-br from-orange-50 to-yellow-50'
+                          }`}
                         >
                           <div className="flex items-start gap-4 mb-4">
-                            <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-3xl flex-shrink-0">
-                              🔥
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0 ${
+                              isChampion 
+                                ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 animate-pulse'
+                                : 'bg-gradient-to-br from-orange-400 to-red-500'
+                            }`}>
+                              {isChampion ? '👑' : '🔥'}
                             </div>
                             <div className="flex-1">
                               <h4 className="font-bold text-xl text-[var(--text-primary)] mb-1">
                                 {chore.title}
                               </h4>
                               <p className="text-sm text-[var(--text-secondary)] mb-3">
-                                {chore.description || 'Beat your siblings to win this chore!'}
+                                {chore.description || 'Offer to do this for less to win!'}
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 <span className="cb-chip bg-yellow-500 text-white font-bold">
                                   🏆 WIN: £{((baseReward * 2) / 100).toFixed(2)} (DOUBLE!)
                                 </span>
                                 <span className="cb-chip bg-orange-200 text-orange-800">
-                                  💰 Base: £{(baseReward / 100).toFixed(2)}
+                                  💰 Usually: £{(baseReward / 100).toFixed(2)}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Bidding Area */}
+                          {/* Current Champion Status */}
+                          {hasChampion && (
+                            <div className={`mb-4 rounded-xl p-4 border-2 ${
+                              isChampion
+                                ? 'bg-yellow-100 border-yellow-400'
+                                : 'bg-red-100 border-red-400'
+                            }`}>
+                              <div className="flex items-center gap-3">
+                                <div className="text-3xl">{isChampion ? '👑' : '⚠️'}</div>
+                                <div className="flex-1">
+                                  <p className={`font-bold ${isChampion ? 'text-yellow-800' : 'text-red-800'}`}>
+                                    {isChampion ? `YOU'RE THE CHAMPION!` : `${champion.child?.nickname} is winning!`}
+                                  </p>
+                                  <p className={`text-sm ${isChampion ? 'text-yellow-700' : 'text-red-700'}`}>
+                                    {isChampion 
+                                      ? `Your offer: £${(champion.amountPence / 100).toFixed(2)} • Go to Today tab to complete it!`
+                                      : `Their offer: £${(champion.amountPence / 100).toFixed(2)} • Beat it to steal the chore!`
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Claim/Steal Area */}
                           <div className="bg-white rounded-xl p-4 border-2 border-orange-300">
                             <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">
-                              💪 Place Your Bid (Lower = Better!)
+                              {hasChampion && !isChampion ? '💪 STEAL IT! Offer Less:' : '💪 I\'ll Do It For:'}
                             </p>
                             <div className="flex gap-3">
                               <input
@@ -706,7 +832,7 @@ const ChildDashboard: React.FC = () => {
                                   
                                   if (!bidAmount || bidAmount < minBid / 100 || bidAmount > maxBid / 100) {
                                     setToast({ 
-                                      message: `Bid must be between £${(minBid / 100).toFixed(2)} and £${(maxBid / 100).toFixed(2)}`, 
+                                      message: `Must be between £${(minBid / 100).toFixed(2)} and £${(maxBid / 100).toFixed(2)}`, 
                                       type: 'error' 
                                     })
                                     return
@@ -717,29 +843,37 @@ const ChildDashboard: React.FC = () => {
                                       assignmentId: assignment.id,
                                       childId: user?.childId || user?.id || '',
                                       amountPence: Math.round(bidAmount * 100),
-                                      targetChildId: undefined
+                                      targetChildId: champion?.childId
                                     })
                                     
                                     setToast({ 
-                                      message: `⚔️ Bid placed! £${bidAmount.toFixed(2)} - May the best sibling win!`, 
+                                      message: hasChampion && !isChampion
+                                        ? `😎 You stole it! You're the new champion!`
+                                        : `🎯 You claimed it! £${bidAmount.toFixed(2)} - Go complete it!`, 
                                       type: 'success' 
                                     })
+                                    setShowConfetti(true)
+                                    setTimeout(() => setShowConfetti(false), 2000)
                                     input.value = ''
                                     
-                                    // Reload to show updated bids
+                                    // Reload to show updated champion status
                                     await loadDashboard()
                                   } catch (error) {
-                                    console.error('Failed to place bid:', error)
-                                    setToast({ message: 'Failed to place bid. Try again!', type: 'error' })
+                                    console.error('Failed to place claim:', error)
+                                    setToast({ message: 'Failed. Try again!', type: 'error' })
                                   }
                                 }}
-                                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-lg hover:from-orange-600 hover:to-red-600 transition-all"
+                                className={`px-6 py-3 font-bold rounded-lg transition-all ${
+                                  hasChampion && !isChampion
+                                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
+                                    : 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600'
+                                }`}
                               >
-                                ⚔️ BID!
+                                {hasChampion && !isChampion ? '💪 STEAL IT!' : '🎯 CLAIM IT!'}
                               </button>
                             </div>
                             <p className="text-xs text-[var(--text-secondary)] mt-2">
-                              💡 Lowest bid wins! Winner gets DOUBLE STARS!
+                              💡 Lowest offer wins! Winner gets DOUBLE STARS when done!
                             </p>
                           </div>
                         </div>
