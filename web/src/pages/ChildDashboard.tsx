@@ -283,7 +283,7 @@ const ChildDashboard: React.FC = () => {
                   return (
                     <div
                       key={assignment.id}
-                      className="bg-white border-2 border-[var(--card-border)] rounded-3xl overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-2"
+                      className="bg-gradient-to-br from-[#1e2235] to-[#252a42] border-2 border-[var(--primary)]/30 rounded-3xl overflow-hidden hover:shadow-2xl hover:border-[var(--primary)]/60 transition-all hover:-translate-y-2"
                     >
                       {/* Gradient top bar */}
                       <div className="h-3 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)]"></div>
@@ -294,39 +294,39 @@ const ChildDashboard: React.FC = () => {
                             🧹
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-lg text-[var(--text-primary)] mb-1">
+                            <h3 className="font-bold text-lg text-white mb-1">
                               {chore.title}
                             </h3>
-                            <p className="text-sm text-[var(--text-secondary)] line-clamp-2">
+                            <p className="text-sm text-gray-300 line-clamp-2">
                               {chore.description || 'Complete this task to earn stars!'}
                             </p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 mb-4">
-                          <span className="flex-1 cb-chip bg-[var(--success)]/10 text-[var(--success)] text-center">
+                          <span className="flex-1 cb-chip bg-[var(--success)] text-white text-center font-bold border-2 border-[var(--success)]/30">
                             💰 £{(chore.baseRewardPence / 100).toFixed(2)}
                           </span>
-                          <span className="flex-1 cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)] text-center">
+                          <span className="flex-1 cb-chip bg-[var(--secondary)] text-white text-center font-bold border-2 border-[var(--secondary)]/30">
                             {chore.frequency === 'daily' ? '📅 Daily' : chore.frequency === 'weekly' ? '📆 Weekly' : '🎯 Once'}
                           </span>
                         </div>
 
                         {chore.proof === 'note' && (
-                          <div className="mb-3 text-xs text-center text-[var(--text-secondary)]">
+                          <div className="mb-3 text-xs text-center text-gray-400 bg-white/5 rounded-lg py-2">
                             📝 Explanation note required
                           </div>
                         )}
 
                         {assignment.biddingEnabled && (
-                          <div className="mb-3 text-xs text-center text-purple-600 font-semibold">
+                          <div className="mb-3 text-xs text-center text-purple-300 font-semibold bg-purple-500/20 rounded-lg py-2">
                             ⚔️ Rivalry Mode Active
                           </div>
                         )}
 
                         <button 
                           onClick={() => handleMarkAsDone(assignment)}
-                          className="w-full cb-button-primary py-3 text-sm hover:scale-105 transition-transform"
+                          className="w-full cb-button-primary py-3 text-sm hover:scale-105 transition-transform font-bold shadow-lg"
                         >
                           ✅ Mark as Done
                         </button>
