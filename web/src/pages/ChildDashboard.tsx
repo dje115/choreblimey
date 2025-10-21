@@ -107,28 +107,15 @@ const ChildDashboard: React.FC = () => {
     loadDashboard()
   }, [])
 
-  // Load and apply theme from child profile
+  // Load and apply theme from localStorage or use default
   useEffect(() => {
-    const loadChildTheme = async () => {
+    const loadChildTheme = () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:1501'}/v1/family/members`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        if (response.ok) {
-          const { children } = await response.json()
-          const currentChild = children?.find((c: any) => c.id === (user?.childId || user?.id))
-          
-          if (currentChild) {
-            setChildProfile(currentChild)
-            const theme = getTheme(currentChild.theme || 'superhero')
-            setCurrentTheme(theme)
-            applyTheme(theme)
-          }
-        }
+        const childId = user?.childId || user?.id
+        const savedThemeId = localStorage.getItem(`child_theme_${childId}`) || 'superhero'
+        const theme = getTheme(savedThemeId)
+        setCurrentTheme(theme)
+        applyTheme(theme)
       } catch (error) {
         console.error('Failed to load child theme:', error)
         // Fallback to default theme
@@ -193,26 +180,13 @@ const ChildDashboard: React.FC = () => {
               championsMap.set(assignment.id, bids[0])
             }
             
-            // Load streak data for all children on this chore
-            // We'll check if any child has an active streak on this specific chore
-            try {
-              const streakResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:1501'}/v1/streaks`, {
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                  'Content-Type': 'application/json'
-                }
-              })
-              
-              if (streakResponse.ok) {
-                const { stats } = await streakResponse.json()
-                // Find streak for this specific chore
-                const choreStreak = stats?.individualStreaks?.find((s: any) => s.chore?.id === assignment.chore?.id)
-                if (choreStreak && choreStreak.current > 0) {
-                  streaksMap.set(assignment.id, choreStreak)
-                }
+            // Check if current child has an active streak on this chore
+            // We can use the overall streak stats to determine this
+            if (streaksRes.status === 'fulfilled' && streaksRes.value?.stats?.individualStreaks) {
+              const choreStreak = streaksRes.value.stats.individualStreaks.find((s: any) => s.chore?.id === assignment.chore?.id)
+              if (choreStreak && choreStreak.current > 0) {
+                streaksMap.set(assignment.id, choreStreak)
               }
-            } catch (error) {
-              console.error('Failed to load streak for assignment:', assignment.id, error)
             }
           } catch (error) {
             console.error('Failed to load data for assignment:', assignment.id, error)
@@ -322,17 +296,26 @@ const ChildDashboard: React.FC = () => {
       setCurrentTheme(theme)
       applyTheme(theme)
       
-      // Save theme preference to backend
+      // Save theme preference to localStorage and backend
       const childId = user?.childId || user?.id
       if (childId) {
-        await apiClient.updateChild(childId, { theme: themeId })
+        // Save to localStorage immediately
+        localStorage.setItem(`child_theme_${childId}`, themeId)
+        
+        // Try to save to backend (non-blocking)
+        try {
+          await apiClient.updateChild(childId, { theme: themeId })
+        } catch (backendError) {
+          console.warn('Failed to save theme to backend, but saved locally:', backendError)
+        }
+        
         setToast({ message: `🎨 Theme changed to ${theme.name}!`, type: 'success' })
       }
       
       setShowThemePicker(false)
     } catch (error) {
-      console.error('Failed to save theme:', error)
-      setToast({ message: 'Theme applied but not saved. Please try again later.', type: 'warning' })
+      console.error('Failed to change theme:', error)
+      setToast({ message: 'Failed to change theme. Please try again.', type: 'error' })
     }
   }
 
