@@ -9,6 +9,7 @@ export async function routes(app: FastifyInstance) {
   app.post('/auth/signup-parent', ctrl.auth.signupParent)
   app.get('/auth/callback', ctrl.auth.callback)
   app.post('/auth/child-join', ctrl.auth.childJoin)
+  app.post('/auth/generate-join-code', ctrl.auth.generateChildJoinCode)
 
   // Family management
   app.get('/family', ctrl.family.get)
@@ -21,6 +22,7 @@ export async function routes(app: FastifyInstance) {
 
   // Children management
   app.post('/children', ctrl.children.create)
+  app.patch('/children/:id', ctrl.children.update)
 
   // Chores management
   app.get('/chores', ctrl.chores.list)

@@ -135,6 +135,14 @@ class ApiClient {
     return this.post('/children', data)
   }
 
+  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthday?: string }) {
+    return this.patch(`/children/${childId}`, data)
+  }
+
+  async generateChildJoinCode(data: { nickname: string; ageGroup: string; gender?: string }) {
+    return this.post('/auth/generate-join-code', data)
+  }
+
   // Chore endpoints
   async listChores() {
     return this.get('/chores')

@@ -48,6 +48,12 @@ const ParentDashboard: React.FC = () => {
   const [showChoreLibraryModal, setShowChoreLibraryModal] = useState(false)
   const [showEditChoreModal, setShowEditChoreModal] = useState(false)
   const [selectedChore, setSelectedChore] = useState<any>(null)
+  
+  // Child profile modal
+  const [showChildProfileModal, setShowChildProfileModal] = useState(false)
+  const [selectedChild, setSelectedChild] = useState<any>(null)
+  const [generatingCode, setGeneratingCode] = useState(false)
+  const [newJoinCode, setNewJoinCode] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   
   // Forms
@@ -1119,22 +1125,30 @@ const ParentDashboard: React.FC = () => {
                   const weeklyStars = leaderboardEntry?.totalStars || 0
 
                   return (
-                    <div key={child.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)] hover:shadow-md transition-all">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl">
+                    <button
+                      key={child.id}
+                      onClick={() => {
+                        setSelectedChild(child)
+                        setNewJoinCode(null)
+                        setShowChildProfileModal(true)
+                      }}
+                      className="w-full flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)] hover:shadow-md hover:border-2 hover:border-[var(--primary)] transition-all cursor-pointer"
+                    >
+                      <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl shrink-0">
                         {child.nickname.charAt(0)}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 text-left">
                         <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
                         <p className="text-xs text-[var(--text-secondary)]">{child.ageGroup} years</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="font-bold text-[var(--primary)]">{totalStars}⭐</p>
                         <p className="text-xs text-[var(--text-secondary)]">total</p>
                         {weeklyStars > 0 && (
                           <p className="text-xs text-[var(--success)]">+{weeklyStars} this week</p>
                         )}
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
                 {children.length === 0 && (
@@ -2111,6 +2125,213 @@ const ParentDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Child Profile Modal */}
+      {showChildProfileModal && selectedChild && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="cb-heading-lg text-[var(--primary)]">👤 {selectedChild.nickname}'s Profile</h3>
+              <button
+                onClick={() => {
+                  setShowChildProfileModal(false)
+                  setSelectedChild(null)
+                  setNewJoinCode(null)
+                }}
+                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Profile Header */}
+            <div className="flex items-center gap-4 p-6 bg-gradient-to-br from-[var(--primary)]/10 to-[var(--secondary)]/10 rounded-[var(--radius-lg)] mb-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-4xl">
+                {selectedChild.nickname.charAt(0)}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-2xl font-bold text-[var(--text-primary)]">{selectedChild.nickname}</h4>
+                <p className="text-[var(--text-secondary)]">{selectedChild.ageGroup} years</p>
+                {selectedChild.gender && (
+                  <p className="text-sm text-[var(--text-secondary)] mt-1">
+                    Gender: {selectedChild.gender.charAt(0).toUpperCase() + selectedChild.gender.slice(1)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Settings Section */}
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div>
+                <h4 className="font-bold text-[var(--text-primary)] mb-4">📝 Basic Information</h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Nickname</label>
+                    <input
+                      type="text"
+                      value={selectedChild.nickname}
+                      onChange={(e) => setSelectedChild({ ...selectedChild, nickname: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Age Group</label>
+                    <select
+                      value={selectedChild.ageGroup}
+                      onChange={(e) => setSelectedChild({ ...selectedChild, ageGroup: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                    >
+                      <option value="5-8">5-8 years (Kid Mode 🌟)</option>
+                      <option value="9-11">9-11 years (Tween Mode 🎯)</option>
+                      <option value="12-15">12-15 years (Teen Mode 🌙)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Gender</label>
+                    <select
+                      value={selectedChild.gender || 'other'}
+                      onChange={(e) => setSelectedChild({ ...selectedChild, gender: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other/Prefer not to say</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Birthday (Optional)</label>
+                    <input
+                      type="date"
+                      value={selectedChild.birthday || ''}
+                      onChange={(e) => setSelectedChild({ ...selectedChild, birthday: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Device Access */}
+              <div className="border-t-2 border-[var(--card-border)] pt-6">
+                <h4 className="font-bold text-[var(--text-primary)] mb-4">📱 Device Access</h4>
+                <p className="text-sm text-[var(--text-secondary)] mb-4">
+                  Generate a new join code if your child needs to access ChoreBlimey from another device (tablet, phone, etc.)
+                </p>
+                
+                {newJoinCode ? (
+                  <div className="p-6 bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-300 rounded-[var(--radius-lg)]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-2xl">✅</span>
+                      <h5 className="font-bold text-green-800">New Code Generated!</h5>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg mb-3">
+                      <div className="font-mono text-4xl font-bold text-[var(--primary)] text-center tracking-wider">
+                        {newJoinCode}
+                      </div>
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] mb-4">
+                      Your child can use this code on their new device at <strong>http://localhost:1500/child-join</strong>
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(newJoinCode)
+                        setToast({ message: '📋 Code copied to clipboard!', type: 'info' })
+                      }}
+                      className="w-full cb-button-primary"
+                    >
+                      📋 Copy Code
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setGeneratingCode(true)
+                      try {
+                        const response = await apiClient.generateChildJoinCode({
+                          nickname: selectedChild.nickname,
+                          ageGroup: selectedChild.ageGroup,
+                          gender: selectedChild.gender || 'other'
+                        })
+                        setNewJoinCode(response.joinCode.code)
+                        setToast({ message: '✅ New join code generated!', type: 'success' })
+                      } catch (error) {
+                        console.error('Failed to generate join code:', error)
+                        setToast({ message: 'Failed to generate code. Please try again.', type: 'error' })
+                      } finally {
+                        setGeneratingCode(false)
+                      }
+                    }}
+                    disabled={generatingCode}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-[var(--secondary)] to-[var(--primary)] text-white rounded-[var(--radius-lg)] font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {generatingCode ? '⏳ Generating...' : '🔄 Generate New Join Code'}
+                  </button>
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="border-t-2 border-[var(--card-border)] pt-6">
+                <h4 className="font-bold text-[var(--text-primary)] mb-4">📊 Stats</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-gradient-to-br from-[var(--success)]/10 to-green-100 rounded-[var(--radius-lg)] border-2 border-[var(--success)]/30">
+                    <div className="text-3xl font-bold text-[var(--success)] mb-1">
+                      {Math.floor((wallets.find((w: any) => w.childId === selectedChild.id)?.balancePence || 0) / 10)}⭐
+                    </div>
+                    <div className="text-sm text-[var(--text-secondary)]">Total Stars</div>
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-[var(--primary)]/10 to-orange-100 rounded-[var(--radius-lg)] border-2 border-[var(--primary)]/30">
+                    <div className="text-3xl font-bold text-[var(--primary)] mb-1">
+                      £{((wallets.find((w: any) => w.childId === selectedChild.id)?.balancePence || 0) / 100).toFixed(2)}
+                    </div>
+                    <div className="text-sm text-[var(--text-secondary)]">Wallet Balance</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 mt-8 pt-6 border-t-2 border-[var(--card-border)]">
+              <button
+                onClick={() => {
+                  setShowChildProfileModal(false)
+                  setSelectedChild(null)
+                  setNewJoinCode(null)
+                }}
+                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    // Update child info
+                    await apiClient.updateChild(selectedChild.id, {
+                      nickname: selectedChild.nickname,
+                      ageGroup: selectedChild.ageGroup,
+                      gender: selectedChild.gender,
+                      birthday: selectedChild.birthday
+                    })
+                    setToast({ message: '✅ Profile updated successfully!', type: 'success' })
+                    setShowChildProfileModal(false)
+                    setSelectedChild(null)
+                    setNewJoinCode(null)
+                    await loadDashboard()
+                  } catch (error) {
+                    console.error('Failed to update child profile:', error)
+                    setToast({ message: 'Failed to update profile. Please try again.', type: 'error' })
+                  }
+                }}
+                className="flex-1 cb-button-primary"
+              >
+                💾 Save Changes
+              </button>
+            </div>
           </div>
         </div>
       )}

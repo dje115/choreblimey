@@ -9,6 +9,13 @@ interface CreateChildBody {
   ageGroup?: string
 }
 
+interface UpdateChildBody {
+  nickname?: string
+  ageGroup?: string
+  gender?: string
+  birthday?: string
+}
+
 export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
@@ -51,5 +58,46 @@ export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, rep
     }
   } catch (error) {
     reply.status(500).send({ error: 'Failed to create child' })
+  }
+}
+
+export const update = async (req: FastifyRequest<{ Params: { id: string }; Body: UpdateChildBody }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+    const { nickname, ageGroup, gender, birthday } = req.body
+
+    // Verify child belongs to family
+    const existingChild = await prisma.child.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!existingChild) {
+      return reply.status(404).send({ error: 'Child not found' })
+    }
+
+    // Update child
+    const child = await prisma.child.update({
+      where: { id },
+      data: {
+        nickname: nickname !== undefined ? nickname : undefined,
+        ageGroup: ageGroup !== undefined ? ageGroup : undefined,
+        gender: gender !== undefined ? gender : undefined,
+        birthday: birthday !== undefined ? birthday : undefined
+      }
+    })
+
+    return {
+      child: {
+        id: child.id,
+        nickname: child.nickname,
+        ageGroup: child.ageGroup,
+        gender: child.gender,
+        birthday: child.birthday
+      }
+    }
+  } catch (error) {
+    console.error('Failed to update child:', error)
+    reply.status(500).send({ error: 'Failed to update child' })
   }
 }

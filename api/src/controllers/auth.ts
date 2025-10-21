@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import jwt from 'jsonwebtoken'
-import { generateToken } from '../utils/crypto.js'
+import { generateToken, generateJoinCode } from '../utils/crypto.js'
 import { sendMagicLink } from '../utils/email.js'
 
 interface SignupParentBody {
@@ -295,5 +295,44 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
     }
   } catch (error) {
     reply.status(500).send({ error: 'Failed to join family' })
+  }
+}
+
+interface GenerateJoinCodeBody {
+  nickname: string
+  ageGroup: string
+  gender?: string
+}
+
+export const generateChildJoinCode = async (req: FastifyRequest<{ Body: GenerateJoinCodeBody }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { nickname, ageGroup, gender } = req.body
+
+    if (!nickname) {
+      return reply.status(400).send({ error: 'Nickname is required' })
+    }
+
+    // Generate join code
+    const code = generateJoinCode()
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+    const joinCode = await prisma.childJoinCode.create({
+      data: {
+        familyId,
+        code,
+        expiresAt
+      }
+    })
+
+    return {
+      joinCode: {
+        code: joinCode.code,
+        expiresAt: joinCode.expiresAt
+      }
+    }
+  } catch (error) {
+    console.error('Failed to generate join code:', error)
+    reply.status(500).send({ error: 'Failed to generate join code' })
   }
 }
