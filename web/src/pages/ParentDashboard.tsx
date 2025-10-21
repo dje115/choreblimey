@@ -327,19 +327,45 @@ const ParentDashboard: React.FC = () => {
     return true
   })
 
-  // For pending/completed tabs, group completions by child
-  const completionsByChild = children.map(child => {
-    let childCompletions: any[] = []
+  // For pending tab, show chores assigned but not yet completed
+  const pendingChoresByChild = children.map(child => {
+    if (activeTab !== 'pending') return { child, chores: [] }
     
-    if (activeTab === 'pending') {
-      // Show pending completions for this child
-      childCompletions = pendingCompletions.filter((c: any) => c.childId === child.id)
-    } else if (activeTab === 'completed') {
-      // Show approved/rejected completions for this child (last 10)
-      childCompletions = recentCompletions
-        .filter((c: any) => c.childId === child.id && c.status !== 'pending')
-        .slice(0, 10)
+    const childAssignments = assignments.filter((a: any) => a.childId === child.id)
+    
+    // Get chores that have assignments but no recent completions
+    const pendingChores = childAssignments
+      .map((assignment: any) => assignment.chore)
+      .filter((chore: any) => {
+        if (!chore || !chore.active) return false
+        
+        // Check if this chore has been completed today
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        
+        const completedToday = recentCompletions.some((c: any) => 
+          c.childId === child.id && 
+          c.assignment?.choreId === chore.id &&
+          new Date(c.timestamp) >= today
+        )
+        
+        return !completedToday
+      })
+    
+    return {
+      child,
+      chores: pendingChores
     }
+  })
+
+  // For completed tab, show all submissions (pending approval, approved, rejected)
+  const completionsByChild = children.map(child => {
+    if (activeTab !== 'completed') return { child, completions: [] }
+    
+    // Show all recent completions for this child
+    const childCompletions = recentCompletions
+      .filter((c: any) => c.childId === child.id)
+      .slice(0, 10)
     
     return {
       child,
@@ -348,7 +374,8 @@ const ParentDashboard: React.FC = () => {
   })
 
   const showChoresList = activeTab === 'all' || activeTab === 'recurring'
-  const showCompletionsList = activeTab === 'pending' || activeTab === 'completed'
+  const showPendingChores = activeTab === 'pending'
+  const showCompletionsList = activeTab === 'completed'
 
   if (loading) {
     return (
@@ -606,7 +633,78 @@ const ParentDashboard: React.FC = () => {
                 </>
               )}
 
-              {/* Show completions grouped by child for Pending/Completed tabs */}
+              {/* Show pending chores (not yet done) grouped by child */}
+              {showPendingChores && (
+                <div className="space-y-6">
+                  {pendingChoresByChild.map(({ child, chores: pendingChores }) => {
+                    if (pendingChores.length === 0) return null
+                    
+                    return (
+                      <div key={child.id} className="space-y-3">
+                        <div className="flex items-center gap-3 pb-2 border-b-2 border-orange-500">
+                          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center text-xl font-bold text-white">
+                            {child.nickname.charAt(0)}
+                          </div>
+                          <h3 className="cb-heading-md text-orange-600">{child.nickname}'s To Do</h3>
+                          <span className="ml-auto text-sm font-semibold text-[var(--text-secondary)]">
+                            {pendingChores.length} pending
+                          </span>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {pendingChores.map((chore: any) => {
+                            return (
+                              <div
+                                key={chore.id}
+                                className="bg-white border-2 border-orange-200 rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all"
+                              >
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                                    ⏰
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
+                                      {chore.title}
+                                    </h4>
+                                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                                      {chore.description || 'No description'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-orange-200">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                      💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                    </span>
+                                    <span className="cb-chip bg-orange-50 text-orange-700">
+                                      {chore.frequency}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-semibold text-orange-600">
+                                    Not done yet
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {pendingChoresByChild.every(({ chores }) => chores.length === 0) && (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">🎉</div>
+                      <p className="cb-body text-[var(--text-secondary)]">
+                        All chores are done for today!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Show completions grouped by child for Completed tab */}
               {showCompletionsList && (
                 <div className="space-y-6">
                   {completionsByChild.map(({ child, completions: childCompletions }) => {
@@ -618,7 +716,7 @@ const ParentDashboard: React.FC = () => {
                           <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl font-bold text-white">
                             {child.nickname.charAt(0)}
                           </div>
-                          <h3 className="cb-heading-md text-[var(--primary)]">{child.nickname}'s {activeTab === 'pending' ? 'Pending' : 'Completed'}</h3>
+                          <h3 className="cb-heading-md text-[var(--primary)]">{child.nickname}'s Completed</h3>
                           <span className="ml-auto text-sm font-semibold text-[var(--text-secondary)]">
                             {childCompletions.length} item{childCompletions.length !== 1 ? 's' : ''}
                           </span>
@@ -686,9 +784,9 @@ const ParentDashboard: React.FC = () => {
 
                   {completionsByChild.every(({ completions }) => completions.length === 0) && (
                     <div className="text-center py-12">
-                      <div className="text-6xl mb-4">{activeTab === 'pending' ? '⏳' : '✅'}</div>
+                      <div className="text-6xl mb-4">✅</div>
                       <p className="cb-body text-[var(--text-secondary)]">
-                        No {activeTab} items yet!
+                        No completed chores yet!
                       </p>
                     </div>
                   )}
