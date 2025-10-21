@@ -171,26 +171,44 @@ const ChildDashboard: React.FC = () => {
         const bidsMap = new Map()
         const streaksMap = new Map()
         
-        for (const assignment of challengeAssignments) {
-          try {
-            // Load bids
-            const { bids } = await apiClient.listBids(assignment.id)
-            if (bids && bids.length > 0) {
-              bidsMap.set(assignment.id, bids)
-              championsMap.set(assignment.id, bids[0])
-            }
-            
-            // Check if current child has an active streak on this chore
-            // We can use the overall streak stats to determine this
-            if (streaksRes.status === 'fulfilled' && streaksRes.value?.stats?.individualStreaks) {
-              const choreStreak = streaksRes.value.stats.individualStreaks.find((s: any) => s.chore?.id === assignment.chore?.id)
-              if (choreStreak && choreStreak.current > 0) {
-                streaksMap.set(assignment.id, choreStreak)
+        // Load all bids in parallel with a delay between each to avoid rate limiting
+        const bidPromises = challengeAssignments.map((assignment, index) => 
+          new Promise(resolve => {
+            // Stagger requests by 100ms each to avoid rate limiting
+            setTimeout(async () => {
+              try {
+                const { bids } = await apiClient.listBids(assignment.id)
+                if (bids && bids.length > 0) {
+                  resolve({ assignmentId: assignment.id, bids, champion: bids[0] })
+                } else {
+                  resolve({ assignmentId: assignment.id, bids: [], champion: null })
+                }
+              } catch (error) {
+                console.error('Failed to load bids for assignment:', assignment.id, error)
+                resolve({ assignmentId: assignment.id, bids: [], champion: null })
               }
-            }
-          } catch (error) {
-            console.error('Failed to load data for assignment:', assignment.id, error)
+            }, index * 100) // 100ms delay between each request
+          })
+        )
+        
+        const bidResults = await Promise.all(bidPromises)
+        
+        // Process results
+        bidResults.forEach((result: any) => {
+          if (result.bids.length > 0) {
+            bidsMap.set(result.assignmentId, result.bids)
+            championsMap.set(result.assignmentId, result.champion)
           }
+        })
+        
+        // Check streak data
+        if (streaksRes.status === 'fulfilled' && streaksRes.value?.stats?.individualStreaks) {
+          challengeAssignments.forEach(assignment => {
+            const choreStreak = streaksRes.value.stats.individualStreaks.find((s: any) => s.chore?.id === assignment.chore?.id)
+            if (choreStreak && choreStreak.current > 0) {
+              streaksMap.set(assignment.id, choreStreak)
+            }
+          })
         }
         
         setChoreChampions(championsMap)
