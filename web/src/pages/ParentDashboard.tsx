@@ -5,6 +5,21 @@ import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTem
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 
+// Helper function to format relative time
+function getTimeAgo(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`
+  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`
+  return date.toLocaleDateString()
+}
+
 const ParentDashboard: React.FC = () => {
   const { user, logout } = useAuth()
   const [family, setFamily] = useState<any>(null)
@@ -13,6 +28,7 @@ const ParentDashboard: React.FC = () => {
   const [chores, setChores] = useState<any[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
   const [pendingCompletions, setPendingCompletions] = useState<any[]>([])
+  const [recentCompletions, setRecentCompletions] = useState<any[]>([]) // All recent completions for activity feed
   const [pendingRedemptions, setPendingRedemptions] = useState<any[]>([])
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [budget, setBudget] = useState<any>(null)
@@ -29,6 +45,8 @@ const ParentDashboard: React.FC = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showCreateChoreModal, setShowCreateChoreModal] = useState(false)
   const [showChoreLibraryModal, setShowChoreLibraryModal] = useState(false)
+  const [showEditChoreModal, setShowEditChoreModal] = useState(false)
+  const [selectedChore, setSelectedChore] = useState<any>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   
   // Forms
@@ -88,12 +106,13 @@ const ParentDashboard: React.FC = () => {
 
   const loadDashboard = async () => {
     try {
-      const [familyRes, membersRes, choresRes, assignmentsRes, completionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
+      const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes] = await Promise.allSettled([
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listChores(),
         apiClient.listAssignments(),
-        apiClient.listCompletions('pending'),
+        apiClient.listCompletions('pending'), // For approval section
+        apiClient.listCompletions(), // All recent for activity feed
         apiClient.getRedemptions('pending'),
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
@@ -107,7 +126,8 @@ const ParentDashboard: React.FC = () => {
       }
       if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
-      if (completionsRes.status === 'fulfilled') setPendingCompletions(completionsRes.value.completions || [])
+      if (pendingCompletionsRes.status === 'fulfilled') setPendingCompletions(pendingCompletionsRes.value.completions || [])
+      if (allCompletionsRes.status === 'fulfilled') setRecentCompletions(allCompletionsRes.value.completions || [])
       if (redemptionsRes.status === 'fulfilled') setPendingRedemptions(redemptionsRes.value.redemptions || [])
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
@@ -693,29 +713,49 @@ const ParentDashboard: React.FC = () => {
             <div className="cb-card p-6">
               <h2 className="cb-heading-lg text-[var(--primary)] mb-4">📊 Family Activity</h2>
               <div className="space-y-3">
-                {[
-                  { child: 'Ellie', action: 'completed "Make bed"', reward: '+50p', time: '5 mins ago', icon: '✅' },
-                  { child: 'Ben', action: 'started "Wash dishes"', reward: '', time: '12 mins ago', icon: '🚀' },
-                  { child: 'Ellie', action: 'earned a 3-day streak!', reward: '+5⭐', time: '1 hour ago', icon: '🔥' },
-                ].map((activity, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
-                      {activity.icon}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm">
-                        <span className="font-bold text-[var(--text-primary)]">{activity.child}</span>{' '}
-                        <span className="text-[var(--text-secondary)]">{activity.action}</span>
-                        {activity.reward && (
-                          <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                            {activity.reward}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-[var(--text-secondary)] mt-1">{activity.time}</p>
-                    </div>
+                {/* Show all recent completions */}
+                {[...recentCompletions]
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .slice(0, 10)
+                  .map((completion: any) => {
+                    const timeAgo = getTimeAgo(new Date(completion.timestamp))
+                    const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
+                    const action = completion.status === 'approved' 
+                      ? `completed "${completion.assignment?.chore?.title || 'a chore'}"` 
+                      : completion.status === 'rejected'
+                      ? `was rejected for "${completion.assignment?.chore?.title || 'a chore'}"`
+                      : `submitted "${completion.assignment?.chore?.title || 'a chore'}"`
+                    const reward = completion.status === 'approved' 
+                      ? `+£${((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}`
+                      : ''
+
+                    return (
+                      <div key={completion.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                        <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                          {icon}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <span className="font-bold text-[var(--text-primary)]">{completion.child?.nickname || 'Someone'}</span>{' '}
+                            <span className="text-[var(--text-secondary)]">{action}</span>
+                            {reward && (
+                              <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                {reward}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                {recentCompletions.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="text-5xl mb-3">📊</div>
+                    <p className="text-[var(--text-secondary)] font-medium">No recent activity</p>
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">Chore completions will appear here</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -778,21 +818,27 @@ const ParentDashboard: React.FC = () => {
 
               {/* Children List */}
               <div className="space-y-3">
-                {children.map((child) => (
-                  <div key={child.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)] hover:shadow-md transition-all">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl">
-                      {child.nickname.charAt(0)}
+                {children.map((child) => {
+                  // Find this child's stars from the leaderboard
+                  const leaderboardEntry = leaderboard.find((entry: any) => entry.childId === child.id)
+                  const stars = leaderboardEntry?.totalStars || 0
+
+                  return (
+                    <div key={child.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)] hover:shadow-md transition-all">
+                      <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl">
+                        {child.nickname.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
+                        <p className="text-xs text-[var(--text-secondary)]">{child.ageGroup} years</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-[var(--primary)]">{stars}⭐</p>
+                        <p className="text-xs text-[var(--text-secondary)]">this week</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
-                      <p className="text-xs text-[var(--text-secondary)]">{child.ageGroup} years</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-[var(--primary)]">0⭐</p>
-                      <p className="text-xs text-[var(--text-secondary)]">this week</p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {children.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-6xl mb-2">👨‍👩‍👧</p>
