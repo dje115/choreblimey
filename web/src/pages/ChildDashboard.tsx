@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
+import { childThemes, getTheme, applyTheme, type ChildTheme } from '../themes/childThemes'
 
 interface Wallet {
   balancePence: number
@@ -83,6 +84,11 @@ const ChildDashboard: React.FC = () => {
   const [choreBids, setChoreBids] = useState<Map<string, any[]>>(new Map())
   const [choreStreaks, setChoreStreaks] = useState<Map<string, any>>(new Map())
 
+  // Theme management
+  const [currentTheme, setCurrentTheme] = useState<ChildTheme>(getTheme('superhero'))
+  const [showThemePicker, setShowThemePicker] = useState(false)
+  const [childProfile, setChildProfile] = useState<any>(null)
+
   // Detect age mode from user profile
   const getAgeMode = (): 'kid' | 'tween' | 'teen' => {
     const age = user?.ageGroup
@@ -97,6 +103,47 @@ const ChildDashboard: React.FC = () => {
   useEffect(() => {
     loadDashboard()
   }, [])
+
+  // Load and apply theme from child profile
+  useEffect(() => {
+    const loadChildTheme = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:1501'}/v1/family/members`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const { children } = await response.json()
+          const currentChild = children?.find((c: any) => c.id === (user?.childId || user?.id))
+          
+          if (currentChild) {
+            setChildProfile(currentChild)
+            const theme = getTheme(currentChild.theme || 'superhero')
+            setCurrentTheme(theme)
+            applyTheme(theme)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load child theme:', error)
+        // Fallback to default theme
+        const theme = getTheme('superhero')
+        setCurrentTheme(theme)
+        applyTheme(theme)
+      }
+    }
+    
+    if (user) {
+      loadChildTheme()
+    }
+  }, [user])
+
+  // Apply theme when it changes
+  useEffect(() => {
+    applyTheme(currentTheme)
+  }, [currentTheme])
 
   const loadDashboard = async () => {
     try {
@@ -254,6 +301,26 @@ const ChildDashboard: React.FC = () => {
 
   const totalStars = Math.floor((wallet?.balancePence || 0) / 10) // 10p = 1 star
 
+  const handleThemeChange = async (themeId: string) => {
+    try {
+      const theme = getTheme(themeId)
+      setCurrentTheme(theme)
+      applyTheme(theme)
+      
+      // Save theme preference to backend
+      const childId = user?.childId || user?.id
+      if (childId) {
+        await apiClient.updateChild(childId, { theme: themeId })
+        setToast({ message: `🎨 Theme changed to ${theme.name}!`, type: 'success' })
+      }
+      
+      setShowThemePicker(false)
+    } catch (error) {
+      console.error('Failed to save theme:', error)
+      setToast({ message: 'Theme applied but not saved. Please try again later.', type: 'warning' })
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
@@ -283,12 +350,21 @@ const ChildDashboard: React.FC = () => {
               </h1>
               <p className="text-white/90 text-lg">Time to earn those stars!</p>
             </div>
-            <button
-              onClick={logout}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm backdrop-blur transition-all"
-            >
-              👋 Logout
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowThemePicker(true)}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm backdrop-blur transition-all"
+                title="Change Theme"
+              >
+                {currentTheme.emoji} Theme
+              </button>
+              <button
+                onClick={logout}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm backdrop-blur transition-all"
+              >
+                👋 Logout
+              </button>
+            </div>
           </div>
 
           {/* Star Bank Card */}
@@ -1183,6 +1259,99 @@ const ChildDashboard: React.FC = () => {
               >
                 {completingChore ? '⏳ Submitting...' : '✅ Submit'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Theme Picker Modal */}
+      {showThemePicker && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] text-white p-6 rounded-t-3xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-bold mb-1">🎨 Choose Your Theme!</h2>
+                  <p className="text-white/90">Pick your favorite style</p>
+                </div>
+                <button
+                  onClick={() => setShowThemePicker(false)}
+                  className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-2xl transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 grid gap-4 sm:grid-cols-2">
+              {Object.values(childThemes).map((theme) => {
+                const isActive = theme.id === currentTheme.id
+                
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => handleThemeChange(theme.id)}
+                    className={`text-left p-6 rounded-2xl border-4 transition-all transform hover:scale-105 ${
+                      isActive
+                        ? 'border-[var(--primary)] bg-gradient-to-br from-[var(--primary)]/10 to-[var(--secondary)]/10 shadow-lg'
+                        : 'border-gray-200 hover:border-[var(--primary)]/50 bg-white'
+                    }`}
+                    style={{
+                      background: isActive 
+                        ? `linear-gradient(135deg, ${theme.colors.primary}15, ${theme.colors.secondary}15)`
+                        : 'white'
+                    }}
+                  >
+                    <div className="flex items-start gap-4 mb-4">
+                      <div 
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shadow-lg"
+                        style={{
+                          background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.secondary})`
+                        }}
+                      >
+                        {theme.emoji}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-xl mb-1" style={{ color: theme.colors.primary }}>
+                          {theme.name}
+                          {isActive && ' ✓'}
+                        </h3>
+                        <p className="text-sm text-gray-600">{theme.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Theme Color Preview */}
+                    <div className="flex gap-2">
+                      <div 
+                        className="w-8 h-8 rounded-lg shadow-md"
+                        style={{ backgroundColor: theme.colors.primary }}
+                        title="Primary"
+                      ></div>
+                      <div 
+                        className="w-8 h-8 rounded-lg shadow-md"
+                        style={{ backgroundColor: theme.colors.secondary }}
+                        title="Secondary"
+                      ></div>
+                      <div 
+                        className="w-8 h-8 rounded-lg shadow-md"
+                        style={{ backgroundColor: theme.colors.accent }}
+                        title="Accent"
+                      ></div>
+                      <div 
+                        className="w-8 h-8 rounded-lg shadow-md"
+                        style={{ backgroundColor: theme.colors.success }}
+                        title="Success"
+                      ></div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="p-6 bg-gray-50 rounded-b-3xl">
+              <p className="text-center text-sm text-gray-600">
+                💡 Your theme will be saved and applied every time you log in!
+              </p>
             </div>
           </div>
         </div>

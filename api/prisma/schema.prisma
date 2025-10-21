@@ -88,6 +88,7 @@ model Child {
   avatarId       String?
   ageGroup       String?
   gender         Gender?
+  theme          String?  @default("superhero") // Theme selection: superhero, unicorn, ocean, sunset, neon-city, galaxy, high-contrast
   createdAt      DateTime @default(now())
 
   family       Family      @relation(fields: [familyId], references: [id])

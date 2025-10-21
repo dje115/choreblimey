@@ -135,7 +135,7 @@ class ApiClient {
     return this.post('/children', data)
   }
 
-  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthday?: string }) {
+  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthday?: string; theme?: string }) {
     return this.patch(`/children/${childId}`, data)
   }
 

@@ -14,6 +14,7 @@ interface UpdateChildBody {
   ageGroup?: string
   gender?: string
   birthday?: string
+  theme?: string
 }
 
 export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, reply: FastifyReply) => {
@@ -65,7 +66,7 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
   try {
     const { familyId } = req.claims!
     const { id } = req.params
-    const { nickname, ageGroup, gender, birthday } = req.body
+    const { nickname, ageGroup, gender, birthday, theme } = req.body
 
     // Verify child belongs to family
     const existingChild = await prisma.child.findFirst({
@@ -83,7 +84,8 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
         nickname: nickname !== undefined ? nickname : undefined,
         ageGroup: ageGroup !== undefined ? ageGroup : undefined,
         gender: gender !== undefined ? gender : undefined,
-        birthday: birthday !== undefined ? birthday : undefined
+        birthday: birthday !== undefined ? birthday : undefined,
+        theme: theme !== undefined ? theme : undefined
       }
     })
 
@@ -93,7 +95,8 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
         nickname: child.nickname,
         ageGroup: child.ageGroup,
         gender: child.gender,
-        birthday: child.birthday
+        birthday: child.birthday,
+        theme: child.theme
       }
     }
   } catch (error) {
