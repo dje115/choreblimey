@@ -33,6 +33,7 @@ const ParentDashboard: React.FC = () => {
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [budget, setBudget] = useState<any>(null)
   const [joinCodes, setJoinCodes] = useState<any[]>([])
+  const [wallets, setWallets] = useState<any[]>([]) // Child wallets for star totals
   const [loading, setLoading] = useState(true)
   
   // Toast & Confetti
@@ -122,7 +123,19 @@ const ParentDashboard: React.FC = () => {
       if (familyRes.status === 'fulfilled') setFamily(familyRes.value.family)
       if (membersRes.status === 'fulfilled') {
         setMembers(membersRes.value.members || [])
-        setChildren(membersRes.value.children || [])
+        const childrenList = membersRes.value.children || []
+        setChildren(childrenList)
+        
+        // Fetch wallets for all children
+        const walletPromises = childrenList.map((child: any) => 
+          apiClient.getWallet(child.id).catch(() => ({ wallet: { balancePence: 0 } }))
+        )
+        const walletResults = await Promise.all(walletPromises)
+        const walletsData = walletResults.map((result, index) => ({
+          childId: childrenList[index].id,
+          balancePence: result.wallet?.balancePence || 0
+        }))
+        setWallets(walletsData)
       }
       if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
@@ -1047,9 +1060,13 @@ const ParentDashboard: React.FC = () => {
               {/* Children List */}
               <div className="space-y-3">
                 {children.map((child) => {
-                  // Find this child's stars from the leaderboard
+                  // Get this child's wallet to show total stars
+                  const childWallet = wallets.find((w: any) => w.childId === child.id)
+                  const totalStars = Math.floor((childWallet?.balancePence || 0) / 10) // 10p = 1 star
+                  
+                  // Also get weekly stars for comparison
                   const leaderboardEntry = leaderboard.find((entry: any) => entry.childId === child.id)
-                  const stars = leaderboardEntry?.totalStars || 0
+                  const weeklyStars = leaderboardEntry?.totalStars || 0
 
                   return (
                     <div key={child.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)] hover:shadow-md transition-all">
@@ -1061,8 +1078,11 @@ const ParentDashboard: React.FC = () => {
                         <p className="text-xs text-[var(--text-secondary)]">{child.ageGroup} years</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-[var(--primary)]">{stars}⭐</p>
-                        <p className="text-xs text-[var(--text-secondary)]">this week</p>
+                        <p className="font-bold text-[var(--primary)]">{totalStars}⭐</p>
+                        <p className="text-xs text-[var(--text-secondary)]">total</p>
+                        {weeklyStars > 0 && (
+                          <p className="text-xs text-[var(--success)]">+{weeklyStars} this week</p>
+                        )}
                       </div>
                     </div>
                   )
