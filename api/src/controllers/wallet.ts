@@ -198,3 +198,60 @@ export const debit = async (req: FastifyRequest<{ Params: { childId: string }, B
     reply.status(500).send({ error: 'Failed to debit wallet' })
   }
 }
+
+export const getTransactions = async (req: FastifyRequest<{ Params: { childId: string }; Querystring: { limit?: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, role, childId: jwtChildId } = req.claims!
+    const { childId } = req.params
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50
+
+    // Get actual familyId (handle child users accessing their own wallet)
+    let actualFamilyId = familyId
+    
+    if (role === 'child_player' && jwtChildId === childId) {
+      const childRecord = await prisma.child.findUnique({
+        where: { id: childId }
+      })
+      if (childRecord) {
+        actualFamilyId = childRecord.familyId
+      } else {
+        return { transactions: [] }
+      }
+    }
+
+    // Verify child belongs to family
+    if (!(role === 'child_player' && jwtChildId === childId)) {
+      const child = await prisma.child.findFirst({
+        where: { id: childId, familyId: actualFamilyId }
+      })
+
+      if (!child) {
+        return reply.status(404).send({ error: 'Child not found' })
+      }
+    }
+
+    // Get wallet
+    const wallet = await prisma.wallet.findFirst({
+      where: { childId, familyId: actualFamilyId }
+    })
+
+    if (!wallet) {
+      return { transactions: [] }
+    }
+
+    // Get all transactions
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        walletId: wallet.id,
+        familyId: actualFamilyId
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit
+    })
+
+    return { transactions }
+  } catch (error) {
+    console.error('Error getting transactions:', error)
+    reply.status(500).send({ error: 'Failed to get transactions' })
+  }
+}

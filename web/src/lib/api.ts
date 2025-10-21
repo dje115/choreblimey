@@ -210,6 +210,11 @@ class ApiClient {
     return this.post(`/wallet/${childId}/credit`, data)
   }
 
+  async getTransactions(childId: string, limit?: number) {
+    const url = limit ? `/wallet/${childId}/transactions?limit=${limit}` : `/wallet/${childId}/transactions`
+    return this.get(url)
+  }
+
   // Leaderboard and rivalry
   async getLeaderboard() {
     return this.get('/leaderboard')

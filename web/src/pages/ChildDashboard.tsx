@@ -50,7 +50,7 @@ interface LeaderboardEntry {
   totalStars: number
 }
 
-type Tab = 'today' | 'streaks' | 'shop' | 'showdown'
+type Tab = 'today' | 'streaks' | 'shop' | 'showdown' | 'bank'
 
 const ChildDashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -62,6 +62,7 @@ const ChildDashboard: React.FC = () => {
   const [rewards, setRewards] = useState<Reward[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [streakStats, setStreakStats] = useState<any>(null)
+  const [transactions, setTransactions] = useState<any[]>([])
   const [error, setError] = useState<string>('')
   const [successMessage, setSuccessMessage] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('today')
@@ -150,13 +151,14 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes] = await Promise.allSettled([
+      const [walletRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.listAssignments(childId),
         apiClient.listCompletions(), // Get all completions to filter out submitted chores
         apiClient.getRewards(childId),
         apiClient.getLeaderboard(),
-        apiClient.getStreakStats(childId)
+        apiClient.getStreakStats(childId),
+        apiClient.getTransactions(childId, 50)
       ])
 
       if (walletRes.status === 'fulfilled') {
@@ -228,6 +230,9 @@ const ChildDashboard: React.FC = () => {
       }
       if (streaksRes.status === 'fulfilled') {
         setStreakStats(streaksRes.value.stats)
+      }
+      if (transactionsRes.status === 'fulfilled') {
+        setTransactions(transactionsRes.value.transactions || [])
       }
     } catch (err: any) {
       console.error('Error loading dashboard:', err)
@@ -400,7 +405,8 @@ const ChildDashboard: React.FC = () => {
               { id: 'today' as Tab, label: 'Today', icon: '📅' },
               { id: 'streaks' as Tab, label: 'Streaks', icon: '🔥' },
               { id: 'shop' as Tab, label: 'Shop', icon: '🛍️' },
-              { id: 'showdown' as Tab, label: 'Showdown', icon: '⚔️' }
+              { id: 'showdown' as Tab, label: 'Showdown', icon: '⚔️' },
+              { id: 'bank' as Tab, label: 'Bank', icon: '🏦' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1165,6 +1171,162 @@ const ChildDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Bank Tab */}
+        {activeTab === 'bank' && (
+          <div className="space-y-6">
+            <div className="cb-card bg-gradient-to-br from-green-500 via-teal-500 to-blue-500 text-white p-6">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="text-6xl">🏦</div>
+                <div>
+                  <h2 className="text-3xl font-bold mb-1">Star Bank</h2>
+                  <p className="text-white/90 text-lg">Your Money History</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
+                  <p className="text-white/80 text-sm font-semibold mb-1">Current Balance</p>
+                  <p className="text-4xl font-bold">{totalStars}⭐</p>
+                  <p className="text-white/80 text-sm">£{((wallet?.balancePence || 0) / 100).toFixed(2)}</p>
+                </div>
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
+                  <p className="text-white/80 text-sm font-semibold mb-1">Transactions</p>
+                  <p className="text-4xl font-bold">{transactions.length}</p>
+                  <p className="text-white/80 text-sm">All time</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="cb-card p-6">
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">📊 Transaction History</h3>
+              
+              {transactions.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="text-8xl mb-4">💰</div>
+                  <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">No transactions yet!</h3>
+                  <p className="text-[var(--text-secondary)]">Complete chores to earn your first stars!</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {transactions.map((transaction: any) => {
+                    const isCredit = transaction.type === 'credit'
+                    const metaJson = typeof transaction.metaJson === 'string' 
+                      ? JSON.parse(transaction.metaJson) 
+                      : transaction.metaJson || {}
+                    
+                    // Determine transaction type & icon
+                    let icon = '💰'
+                    let label = isCredit ? 'Earned' : 'Spent'
+                    let description = ''
+                    
+                    if (isCredit) {
+                      if (metaJson.completionId) {
+                        icon = '✅'
+                        label = 'Chore Completed'
+                        if (metaJson.rivalryBonus || metaJson.doubledStars) {
+                          description = '🏆 Challenge Winner - Double Stars!'
+                        } else {
+                          description = 'Good job!'
+                        }
+                      } else if (metaJson.type === 'streak_bonus') {
+                        icon = '🔥'
+                        label = 'Streak Bonus'
+                        description = `${metaJson.streakLength || 0} day streak!`
+                      } else if (metaJson.type === 'rivalry_bonus') {
+                        icon = '⚔️'
+                        label = 'Rivalry Bonus'
+                        description = 'Challenge champion!'
+                      } else {
+                        icon = '💵'
+                        label = 'Money Added'
+                        description = metaJson.note || 'From parent'
+                      }
+                    } else {
+                      if (metaJson.redemptionId) {
+                        icon = '🎁'
+                        label = 'Reward Claimed'
+                        description = metaJson.rewardTitle || 'Prize redeemed'
+                      } else if (metaJson.payoutId) {
+                        icon = '💸'
+                        label = 'Paid Out'
+                        description = `Method: ${metaJson.method || 'cash'}`
+                      } else {
+                        icon = '💸'
+                        label = 'Money Removed'
+                        description = metaJson.note || ''
+                      }
+                    }
+                    
+                    const date = new Date(transaction.createdAt)
+                    const dateStr = date.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    })
+                    const timeStr = date.toLocaleTimeString('en-US', { 
+                      hour: 'numeric', 
+                      minute: '2-digit',
+                      hour12: true
+                    })
+                    
+                    const stars = Math.floor(transaction.amountPence / 10)
+                    
+                    return (
+                      <div
+                        key={transaction.id}
+                        className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all hover:shadow-lg ${
+                          isCredit
+                            ? 'bg-gradient-to-r from-green-50 to-teal-50 border-green-200'
+                            : 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-200'
+                        }`}
+                      >
+                        <div 
+                          className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0 shadow-lg ${
+                            isCredit
+                              ? 'bg-gradient-to-br from-green-400 to-teal-500'
+                              : 'bg-gradient-to-br from-orange-400 to-red-500'
+                          }`}
+                        >
+                          {icon}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4 className="font-bold text-[var(--text-primary)] text-lg">{label}</h4>
+                            <div className="text-right">
+                              <p className={`font-bold text-2xl ${
+                                isCredit ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {isCredit ? '+' : '-'}{stars}⭐
+                              </p>
+                              <p className="text-sm text-[var(--text-secondary)]">
+                                £{(transaction.amountPence / 100).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {description && (
+                            <p className="text-sm text-[var(--text-secondary)] mb-2">{description}</p>
+                          )}
+                          
+                          <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+                            <span className="flex items-center gap-1">
+                              📅 {dateStr}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              ⏰ {timeStr}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {successMessage && (
           <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-green-500 text-white p-4 rounded-2xl shadow-2xl animate-bounce">
             {successMessage}
@@ -1183,7 +1345,8 @@ const ChildDashboard: React.FC = () => {
         <div className="flex justify-around py-2">
           {[
             { id: 'today' as Tab, icon: '📅', label: 'Today' },
-            { id: 'streaks' as Tab, icon: '🔥', label: 'Streaks' },
+            { id: 'bank' as Tab, icon: '🏦', label: 'Bank' },
+            { id: 'streaks' as Tab, icon: '🔥', label: 'Streak' },
             { id: 'shop' as Tab, icon: '🛍️', label: 'Shop' },
             { id: 'showdown' as Tab, icon: '⚔️', label: 'Fight' }
           ].map((tab) => (

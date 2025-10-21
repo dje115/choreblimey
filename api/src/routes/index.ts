@@ -49,6 +49,7 @@ export async function routes(app: FastifyInstance) {
   app.get('/wallet/:childId', ctrl.wallet.get)
   app.post('/wallet/:childId/credit', ctrl.wallet.credit)
   app.post('/wallet/:childId/debit', ctrl.wallet.debit)
+  app.get('/wallet/:childId/transactions', ctrl.wallet.getTransactions)
 
   // Payouts
   app.post('/payouts', ctrl.payouts.create)
