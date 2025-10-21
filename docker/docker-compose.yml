@@ -6,7 +6,6 @@ networks:
 
 volumes:
   pgdata: {}
-  minio-data: {}
   web_node_modules: {}
   api_node_modules: {}
 
@@ -34,20 +33,6 @@ services:
     networks:
       - choreblimey_net
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio12345
-    ports:
-      - "1504:9000"
-      - "1505:9001"
-    networks:
-      - choreblimey_net
-    volumes:
-      - minio-data:/data
-
   mailhog:
     image: mailhog/mailhog:v1.0.1
     ports:
@@ -71,7 +56,6 @@ services:
       - api_node_modules:/app/api/node_modules
     depends_on:
       - postgres
-      - minio
       - redis
     networks:
       - choreblimey_net
@@ -103,7 +87,6 @@ services:
     depends_on:
       - postgres
       - redis
-      - minio
     networks:
       - choreblimey_net
 
