@@ -322,11 +322,30 @@ const ParentDashboard: React.FC = () => {
   }
 
   const filteredChores = chores.filter(chore => {
-    if (activeTab === 'all') return true
-    if (activeTab === 'recurring') return chore.frequency !== 'once'
-    if (activeTab === 'pending') return !chore.active
-    if (activeTab === 'completed') return chore.frequency === 'once' && !chore.active
+    if (activeTab === 'all') return chore.active !== false // Show all active chores
+    if (activeTab === 'recurring') return chore.frequency !== 'once' && chore.active !== false
+    if (activeTab === 'pending') return false // No longer using this tab
+    if (activeTab === 'completed') return false // No longer using this tab
     return true
+  })
+
+  // Group chores by child for better organization
+  const choresByChild = children.map(child => {
+    const childChores = filteredChores.filter(chore => {
+      // Find assignments for this chore that belong to this child
+      const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id && a.childId === child.id)
+      return choreAssigns.length > 0
+    })
+    return {
+      child,
+      chores: childChores
+    }
+  })
+
+  // Also get unassigned chores
+  const unassignedChores = filteredChores.filter(chore => {
+    const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
+    return choreAssigns.length === 0 || choreAssigns.every((a: any) => !a.childId)
   })
 
   if (loading) {
@@ -492,7 +511,7 @@ const ParentDashboard: React.FC = () => {
                 ))}
               </div>
 
-              {/* Chore Cards Grid */}
+              {/* Chore Cards Grouped by Child */}
               {filteredChores.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🎯</div>
@@ -501,72 +520,156 @@ const ParentDashboard: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {filteredChores.map((chore) => {
-                    // Find assignments for this chore
-                    const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
-                    const assignedChildren = choreAssigns.map((a: any) => a.child).filter(Boolean)
-                    const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
-
+                <div className="space-y-6">
+                  {/* Chores grouped by child */}
+                  {choresByChild.map(({ child, chores: childChores }) => {
+                    if (childChores.length === 0) return null
+                    
                     return (
-                      <div
-                        key={chore.id}
-                        className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all"
-                      >
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl flex-shrink-0">
-                            🧽
+                      <div key={child.id} className="space-y-3">
+                        <div className="flex items-center gap-3 pb-2 border-b-2 border-[var(--primary)]">
+                          <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl font-bold text-white">
+                            {child.nickname.charAt(0)}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
-                              {chore.title}
-                            </h4>
-                            <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                              {chore.description || 'No description'}
-                            </p>
-                          </div>
+                          <h3 className="cb-heading-md text-[var(--primary)]">{child.nickname}'s Chores</h3>
+                          <span className="ml-auto text-sm font-semibold text-[var(--text-secondary)]">
+                            {childChores.length} chore{childChores.length !== 1 ? 's' : ''}
+                          </span>
                         </div>
 
-                        {/* Assigned Children */}
-                        {assignedChildren.length > 0 && (
-                          <div className="mb-3 flex flex-wrap gap-2">
-                            {assignedChildren.map((child: any) => (
-                              <span
-                                key={child.id}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
-                              >
-                                👤 {child.nickname}
-                              </span>
-                            ))}
-                            {hasBidding && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
-                                ⚔️ Rivalry
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {childChores.map((chore) => {
+                            const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id && a.childId === child.id)
+                            const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
 
-                        <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                              💰 £{(chore.baseRewardPence / 100).toFixed(2)}
-                            </span>
-                            <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
-                              {chore.frequency}
-                            </span>
-                            {chore.proof !== 'none' && (
-                              <span className="cb-chip bg-orange-50 text-orange-700">
-                                📸 {chore.proof}
-                              </span>
-                            )}
-                          </div>
-                          <button className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors">
-                            ⚙️
-                          </button>
+                            return (
+                              <div
+                                key={chore.id}
+                                className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all cursor-pointer"
+                                onClick={() => {
+                                  setSelectedChore(chore)
+                                  setShowEditChoreModal(true)
+                                }}
+                              >
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                                    🧽
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
+                                      {chore.title}
+                                    </h4>
+                                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                                      {chore.description || 'No description'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                      💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                    </span>
+                                    <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
+                                      {chore.frequency}
+                                    </span>
+                                    {hasBidding && (
+                                      <span className="cb-chip bg-purple-50 text-purple-700">
+                                        ⚔️ Rivalry
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedChore(chore)
+                                      setShowEditChoreModal(true)
+                                    }}
+                                    className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
+                                  >
+                                    ⚙️
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )
                   })}
+
+                  {/* Unassigned chores */}
+                  {unassignedChores.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 pb-2 border-b-2 border-gray-400">
+                        <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-xl">
+                          📋
+                        </div>
+                        <h3 className="cb-heading-md text-gray-600">Unassigned Chores</h3>
+                        <span className="ml-auto text-sm font-semibold text-[var(--text-secondary)]">
+                          {unassignedChores.length} chore{unassignedChores.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {unassignedChores.map((chore) => {
+                          const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
+                          const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
+
+                          return (
+                            <div
+                              key={chore.id}
+                              className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4 hover:shadow-lg transition-all cursor-pointer"
+                              onClick={() => {
+                                setSelectedChore(chore)
+                                setShowEditChoreModal(true)
+                              }}
+                            >
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                                  🧽
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
+                                    {chore.title}
+                                  </h4>
+                                  <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                                    {chore.description || 'No description'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                  </span>
+                                  <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
+                                    {chore.frequency}
+                                  </span>
+                                  {hasBidding && (
+                                    <span className="cb-chip bg-purple-50 text-purple-700">
+                                      ⚔️ Rivalry
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedChore(chore)
+                                    setShowEditChoreModal(true)
+                                  }}
+                                  className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
+                                >
+                                  ⚙️
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
