@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { generateToken, generateJoinCode } from '../utils/crypto.js'
 import { sendMagicLink } from '../utils/email.js'
+import { cache, cacheKeys, cacheTTL } from '../utils/cache.js'
 
 interface FamilyCreateBody {
   nameCipher: string
@@ -180,6 +181,12 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
       return reply.status(404).send({ error: 'User not part of a family' })
     }
 
+    // Try to get from cache
+    const cached = await cache.get(cacheKeys.family(familyId))
+    if (cached) {
+      return cached
+    }
+
     const family = await prisma.family.findUnique({
       where: { id: familyId },
       include: {
@@ -219,7 +226,12 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
       return reply.status(404).send({ error: 'Family not found' })
     }
 
-    return { family }
+    const result = { family }
+
+    // Cache for 1 minute
+    await cache.set(cacheKeys.family(familyId), result, cacheTTL.family)
+
+    return result
   } catch (error) {
     console.error('Failed to get family:', error)
     reply.status(500).send({ error: 'Failed to get family information' })
@@ -325,6 +337,9 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
       }
     })
 
+    // Invalidate family cache
+    await cache.invalidateFamily(familyId)
+
     return { family: updatedFamily }
   } catch (error) {
     console.error('Failed to update family:', error)
@@ -338,6 +353,12 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
 
     if (!familyId) {
       return reply.status(404).send({ error: 'User not part of a family' })
+    }
+
+    // Try to get from cache
+    const cached = await cache.get(cacheKeys.familyMembers(familyId))
+    if (cached) {
+      return cached
     }
 
     const members = await prisma.familyMember.findMany({
@@ -361,12 +382,13 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
         nickname: true,
         ageGroup: true,
         gender: true,
+        theme: true,
         createdAt: true
       },
       orderBy: { createdAt: 'asc' }
     })
 
-    return { 
+    const result = { 
       members: members.map(member => ({
         id: member.id,
         role: member.role,
@@ -375,6 +397,11 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
       })),
       children
     }
+
+    // Cache for 2 minutes
+    await cache.set(cacheKeys.familyMembers(familyId), result, cacheTTL.children)
+
+    return result
   } catch (error) {
     console.error('Failed to get family members:', error)
     reply.status(500).send({ error: 'Failed to get family members' })

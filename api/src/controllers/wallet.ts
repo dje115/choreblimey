@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
+import { cache } from '../utils/cache.js'
 
 interface WalletCreditBody {
   amountPence: number
@@ -133,6 +134,9 @@ export const credit = async (req: FastifyRequest<{ Params: { childId: string }, 
       }
     })
 
+    // Invalidate wallet caches
+    await cache.invalidateWallet(childId)
+
     return { wallet }
   } catch (error) {
     reply.status(500).send({ error: 'Failed to credit wallet' })
@@ -192,6 +196,9 @@ export const debit = async (req: FastifyRequest<{ Params: { childId: string }, B
         metaJson: { note }
       }
     })
+
+    // Invalidate wallet caches
+    await cache.invalidateWallet(childId)
 
     return { wallet: updatedWallet }
   } catch (error) {

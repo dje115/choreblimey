@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { updateStreak, getChildStreakStats, calculateStreakBonusStars } from '../utils/streaks.js'
+import { cache } from '../utils/cache.js'
 
 interface CompletionCreateBody {
   assignmentId: string
@@ -238,6 +239,10 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
         }
       })
     }
+
+    // Invalidate caches (wallet, leaderboard)
+    await cache.invalidateWallet(completion.childId)
+    await cache.invalidateLeaderboard(familyId)
 
     return { 
       ok: true, 

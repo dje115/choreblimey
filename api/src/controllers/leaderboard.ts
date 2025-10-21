@@ -1,9 +1,16 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
+import { cache, cacheKeys, cacheTTL } from '../utils/cache.js'
 
 export const weekly = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
+
+    // Try to get from cache
+    const cached = await cache.get(cacheKeys.leaderboard(familyId))
+    if (cached) {
+      return cached
+    }
 
     // Get completed chores this week with rewards
     const weekStart = new Date()
@@ -57,7 +64,12 @@ export const weekly = async (req: FastifyRequest, reply: FastifyReply) => {
         rank: index + 1
       }))
 
-    return { leaderboard, weekStart }
+    const result = { leaderboard, weekStart }
+
+    // Cache the result for 5 minutes
+    await cache.set(cacheKeys.leaderboard(familyId), result, cacheTTL.leaderboard)
+
+    return result
   } catch (error) {
     reply.status(500).send({ error: 'Failed to get leaderboard' })
   }
