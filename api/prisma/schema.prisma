@@ -22,6 +22,7 @@ model Family {
   maxBudgetPence Int?           // Max pocket money budget
   budgetPeriod   BudgetPeriod?  @default(weekly) // weekly or monthly
   budgetStartDate DateTime?      // When the current budget period started
+  showLifetimeEarnings Boolean @default(true) // Toggle to show/hide lifetime earnings on child portal
 
   // Back-relations
   members       FamilyMember[]

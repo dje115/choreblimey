@@ -56,6 +56,8 @@ const ChildDashboard: React.FC = () => {
   const { user, logout } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [walletStats, setWalletStats] = useState<any>(null)
+  const [familySettings, setFamilySettings] = useState<any>(null)
   const [chores, setChores] = useState<Chore[]>([])
   const [assignments, setAssignments] = useState<any[]>([])
   const [completions, setCompletions] = useState<any[]>([])
@@ -151,8 +153,10 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
+        apiClient.getWalletStats(childId),
+        apiClient.getFamily(),
         apiClient.listAssignments(childId),
         apiClient.listCompletions(), // Get all completions to filter out submitted chores
         apiClient.getRewards(childId),
@@ -163,6 +167,12 @@ const ChildDashboard: React.FC = () => {
 
       if (walletRes.status === 'fulfilled') {
         setWallet(walletRes.value.wallet)
+      }
+      if (walletStatsRes.status === 'fulfilled') {
+        setWalletStats(walletStatsRes.value.stats)
+      }
+      if (familyRes.status === 'fulfilled') {
+        setFamilySettings(familyRes.value.family)
       }
       if (assignmentsRes.status === 'fulfilled') {
         const assignmentsList = assignmentsRes.value.assignments || []
@@ -378,19 +388,26 @@ const ChildDashboard: React.FC = () => {
               <div>
                 <p className="text-white/80 text-sm font-semibold uppercase tracking-wide">Your Star Bank</p>
                 <p className="text-6xl font-bold mt-2">{totalStars}⭐</p>
+                <p className="text-white/70 text-sm mt-1">£{((wallet?.balancePence || 0) / 100).toFixed(2)} owed</p>
               </div>
               <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-4xl animate-pulse">
                 💰
               </div>
             </div>
-            <div className="flex gap-4 text-sm">
-              <div className="flex-1 bg-white/10 rounded-xl p-3">
-                <p className="text-white/70">Balance</p>
+            <div className={`flex gap-4 text-sm ${familySettings?.showLifetimeEarnings !== false ? 'grid grid-cols-3' : 'grid grid-cols-2'}`}>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-white/70 text-xs">Owed</p>
                 <p className="font-bold text-lg">£{((wallet?.balancePence || 0) / 100).toFixed(2)}</p>
               </div>
-              <div className="flex-1 bg-white/10 rounded-xl p-3">
-                <p className="text-white/70">Streak</p>
-                <p className="font-bold text-lg">🔥 {streakStats?.currentStreak || 0} days</p>
+              {familySettings?.showLifetimeEarnings !== false && walletStats && (
+                <div className="bg-white/10 rounded-xl p-3">
+                  <p className="text-white/70 text-xs">Total Earned</p>
+                  <p className="font-bold text-lg">£{((walletStats.lifetimeEarningsPence || 0) / 100).toFixed(2)}</p>
+                </div>
+              )}
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-white/70 text-xs">Streak</p>
+                <p className="font-bold text-lg">🔥 {streakStats?.currentStreak || 0}</p>
               </div>
             </div>
           </div>

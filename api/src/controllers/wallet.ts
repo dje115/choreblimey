@@ -255,3 +255,64 @@ export const getTransactions = async (req: FastifyRequest<{ Params: { childId: s
     reply.status(500).send({ error: 'Failed to get transactions' })
   }
 }
+
+export const getStats = async (req: FastifyRequest<{ Params: { childId: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, role, childId: jwtChildId } = req.claims!
+    const { childId } = req.params
+
+    // Get actual familyId (handle child users accessing their own wallet)
+    let actualFamilyId = familyId
+    
+    if (role === 'child_player' && jwtChildId === childId) {
+      const childRecord = await prisma.child.findUnique({
+        where: { id: childId }
+      })
+      if (childRecord) {
+        actualFamilyId = childRecord.familyId
+      } else {
+        return { stats: { lifetimeEarningsPence: 0, lifetimePaidOutPence: 0 } }
+      }
+    }
+
+    // Get wallet
+    const wallet = await prisma.wallet.findFirst({
+      where: { childId, familyId: actualFamilyId }
+    })
+
+    if (!wallet) {
+      return { stats: { lifetimeEarningsPence: 0, lifetimePaidOutPence: 0 } }
+    }
+
+    // Calculate total credits (earnings)
+    const credits = await prisma.transaction.findMany({
+      where: {
+        walletId: wallet.id,
+        familyId: actualFamilyId,
+        type: 'credit'
+      }
+    })
+
+    const lifetimeEarningsPence = credits.reduce((sum, tx) => sum + tx.amountPence, 0)
+
+    // Get total payouts
+    const payouts = await prisma.payout.findMany({
+      where: {
+        childId,
+        familyId: actualFamilyId
+      }
+    })
+
+    const lifetimePaidOutPence = payouts.reduce((sum, p) => sum + p.amountPence, 0)
+
+    return {
+      stats: {
+        lifetimeEarningsPence,
+        lifetimePaidOutPence
+      }
+    }
+  } catch (error) {
+    console.error('Error getting wallet stats:', error)
+    reply.status(500).send({ error: 'Failed to get wallet stats' })
+  }
+}

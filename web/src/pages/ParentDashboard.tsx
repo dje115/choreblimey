@@ -83,7 +83,8 @@ const ParentDashboard: React.FC = () => {
   
   const [budgetSettings, setBudgetSettings] = useState({
     maxBudgetPence: 0,
-    budgetPeriod: 'weekly' as 'weekly' | 'monthly'
+    budgetPeriod: 'weekly' as 'weekly' | 'monthly',
+    showLifetimeEarnings: true
   })
   
   const [activeTab, setActiveTab] = useState<'all' | 'recurring' | 'pending' | 'completed'>('all')
@@ -114,8 +115,14 @@ const ParentDashboard: React.FC = () => {
       if (family.maxBudgetPence) {
         setBudgetSettings({
           maxBudgetPence: family.maxBudgetPence,
-          budgetPeriod: family.budgetPeriod || 'weekly'
+          budgetPeriod: family.budgetPeriod || 'weekly',
+          showLifetimeEarnings: family.showLifetimeEarnings !== false // Default to true
         })
+      } else if (family.showLifetimeEarnings !== undefined) {
+        setBudgetSettings(prev => ({
+          ...prev,
+          showLifetimeEarnings: family.showLifetimeEarnings
+        }))
       }
     }
   }, [family])
@@ -1535,6 +1542,24 @@ const ParentDashboard: React.FC = () => {
                         )}
                       </>
                     )}
+                    
+                    {/* Lifetime Earnings Toggle */}
+                    <div className="border-t-2 border-[var(--card-border)] pt-4 mt-4">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={budgetSettings.showLifetimeEarnings}
+                          onChange={(e) => setBudgetSettings(prev => ({ ...prev, showLifetimeEarnings: e.target.checked }))}
+                          className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
+                        />
+                        <div>
+                          <div className="font-bold text-[var(--text-primary)]">💰 Show Lifetime Earnings</div>
+                          <p className="text-sm text-[var(--text-secondary)] mt-1">
+                            Display total earned money (lifetime) on children's portal at the top next to their current balance.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1573,9 +1598,11 @@ const ParentDashboard: React.FC = () => {
                     // Save budget settings
                     await apiClient.updateFamily({
                       maxBudgetPence: budgetSettings.maxBudgetPence,
-                      budgetPeriod: budgetSettings.budgetPeriod
+                      budgetPeriod: budgetSettings.budgetPeriod,
+                      showLifetimeEarnings: budgetSettings.showLifetimeEarnings
                     })
                     // TODO: Save rivalry settings when backend is ready
+                    setToast({ message: '✅ Settings saved successfully!', type: 'success' })
                     await loadDashboard() // Reload to get updated budget
                   } catch (error) {
                     console.error('Failed to save settings:', error)

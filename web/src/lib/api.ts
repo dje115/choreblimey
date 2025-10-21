@@ -215,6 +215,10 @@ class ApiClient {
     return this.get(url)
   }
 
+  async getWalletStats(childId: string) {
+    return this.get(`/wallet/${childId}/stats`)
+  }
+
   // Leaderboard and rivalry
   async getLeaderboard() {
     return this.get('/leaderboard')
