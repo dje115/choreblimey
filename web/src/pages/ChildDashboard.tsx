@@ -336,6 +336,94 @@ const ChildDashboard: React.FC = () => {
                 })}
               </div>
             )}
+
+            {/* Recent Activity - Completed Missions */}
+            {completions.length > 0 && (
+              <div className="mt-8">
+                <h3 className="cb-heading-md text-[var(--text-secondary)] mb-4">📋 Recent Activity</h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {completions.slice(0, 6).map((completion) => {
+                    const assignment = assignments.find(a => a.id === completion.assignmentId)
+                    const chore = assignment?.chore
+                    
+                    if (!chore) return null
+
+                    const getStatusBadge = (status: string) => {
+                      switch (status) {
+                        case 'pending':
+                          return {
+                            bg: 'bg-yellow-100',
+                            text: 'text-yellow-700',
+                            border: 'border-yellow-300',
+                            icon: '⏳',
+                            label: 'Waiting for approval'
+                          }
+                        case 'approved':
+                          return {
+                            bg: 'bg-green-100',
+                            text: 'text-green-700',
+                            border: 'border-green-300',
+                            icon: '✅',
+                            label: 'Approved'
+                          }
+                        case 'rejected':
+                          return {
+                            bg: 'bg-red-100',
+                            text: 'text-red-700',
+                            border: 'border-red-300',
+                            icon: '❌',
+                            label: 'Not approved'
+                          }
+                        default:
+                          return {
+                            bg: 'bg-gray-100',
+                            text: 'text-gray-700',
+                            border: 'border-gray-300',
+                            icon: '📝',
+                            label: 'Submitted'
+                          }
+                      }
+                    }
+
+                    const badge = getStatusBadge(completion.status)
+                    const timeAgo = new Date(completion.timestamp).toLocaleString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })
+
+                    return (
+                      <div
+                        key={completion.id}
+                        className={`bg-white border-2 ${badge.border} rounded-2xl p-4 hover:shadow-lg transition-all`}
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)]/30 to-[var(--secondary)]/30 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                            🧹
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm text-[var(--text-primary)] truncate">
+                              {chore.title}
+                            </h4>
+                            <p className="text-xs text-[var(--text-secondary)]">{timeAgo}</p>
+                          </div>
+                        </div>
+
+                        <div className={`${badge.bg} ${badge.text} border ${badge.border} rounded-lg px-3 py-2 text-center text-xs font-semibold mb-2`}>
+                          {badge.icon} {badge.label}
+                        </div>
+
+                        <div className="text-center">
+                          <span className="text-sm font-bold text-[var(--success)]">
+                            💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
