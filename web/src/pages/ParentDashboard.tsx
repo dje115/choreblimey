@@ -294,7 +294,7 @@ const ParentDashboard: React.FC = () => {
       if (result.rivalryBonus) {
         setShowConfetti(true)
         setToast({ 
-          message: `🏆 RIVALRY WINNER! DOUBLE STARS! +£${(result.rivalryBonus.doubledReward / 100).toFixed(2)}`, 
+          message: `🏆 RIVALRY WINNER! Earned £${(result.rivalryBonus.doubledReward / 100).toFixed(2)} + DOUBLE STARS (2⭐)!`, 
           type: 'success' 
         })
         setTimeout(() => setShowConfetti(false), 3000)
@@ -1002,8 +1002,22 @@ const ParentDashboard: React.FC = () => {
                       : completion.status === 'rejected'
                       ? `was rejected for "${completion.assignment?.chore?.title || 'a chore'}"`
                       : `submitted "${completion.assignment?.chore?.title || 'a chore'}"`
-                    const reward = completion.status === 'approved' 
-                      ? `+£${((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}`
+                    
+                    // Calculate actual reward amount
+                    let rewardAmount = 0
+                    if (completion.status === 'approved') {
+                      if (completion.bidAmountPence && completion.assignment?.biddingEnabled) {
+                        // Challenge winner: they get the bid amount (with double stars bonus)
+                        rewardAmount = completion.bidAmountPence
+                      } else {
+                        // Normal chore: base reward
+                        rewardAmount = completion.assignment?.chore?.baseRewardPence || 0
+                      }
+                    }
+                    const reward = rewardAmount > 0 
+                      ? completion.bidAmountPence && completion.assignment?.biddingEnabled
+                        ? `+£${(rewardAmount / 100).toFixed(2)} (2⭐)`
+                        : `+£${(rewardAmount / 100).toFixed(2)}`
                       : ''
 
                     return (

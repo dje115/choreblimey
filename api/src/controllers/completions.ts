@@ -139,7 +139,8 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
       const lowestBid = bids[0]
       if (lowestBid && lowestBid.childId === completion.childId) {
         // DOUBLE STARS for rivalry winner! 🏆
-        rewardAmount = rewardAmount * 2
+        // They get the BID AMOUNT in money, but it counts as DOUBLE STARS
+        rewardAmount = completion.bidAmountPence || lowestBid.amountPence
         rivalryBonus = true
         
         // Create a rivalry victory event

@@ -741,9 +741,10 @@ const ChildDashboard: React.FC = () => {
               <div className="mt-4 bg-white/20 rounded-xl p-4 text-sm">
                 <p className="font-semibold mb-2">💡 How it works:</p>
                 <ul className="space-y-1 text-white/90">
-                  <li>• Chore usually pays £0.10 → Offer £0.10 or LESS to claim it</li>
+                  <li>• Chore usually pays £0.10 (1⭐) → Offer £0.10 or LESS to claim it</li>
                   <li>• Lowest offer wins the chore!</li>
-                  <li>• Winner gets DOUBLE STARS ⭐⭐ (not double money!) 🎉</li>
+                  <li>• <strong>Winner gets your bid PLUS a bonus star! 🎉</strong></li>
+                  <li>• Example: Bid £0.09, get £0.09 + bonus star = 2⭐ total!</li>
                   <li>• <strong>🔥 Streak bonus:</strong> If you have a streak, claim it quick or lose it!</li>
                   <li>• <strong>💪 Break streaks:</strong> Steal chores from siblings to break their streaks!</li>
                 </ul>
@@ -823,13 +824,13 @@ const ChildDashboard: React.FC = () => {
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 <span className="cb-chip bg-yellow-500 text-white font-bold">
-                                  🏆 WIN: {Math.floor((baseReward * 2) / 10)}⭐ (DOUBLE STARS!)
+                                  🏆 WIN: 2⭐ (DOUBLE STARS!)
                                 </span>
                                 <span className="cb-chip bg-orange-200 text-orange-800">
-                                  💰 Usually: £{(baseReward / 100).toFixed(2)}
+                                  💰 Usually pays: £{(baseReward / 100).toFixed(2)}
                                 </span>
                                 <span className="cb-chip bg-green-200 text-green-800">
-                                  💪 Offer £{(baseReward / 100).toFixed(2)} or LESS to win!
+                                  💪 You get your bid + bonus star!
                                 </span>
                               </div>
                             </div>
@@ -1029,7 +1030,7 @@ const ChildDashboard: React.FC = () => {
                               </button>
                             </div>
                             <p className="text-xs text-[var(--text-secondary)] mt-2">
-                              💡 Lowest money offer wins! Winner gets DOUBLE STARS ⭐⭐ (not double money!)
+                              💡 Lowest offer wins! You get your bid amount + a bonus star (2⭐ total)
                             </p>
                           </div>
                         </div>
