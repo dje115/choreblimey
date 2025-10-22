@@ -69,4 +69,26 @@ export async function routes(app: FastifyInstance) {
 
   // Streaks
   app.get('/streaks/:childId', ctrl.streaks.getStats)
+
+  // Affiliate Rewards System
+  app.get('/affiliate-rewards/featured', ctrl.affiliateRewards.getFeatured)
+  app.get('/affiliate-rewards/recommended', ctrl.affiliateRewards.getRecommended)
+  app.get('/affiliate-rewards/explore', ctrl.affiliateRewards.getExplore)
+  app.get('/affiliate-rewards/birthday-list', ctrl.affiliateRewards.getBirthdayList)
+  app.get('/affiliate-rewards/christmas-list', ctrl.affiliateRewards.getChristmasList)
+  app.get('/affiliate-rewards/:id', ctrl.affiliateRewards.getById)
+  app.post('/affiliate-rewards/click/:id', ctrl.affiliateRewards.trackClick)
+  
+  // Parent Reward Preferences
+  app.get('/affiliate-rewards/preferences', ctrl.affiliateRewards.getPreferences)
+  app.patch('/affiliate-rewards/preferences', ctrl.affiliateRewards.updatePreferences)
+  app.post('/affiliate-rewards/preferences/pin/:id', ctrl.affiliateRewards.pinReward)
+  app.delete('/affiliate-rewards/preferences/pin/:id', ctrl.affiliateRewards.unpinReward)
+  app.post('/affiliate-rewards/preferences/block/:id', ctrl.affiliateRewards.blockReward)
+  app.delete('/affiliate-rewards/preferences/block/:id', ctrl.affiliateRewards.unblockReward)
+  
+  // Admin Endpoints (protected by role check in controller)
+  app.get('/admin/affiliate-rewards', ctrl.affiliateRewards.adminListRewards)
+  app.patch('/admin/affiliate-rewards/:id', ctrl.affiliateRewards.adminUpdateReward)
+  app.get('/admin/affiliate-rewards/metrics', ctrl.affiliateRewards.adminGetMetrics)
 }
