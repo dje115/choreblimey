@@ -1,11 +1,20 @@
 {
   "name": "choreblimey-worker",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start:worker": "node --loader ts-node/esm src/jobs.ts"
+    "dev": "tsx src/jobs.ts",
+    "start": "node dist/jobs.js",
+    "build": "tsc"
   },
   "dependencies": {
-    "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
+    "@prisma/client": "^6.17.1",
+    "bullmq": "^5.20.6",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.17.1",
+    "typescript": "^5.6.3",
+    "tsx": "^4.7.1"
   }
 }

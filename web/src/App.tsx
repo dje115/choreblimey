@@ -12,6 +12,13 @@ import ParentDashboard from './pages/ParentDashboard'
 import ChildDashboard from './pages/ChildDashboard'
 import ChoreManagement from './pages/ChoreManagement'
 import ChildJoinPage from './pages/ChildJoinPage'
+import AdminLogin from './pages/AdminLogin'
+import AdminSignup from './pages/AdminSignup'
+import AdminTwoFactor from './pages/AdminTwoFactor'
+import AdminEmailVerify from './pages/AdminEmailVerify'
+import AdminMailConfig from './pages/AdminMailConfig'
+import AdminAffiliateConfig from './pages/AdminAffiliateConfig'
+import AdminDashboard from './pages/AdminDashboard'
 
 // Component to access auth context for theme
 const AppContent = () => {
@@ -36,6 +43,12 @@ const AppContent = () => {
               {/* Public routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/child-join" element={<ChildJoinPage />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin/signup" element={<AdminSignup />} />
+              <Route path="/admin/2fa" element={<AdminTwoFactor />} />
+              <Route path="/admin/verify-email" element={<AdminEmailVerify />} />
+              <Route path="/admin/mail-config" element={<AdminMailConfig />} />
+            <Route path="/admin/affiliate-config" element={<AdminAffiliateConfig />} />
               
               {/* Root route with potential token */}
               <Route path="/" element={<TokenHandler />} />
@@ -56,6 +69,7 @@ const AppContent = () => {
                   <ChildDashboard />
                 </ProtectedRoute>
               } />
+              <Route path="/admin" element={<AdminDashboard />} />
               
               {/* Catch all for unknown routes */}
               <Route path="*" element={<Navigate to="/login" replace />} />

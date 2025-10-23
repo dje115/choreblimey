@@ -430,19 +430,10 @@ enum RewardProvider {
 }
 
 enum AgeTag {
-  toddler_2_4
   kid_5_8
   tween_9_11
   teen_12_15
-  young_adult_16_18
   all_ages
-}
-
-enum GenderTag {
-  male
-  female
-  both
-  unisex
 }
 
 // Affiliate provider configuration (admin-only)
@@ -477,7 +468,6 @@ model RewardItem {
   
   // Categorization
   ageTag          AgeTag         @default(all_ages)
-  genderTag       GenderTag      @default(both)
   category        String?        // toys, books, craft, STEM, sports, experiences, gift_cards
   interestTags    Json?          // ["pets","reading","music"] for matching
   
@@ -499,7 +489,7 @@ model RewardItem {
   purchases       RewardPurchase[]
   redemptions     Redemption[]
 
-  @@index([provider, ageTag, genderTag, blocked])
+  @@index([provider, ageTag, blocked])
   @@index([featured, blocked])
   @@index([popularityScore])
   @@index([priceUpdatedAt]) // For cache expiry queries
@@ -571,38 +561,4 @@ model ParentRewardPreferences {
   updatedAt        DateTime @updatedAt
   
   @@index([familyId])
-}
-
-model Admin {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  passwordHash      String
-  name              String?
-  isActive          Boolean   @default(false)
-  emailVerified     Boolean   @default(false)
-  twoFactorEnabled  Boolean   @default(false)
-  twoFactorSecret   String?   // For TOTP (optional)
-  lastLoginAt       DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  // Email verification
-  emailVerificationToken String?
-  emailVerificationExpires DateTime?
-  
-  // 2FA codes
-  twoFactorCodes    TwoFactorCode[]
-}
-
-model TwoFactorCode {
-  id        String   @id @default(uuid())
-  adminId   String
-  code      String   // 6-digit code
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  
-  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  
-  @@index([adminId, expiresAt])
 }

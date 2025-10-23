@@ -135,7 +135,7 @@ class ApiClient {
     return this.post('/children', data)
   }
 
-  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthday?: string; theme?: string }) {
+  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthMonth?: number; birthYear?: number; theme?: string }) {
     return this.patch(`/children/${childId}`, data)
   }
 
@@ -264,6 +264,31 @@ class ApiClient {
 
   async getUnpaidBalance(childId: string) {
     return this.get(`/payouts/unpaid/${childId}`)
+  }
+
+  // Admin functions
+  async adminListAffiliateSources() {
+    return this.get('/admin/affiliate-sources')
+  }
+
+  async adminCreateAffiliateSource(data: any) {
+    return this.post('/admin/affiliate-sources', data)
+  }
+
+  async adminUpdateAffiliateSource(id: string, data: any) {
+    return this.patch(`/admin/affiliate-sources/${id}`, data)
+  }
+
+  async adminDeleteAffiliateSource(id: string) {
+    return this.delete(`/admin/affiliate-sources/${id}`)
+  }
+
+  async adminGetSyncStats() {
+    return this.get('/admin/sync-stats')
+  }
+
+  async adminTriggerSync() {
+    return this.post('/admin/trigger-sync')
   }
 }
 

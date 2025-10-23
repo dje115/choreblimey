@@ -146,6 +146,11 @@ export class Cache {
 // Export singleton instance
 export const cache = new Cache()
 
+// Export convenience functions
+export const invalidateFamily = (familyId: string) => cache.invalidateFamily(familyId)
+export const invalidateWallet = (childId: string) => cache.invalidateWallet(childId)
+export const invalidateLeaderboard = (familyId: string) => cache.invalidateLeaderboard(familyId)
+
 // Cache key builders
 export const cacheKeys = {
   family: (familyId: string) => `family:${familyId}`,

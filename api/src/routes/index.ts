@@ -1,5 +1,8 @@
 import { FastifyInstance } from 'fastify'
 import * as ctrl from '../controllers/index.js'
+import * as adminAuth from '../controllers/adminAuth.js'
+import * as siteEmailConfig from '../controllers/siteEmailConfig.js'
+import * as affiliateConfig from '../controllers/affiliateConfig.js'
 
 export async function routes(app: FastifyInstance) {
   // Health check
@@ -91,4 +94,32 @@ export async function routes(app: FastifyInstance) {
   app.get('/admin/affiliate-rewards', ctrl.affiliateRewards.adminListRewards)
   app.patch('/admin/affiliate-rewards/:id', ctrl.affiliateRewards.adminUpdateReward)
   app.get('/admin/affiliate-rewards/metrics', ctrl.affiliateRewards.adminGetMetrics)
+  
+  // Admin Authentication
+  app.post('/admin/auth/signup', adminAuth.adminSignup)
+  app.post('/admin/auth/verify-email', adminAuth.adminVerifyEmail)
+  app.post('/admin/auth/login', adminAuth.adminLogin)
+  app.post('/admin/auth/verify-2fa', adminAuth.adminVerifyTwoFactor)
+  app.post('/admin/auth/logout', adminAuth.adminLogout)
+  
+  // Site Email Configuration
+  app.get('/admin/email-config', siteEmailConfig.getSiteEmailConfig)
+  app.post('/admin/email-config', siteEmailConfig.updateSiteEmailConfig)
+  app.post('/admin/test-email', siteEmailConfig.testSiteEmail)
+  
+  // Affiliate Configuration
+  app.get('/admin/affiliate-config', affiliateConfig.getAffiliateConfig)
+  app.post('/admin/affiliate-config', affiliateConfig.updateAffiliateConfig)
+  app.post('/admin/test-affiliate', affiliateConfig.testAffiliateProvider)
+  app.get('/admin/affiliate-providers', affiliateConfig.getAffiliateProviders)
+  app.post('/admin/search-products', affiliateConfig.searchProducts)
+  app.post('/admin/get-product-details', affiliateConfig.getProductDetails)
+  
+  // Admin Affiliate Sources
+app.get('/admin/affiliate-sources', ctrl.affiliateRewards.adminListSources)
+app.post('/admin/affiliate-sources', ctrl.affiliateRewards.adminCreateSource)
+app.patch('/admin/affiliate-sources/:id', ctrl.affiliateRewards.adminUpdateSource)
+app.delete('/admin/affiliate-sources/:id', ctrl.affiliateRewards.adminDeleteSource)
+app.get('/admin/sync-stats', ctrl.affiliateRewards.adminGetSyncStats)
+app.post('/admin/trigger-sync', ctrl.affiliateRewards.adminTriggerSync)
 }

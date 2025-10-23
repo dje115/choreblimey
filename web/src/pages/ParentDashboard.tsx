@@ -22,6 +22,13 @@ function getTimeAgo(date: Date): string {
 
 const ParentDashboard: React.FC = () => {
   const { user, logout } = useAuth()
+  
+  // Helper function to notify child dashboards of chore updates
+  const notifyChildDashboards = () => {
+    console.log('📢 Notifying child dashboards of chore update...')
+    window.dispatchEvent(new CustomEvent('choreUpdated'))
+    localStorage.setItem('chore_updated', Date.now().toString())
+  }
   const [family, setFamily] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
   const [children, setChildren] = useState<any[]>([])
@@ -304,6 +311,9 @@ const ParentDashboard: React.FC = () => {
       console.log('🔄 Reloading dashboard...')
       await loadDashboard()
       console.log('✅ Dashboard reloaded')
+      
+      // Notify child dashboards of the update
+      notifyChildDashboards()
     } catch (error) {
       console.error('❌ Error creating chore:', error)
       setToast({ message: 'Failed to create chore. Please try again.', type: 'error' })
@@ -338,6 +348,9 @@ const ParentDashboard: React.FC = () => {
       // Small delay to ensure DB is updated, then reload
       await new Promise(resolve => setTimeout(resolve, 300))
       await loadDashboard()
+      
+      // Notify child dashboards of the approval
+      notifyChildDashboards()
     } catch (error) {
       console.error('Error approving completion:', error)
       setToast({ message: 'Failed to approve. Please try again.', type: 'error' })
@@ -366,6 +379,9 @@ const ParentDashboard: React.FC = () => {
       setToast({ message: '🎁 Reward marked as delivered!', type: 'success' })
       setTimeout(() => setShowConfetti(false), 2000)
       await loadDashboard()
+      
+      // Notify child dashboards of the redemption fulfillment
+      notifyChildDashboards()
     } catch (error) {
       console.error('Error fulfilling redemption:', error)
       setToast({ message: 'Failed to fulfill. Please try again.', type: 'error' })
@@ -404,6 +420,9 @@ const ParentDashboard: React.FC = () => {
       
       // Reload dashboard
       await loadDashboard()
+      
+      // Notify child dashboards of the payout
+      notifyChildDashboards()
     } catch (error: any) {
       console.error('Error processing payout:', error)
       const errorMsg = error.message || 'Failed to process payout'
@@ -2104,6 +2123,9 @@ const ParentDashboard: React.FC = () => {
                 // Reload to show changes
                 await new Promise(resolve => setTimeout(resolve, 300))
                 await loadDashboard()
+                
+                // Notify child dashboards of the update
+                notifyChildDashboards()
               } catch (error) {
                 console.error('Failed to update chore:', error)
                 setToast({ message: 'Failed to update chore. Please try again.', type: 'error' })
@@ -2353,12 +2375,45 @@ const ParentDashboard: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Birthday (Optional)</label>
-                    <input
-                      type="date"
-                      value={selectedChild.birthday || ''}
-                      onChange={(e) => setSelectedChild({ ...selectedChild, birthday: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Month</label>
+                        <select
+                          value={selectedChild.birthMonth || ''}
+                          onChange={(e) => setSelectedChild({ ...selectedChild, birthMonth: e.target.value ? parseInt(e.target.value) : null })}
+                          className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                        >
+                          <option value="">Select month</option>
+                          <option value="1">January</option>
+                          <option value="2">February</option>
+                          <option value="3">March</option>
+                          <option value="4">April</option>
+                          <option value="5">May</option>
+                          <option value="6">June</option>
+                          <option value="7">July</option>
+                          <option value="8">August</option>
+                          <option value="9">September</option>
+                          <option value="10">October</option>
+                          <option value="11">November</option>
+                          <option value="12">December</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Year</label>
+                        <input
+                          type="number"
+                          placeholder="e.g., 2015"
+                          value={selectedChild.birthYear || ''}
+                          onChange={(e) => setSelectedChild({ ...selectedChild, birthYear: e.target.value ? parseInt(e.target.value) : null })}
+                          className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          min="2000"
+                          max="2025"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] mt-2">
+                      💡 <strong>Birthday List Feature:</strong> To enable birthday wish lists and special birthday rewards, please provide at least the month and year.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2461,7 +2516,8 @@ const ParentDashboard: React.FC = () => {
                       nickname: selectedChild.nickname,
                       ageGroup: selectedChild.ageGroup,
                       gender: selectedChild.gender,
-                      birthday: selectedChild.birthday
+                      birthMonth: selectedChild.birthMonth,
+                      birthYear: selectedChild.birthYear
                     })
                     setToast({ message: '✅ Profile updated successfully!', type: 'success' })
                     setShowChildProfileModal(false)

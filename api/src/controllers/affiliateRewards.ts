@@ -855,3 +855,172 @@ export const adminGetMetrics = async (req: FastifyRequest, reply: FastifyReply) 
   }
 }
 
+/**
+ * GET /admin/affiliate-sources
+ * List affiliate sources (admin only)
+ */
+export const adminListSources = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { role } = req.claims!
+    
+    if (role !== 'parent_admin') {
+      return reply.status(403).send({ error: 'Admin access required' })
+    }
+    
+    const sources = await prisma.rewardSource.findMany({
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    return { sources }
+  } catch (error) {
+    console.error('Error listing sources (admin):', error)
+    reply.status(500).send({ error: 'Failed to list sources' })
+  }
+}
+
+/**
+ * POST /admin/affiliate-sources
+ * Create affiliate source (admin only)
+ */
+export const adminCreateSource = async (req: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  try {
+    const { role } = req.claims!
+    
+    if (role !== 'parent_admin') {
+      return reply.status(403).send({ error: 'Admin access required' })
+    }
+    
+    const { provider, affiliateTag, apiKey, apiSecret, region, enabled } = req.body
+    
+    const source = await prisma.rewardSource.create({
+      data: {
+        provider,
+        affiliateTag,
+        apiKey,
+        apiSecret,
+        region,
+        enabled: enabled || false
+      }
+    })
+    
+    return { source }
+  } catch (error) {
+    console.error('Error creating source (admin):', error)
+    reply.status(500).send({ error: 'Failed to create source' })
+  }
+}
+
+/**
+ * PATCH /admin/affiliate-sources/:id
+ * Update affiliate source (admin only)
+ */
+export const adminUpdateSource = async (req: FastifyRequest<{ Params: { id: string }; Body: any }>, reply: FastifyReply) => {
+  try {
+    const { role } = req.claims!
+    
+    if (role !== 'parent_admin') {
+      return reply.status(403).send({ error: 'Admin access required' })
+    }
+    
+    const { id } = req.params
+    const data = req.body
+    
+    const source = await prisma.rewardSource.update({
+      where: { id },
+      data
+    })
+    
+    return { source }
+  } catch (error) {
+    console.error('Error updating source (admin):', error)
+    reply.status(500).send({ error: 'Failed to update source' })
+  }
+}
+
+/**
+ * DELETE /admin/affiliate-sources/:id
+ * Delete affiliate source (admin only)
+ */
+export const adminDeleteSource = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { role } = req.claims!
+    
+    if (role !== 'parent_admin') {
+      return reply.status(403).send({ error: 'Admin access required' })
+    }
+    
+    const { id } = req.params
+    
+    await prisma.rewardSource.delete({
+      where: { id }
+    })
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting source (admin):', error)
+    reply.status(500).send({ error: 'Failed to delete source' })
+  }
+}
+
+/**
+ * GET /admin/sync-stats
+ * Get sync statistics (admin only)
+ */
+export const adminGetSyncStats = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { role } = req.claims!
+    
+    if (role !== 'parent_admin') {
+      return reply.status(403).send({ error: 'Admin access required' })
+    }
+
+    const [totalProducts, enabledSources, lastSync] = await Promise.all([
+      prisma.rewardItem.count(),
+      prisma.rewardSource.count({ where: { enabled: true } }),
+      prisma.rewardItem.findFirst({
+        orderBy: { lastSyncedAt: 'desc' },
+        select: { lastSyncedAt: true }
+      })
+    ])
+
+    // Calculate next sync (3 AM tomorrow)
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(3, 0, 0, 0)
+    
+    return {
+      totalProducts,
+      enabledSources,
+      lastSync: lastSync?.lastSyncedAt,
+      nextSync: tomorrow.toISOString()
+    }
+  } catch (error) {
+    console.error('Error getting sync stats (admin):', error)
+    reply.status(500).send({ error: 'Failed to get sync stats' })
+  }
+}
+
+/**
+ * POST /admin/trigger-sync
+ * Trigger manual sync (admin only)
+ */
+export const adminTriggerSync = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { role } = req.claims!
+    
+    if (role !== 'parent_admin') {
+      return reply.status(403).send({ error: 'Admin access required' })
+    }
+
+    // Import the sync function and trigger it
+    const { syncRewards } = await import('../../worker/src/jobs/syncRewards.js')
+    await syncRewards()
+
+    return { success: true, message: 'Manual sync triggered' }
+  } catch (error) {
+    console.error('Error triggering sync (admin):', error)
+    reply.status(500).send({ error: 'Failed to trigger sync' })
+  }
+}
+

@@ -107,6 +107,34 @@ const ChildDashboard: React.FC = () => {
     loadDashboard()
   }, [])
 
+  // Listen for chore updates from parent dashboard
+  useEffect(() => {
+    const handleChoreUpdate = () => {
+      console.log('🔄 Chore update detected, refreshing child dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for custom events from parent dashboard
+    window.addEventListener('choreUpdated', handleChoreUpdate)
+    
+    // Listen for localStorage changes (alternative method)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'chore_updated' && e.newValue) {
+        console.log('🔄 Chore update detected via localStorage, refreshing child dashboard...')
+        loadDashboard()
+        // Clear the flag
+        localStorage.removeItem('chore_updated')
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('choreUpdated', handleChoreUpdate)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
+
   // Load and apply theme from localStorage or use default
   useEffect(() => {
     const loadChildTheme = () => {

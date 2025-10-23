@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit'
 import { routes } from './routes/index.js'
 import { authPlugin } from './utils/auth.js'
 import { prisma } from './db/prisma.js'
+import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler.js'
 
 const app = Fastify({ 
   logger: true,
@@ -25,6 +26,10 @@ await app.register(cors, {
   origin: true, 
   credentials: true
 })
+
+// Register error handlers
+app.setErrorHandler(globalErrorHandler)
+app.setNotFoundHandler(notFoundHandler)
 
 // Register auth and routes
 await app.register(authPlugin)

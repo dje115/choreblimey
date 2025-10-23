@@ -1,379 +1,332 @@
-# ChoreBlimey! 🌟
+# ChoreBlimey! 🧹⭐
 
-**Turn chores into cheers!** A gamified family chore management app that makes household tasks fun and rewarding for kids.
-
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/dje115/choreblimey)
-[![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg)](https://www.docker.com/)
-[![TypeScript](https://img.shields.io/badge/typescript-5.6-3178C6.svg)](https://www.typescriptlang.org/)
-
----
+A gamified family chore management system that motivates children to complete household tasks through a star-based reward system, competitive elements, and real-time updates.
 
 ## 🎯 Overview
 
-ChoreBlimey! is a full-stack TypeScript application that gamifies household chores for families. Parents manage tasks and pocket money, while children earn stars and compete in friendly challenges.
+ChoreBlimey! transforms household chores into an engaging game where children earn stars for completing tasks, build streaks, compete with siblings, and redeem rewards. Parents can manage chores, approve completions, and track family progress through an intuitive dashboard.
 
-**Key Features:**
-- 🎮 Gamified chore system with stars and rewards
-- 🏆 Sibling rivalry with Challenge Mode (bidding system)
-- 🔥 Streak tracking with milestone bonuses
-- 💰 Pocket money management with payout tracking
-- 🎨 7 customizable themes for children
-- 📊 Leaderboards and activity feeds
-- ⚡ Real-time updates with smart caching (500+ families capacity)
+## ✨ Key Features
 
----
+### 🎮 Gamification
+- **Star System**: Earn stars for completing chores (10p = 1⭐)
+- **Streaks**: Daily completion bonuses with milestone rewards
+- **Leaderboards**: Weekly family competitions
+- **Challenge Mode**: Bidding system for chores (Showdown tab)
+
+### 👨‍👩‍👧‍👦 Family Management
+- **Multi-Tenant**: Each family is completely isolated
+- **Role-Based Access**: Parent, child, and admin roles
+- **Real-Time Updates**: Instant synchronization between dashboards
+- **Child Profiles**: Age-appropriate themes and customization
+
+### 🏆 Competitive Elements
+- **Showdown Mode**: Children can bid on chores to win double stars
+- **Streak Protection**: Defend your streaks from siblings
+- **Weekly Leaderboards**: Track family performance
+- **Bonus Rewards**: Streak bonuses and rivalry multipliers
+
+### 🛍️ Reward System
+- **Affiliate Integration**: Amazon PA-API and SiteStripe support
+- **Product Categorization**: Age and gender-based filtering
+- **Price Monitoring**: Automatic price updates
+- **Redemption Tracking**: Full reward fulfillment workflow
+
+### 🔧 Admin Portal
+- **Site-Wide Configuration**: Email and affiliate settings
+- **Multi-Provider Support**: Amazon PA-API + SiteStripe
+- **Centralized Management**: All settings in one place
+- **Authentication**: Email/password + 2FA security
 
 ## 🏗️ Architecture
 
-### Technology Stack
+### Tech Stack
+- **Backend**: Node.js + Fastify + TypeScript
+- **Database**: PostgreSQL + Prisma ORM
+- **Frontend**: React + Vite + TypeScript + Tailwind CSS
+- **Background Jobs**: BullMQ + Redis
+- **Containerization**: Docker + Docker Compose
+- **Authentication**: JWT + bcryptjs
+- **Email**: Nodemailer + MailHog (dev) / SMTP (prod)
 
-**Frontend:**
-- React 18 + TypeScript
-- Vite 7 (build tool)
-- Tailwind CSS 3.4
-- React Router 7
-- Custom theme system
-
-**Backend:**
-- Fastify 4 (Node.js framework)
-- Prisma 6 (ORM)
-- PostgreSQL 17 (database)
-- Redis 7.4 (caching/queue)
-- JWT authentication
-
-**Infrastructure:**
-- Docker Compose (orchestration)
-- BullMQ (background jobs)
-- MailHog (dev email testing)
-
-### Services
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| **Web** | 1500 | React frontend (Vite dev server) |
-| **API** | 1501 | Fastify REST API |
-| **PostgreSQL** | 1502 | Primary database |
-| **MailHog UI** | 1506 | Email testing interface |
-| **MailHog SMTP** | 2525 | SMTP server |
-| **Redis** | 1507 | Cache + BullMQ queue |
-| **Worker** | - | Background job processor |
-
----
+### Multi-Tenant Design
+- **Tenant Unit**: Family (complete data isolation)
+- **Data Scoping**: All queries scoped by `familyId`
+- **Admin Portal**: Separate from parent/child dashboards
+- **Security**: Role-based access with encrypted sensitive data
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker Desktop (Windows/Mac) or Docker Engine + Docker Compose (Linux)
+- Docker & Docker Compose
+- Node.js 22+ (for local development)
 - Git
-- 8GB+ RAM recommended
 
 ### Installation
-
 ```bash
-# 1. Clone the repository
-git clone https://github.com/dje115/choreblimey.git
+# Clone repository
+git clone <repository-url>
 cd choreblimey
 
-# 2. Start all services
+# Start all services
 docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build
 
-# 3. Run database migrations
-docker compose -f docker/docker-compose.yml exec api npx prisma db push
-
-# 4. Access the app
-# Frontend: http://localhost:1500
-# API: http://localhost:1501
-# MailHog: http://localhost:1506
+# Access services
+# - Web: http://localhost:1500
+# - API: http://localhost:1501
+# - MailHog: http://localhost:1506
+# - Admin: http://localhost:1500/admin
 ```
 
-### First-Time Setup
-
-1. **Sign up as a parent** at http://localhost:1500
-2. Check MailHog (http://localhost:1506) for your magic link
-3. Click the link to log in
-4. **Invite children** via the "Invite" button
-5. Children use the join code to create their accounts
-6. **Create chores** and assign them to children
-7. Children complete chores and earn stars!
-
----
-
-## 📁 Project Structure
-
-```
-choreblimey/
-├── api/                      # Backend (Fastify + Prisma)
-│   ├── prisma/
-│   │   └── schema.prisma    # Database schema
-│   ├── src/
-│   │   ├── controllers/     # API endpoint handlers
-│   │   ├── routes/          # Route definitions
-│   │   ├── utils/           # Helpers (auth, cache, email, etc.)
-│   │   ├── db/              # Database connection
-│   │   └── server.ts        # Entry point
-│   └── package.json
-│
-├── web/                      # Frontend (React + Vite)
-│   ├── src/
-│   │   ├── pages/           # Dashboard components
-│   │   ├── components/      # Reusable UI components
-│   │   ├── contexts/        # React contexts (auth, theme)
-│   │   ├── lib/             # API client
-│   │   ├── themes/          # Child theme system
-│   │   └── main.tsx         # Entry point
-│   └── package.json
-│
-├── worker/                   # Background jobs (BullMQ)
-│   ├── src/
-│   │   └── jobs.ts          # Job definitions
-│   └── package.json
-│
-├── docker/                   # Docker configuration
-│   ├── docker-compose.yml   # Service orchestration
-│   ├── dev.env              # Environment variables
-│   └── redis-acl.conf       # Redis ACL config
-│
-├── infra/docker/            # Dockerfiles
-│   ├── api.Dockerfile
-│   ├── web.Dockerfile
-│   └── worker.Dockerfile
-│
-└── docs/                     # Documentation
-    ├── TECHNICAL_SPEC.md    # Full technical specification
-    ├── API.md               # API endpoint documentation
-    ├── DATABASE.md          # Database schema guide
-    ├── DESIGN.md            # UI/UX design system
-    └── PERFORMANCE.md       # Performance optimization guide
-```
-
----
-
-## 📚 Documentation
-
-- **[Technical Specification](TECHNICAL_SPEC.md)** - Complete system architecture
-- **[API Documentation](API.md)** - All endpoints with examples
-- **[Database Schema](DATABASE.md)** - Entity relationships and models
-- **[Design System](DESIGN.md)** - UI/UX guidelines and components
-- **[Performance Guide](PERFORMANCE.md)** - Caching and scaling strategies
-- **[Contributing Guide](CONTRIBUTING.md)** - Development workflow
-
----
-
-## 🎨 Key Features
-
-### For Parents
-- ✅ Passwordless magic link authentication
-- ✅ Create and manage chores with rewards
-- ✅ Approve/reject chore completions
-- ✅ Track pocket money and process payouts
-- ✅ Set weekly/monthly budgets
-- ✅ View leaderboards and activity feeds
-- ✅ Manage family members and settings
-
-### For Children
-- ✅ Join code authentication (text or QR)
-- ✅ Personalized dashboard with their name
-- ✅ 7 customizable themes (Superhero, Unicorn, Ocean, etc.)
-- ✅ Complete chores and earn stars
-- ✅ Track streaks with milestone bonuses
-- ✅ Challenge Mode: bid on chores for double stars
-- ✅ View transaction history (Bank tab)
-- ✅ Claim rewards from the shop
-
-### Gamification
-- 🌟 **Stars System**: 1 star = 10 pence (£0.10)
-- 🔥 **Streaks**: Consecutive completions earn bonus stars
-- ⚔️ **Challenge Mode**: Siblings bid lower to "steal" chores for 2x stars
-- 🏆 **Leaderboards**: Weekly rankings by stars earned
-- 💰 **Wallet**: Track balance, lifetime earnings, and payouts
-
----
-
-## 🛠️ Development
-
-### Running in Development Mode
-
-All services run in Docker with hot-reload enabled:
-
+### First Time Setup
 ```bash
-# Start all services
-docker compose -f docker/docker-compose.yml up
+# Run database migrations
+docker compose exec api npx prisma migrate dev
 
-# View logs
-docker logs choreblimey-api-1 -f
-docker logs choreblimey-web-1 -f
+# Seed demo data
+docker compose exec api npm run seed
 
-# Run Prisma commands
-docker compose -f docker/docker-compose.yml exec api npx prisma studio
-docker compose -f docker/docker-compose.yml exec api npx prisma migrate dev
-
-# Clear database (for testing)
-docker compose -f docker/docker-compose.yml exec api npx prisma migrate reset --force
+# Create test user
+docker compose exec api npx tsx src/create-test-user.ts
 ```
 
-### Code Style
+## 📱 User Interfaces
 
-- **TypeScript**: Strict mode enabled
-- **Naming**: camelCase (code), kebab-case (files), PascalCase (components/models)
-- **Linting**: ESLint with strict rules
-- **No `any`**: Use proper types
-- **Async/await**: Preferred over promises
+### Parent Dashboard
+- **Chore Management**: Create, edit, and assign chores
+- **Family Management**: Invite children and manage family
+- **Approval System**: Review and approve chore completions
+- **Payout System**: Pay out earned stars to children
+- **Activity Feed**: Track family progress and completions
 
-### Multi-Tenant Safety
+### Child Dashboard
+- **Today Tab**: Active chores and completion tracking
+- **Streaks Tab**: Streak tracking and milestone rewards
+- **Shop Tab**: Browse and redeem rewards
+- **Showdown Tab**: Challenge mode and bidding system
+- **Bank Tab**: Transaction history and balance
 
-⚠️ **CRITICAL**: All database queries MUST filter by `familyId` to prevent data leaks across families.
+### Admin Portal
+- **Email Configuration**: Site-wide email settings
+- **Affiliate Configuration**: Amazon and SiteStripe setup
+- **Site Management**: Centralized control panel
+- **Authentication**: Secure admin access with 2FA
 
-```typescript
-// ✅ GOOD
-const chores = await prisma.chore.findMany({
-  where: { familyId }
-})
+## 🔄 Real-Time Updates
 
-// ❌ BAD - exposes all families' data
-const chores = await prisma.chore.findMany()
-```
+The system implements real-time synchronization between parent and child dashboards:
 
----
+- **Chore Updates**: New chores appear instantly on child dashboards
+- **Completion Approvals**: Children see approved completions immediately
+- **Payouts**: Wallet balances update in real-time
+- **Reward Fulfillments**: Redemption status updates instantly
+
+## 🎨 Child Themes
+
+Children can choose from multiple themes:
+- **Superhero**: Classic hero theme with bold colors
+- **Princess**: Elegant pink and purple theme
+- **Space**: Cosmic adventure theme
+- **Ocean**: Underwater exploration theme
+- **Forest**: Nature and animal theme
+
+## 🔒 Security Features
+
+### Multi-Tenant Security
+- **Family Isolation**: Complete data separation between families
+- **Role-Based Access**: Granular permissions per role
+- **Data Encryption**: Sensitive information encrypted at rest
+- **Admin Separation**: Isolated admin portal
+
+### Authentication
+- **JWT Tokens**: Stateless authentication
+- **Password Hashing**: bcryptjs for secure password storage
+- **2FA Support**: Email-based two-factor authentication
+- **Session Management**: Token expiration and refresh
+
+### API Security
+- **Input Validation**: Zod schemas for all inputs
+- **Rate Limiting**: 500 requests/minute per user
+- **CORS Configuration**: Proper origin handling
+- **SQL Injection Prevention**: Prisma ORM protection
 
 ## 🧪 Testing
 
-### Manual Testing Workflow
-
-1. **Parent Flow**:
-   - Sign up → Receive magic link → Log in
-   - Create family (auto-generated if not exists)
-   - Invite children → Get join codes
-   - Create chores → Assign to children
-   - Approve/reject completions
-   - Process payouts
-
-2. **Child Flow**:
-   - Use join code → Create account
-   - Select theme
-   - View "Today" chores
-   - Complete chores → Submit for approval
-   - Bid on Challenge Mode chores
-   - View Bank → See transaction history
-
-### Health Checks
-
+### API Testing
 ```bash
-# API health
+# Health check
 curl http://localhost:1501/v1/health
 
-# Check Redis connection
-docker logs choreblimey-api-1 | grep "Redis"
-
-# Check database
-docker compose -f docker/docker-compose.yml exec api npx prisma db pull
+# Test authentication
+curl -X POST http://localhost:1501/v1/auth/signup-parent \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
 ```
 
----
-
-## 📊 Performance
-
-**Current Capacity:**
-- ✅ **500 families** (2000 users)
-- ✅ **50 requests/second**
-- ✅ **80-90% cache hit rate**
-- ✅ **50-100ms** response time (cached)
-
-**Optimization:**
-- Redis caching (5 min for leaderboards, 1 min for family data)
-- Smart cache invalidation on updates
-- Database indexes on `familyId`, `childId`, `status`
-- Rate limiting: 500 req/min
-
-See [PERFORMANCE.md](PERFORMANCE.md) for scaling strategies.
-
----
-
-## 🔐 Security
-
-- **Authentication**: JWT tokens (7-day expiry)
-- **Passwordless**: Magic links (15-min expiry) + Join codes (7-day expiry)
-- **Rate Limiting**: 500 requests/min per IP
-- **Headers**: Helmet.js for security headers
-- **Multi-Tenant**: Strict `familyId` scoping
-- **Secrets**: All sensitive data in `docker/dev.env` (gitignored)
-
-⚠️ **TODO**: Client-side encryption for child PII (realNameCipher, dobCipher)
-
----
-
-## 🐛 Troubleshooting
-
-### API not starting
+### Database Testing
 ```bash
-docker logs choreblimey-api-1
-# Common issues: Prisma schema out of sync, Redis not connected
-docker compose -f docker/docker-compose.yml exec api npx prisma generate
+# Run migrations
+docker compose exec api npx prisma migrate dev
+
+# Seed test data
+docker compose exec api npm run seed
+
+# Create test user
+docker compose exec api npx tsx src/create-test-user.ts
 ```
 
-### Database errors
+## 📊 Monitoring
+
+### Application Logs
 ```bash
-# Reset and recreate schema
-docker compose -f docker/docker-compose.yml exec api npx prisma db push --force-reset
+# View API logs
+docker compose logs -f api
+
+# View worker logs
+docker compose logs -f worker
+
+# View all services
+docker compose logs -f
 ```
 
-### Port conflicts
+### Database Monitoring
 ```bash
-# Change ports in docker/docker-compose.yml
-ports:
-  - "1500:1500"  # Change first number (host port)
+# Connect to database
+docker compose exec postgres psql -U postgres -d choreblimey
+
+# View tables
+\dt
+
+# Check data
+SELECT * FROM "Family" LIMIT 5;
 ```
 
-### Cache issues (stale data)
+## 🚀 Deployment
+
+### Production Build
 ```bash
-# Clear Redis cache
-docker exec choreblimey-redis-1 redis-cli FLUSHALL
+# Build all services
+docker compose -f docker/docker-compose.yml --env-file docker/prod.env up --build
+
+# Run migrations
+docker compose exec api npx prisma migrate deploy
+
+# Seed initial data
+docker compose exec api npm run seed
 ```
 
+### Environment Configuration
+```bash
+# Production environment
+NODE_ENV=production
+DATABASE_URL=postgresql://user:pass@host:5432/choreblimey
+JWT_SECRET=your-production-secret
+SMTP_HOST=smtp.gmail.com
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+```
+
+## 📚 Documentation
+
+- **[Development Guide](DEVELOPMENT.md)**: Comprehensive development documentation
+- **[Architecture Guide](docs/ARCHITECTURE.md)**: Technical architecture overview
+- **[AI Development Guide](docs/AI_DEVELOPMENT.md)**: AI assistant development context
+
+## 🛠️ Development
+
+### Code Style
+- **TypeScript**: Strict mode enabled
+- **ESLint**: Consistent code formatting
+- **Prettier**: Automatic code formatting
+- **Conventional Commits**: Standardized commit messages
+
+### Component Guidelines
+- **Functional Components**: Use React hooks
+- **TypeScript Interfaces**: Define all props
+- **Error Boundaries**: Handle component errors
+- **Loading States**: User feedback for async operations
+
+### API Guidelines
+- **RESTful Design**: Standard HTTP methods
+- **Error Handling**: Consistent error responses
+- **Input Validation**: Zod schemas
+- **Documentation**: JSDoc comments
+
+## 🔄 Background Jobs
+
+### Job Types
+- **Reward Synchronization**: Daily sync of affiliate products
+- **Price Cache Refresh**: Hourly price updates
+- **Email Processing**: Background email sending
+- **Data Cleanup**: Periodic maintenance tasks
+
+### Job Scheduling
+- **Daily Sync**: 2:00 AM - Sync all reward sources
+- **Hourly Refresh**: Every hour - Update price cache
+- **On-Demand**: Manual triggers from admin portal
+
+## 📈 Performance Optimization
+
+### Database
+- **Indexes**: Optimized queries
+- **Connection Pooling**: Efficient connections
+- **Query Optimization**: Minimal data transfer
+
+### Frontend
+- **Code Splitting**: Lazy loading
+- **Memoization**: React.memo for expensive components
+- **Bundle Optimization**: Tree shaking
+- **Caching**: localStorage for user preferences
+
+### Background Jobs
+- **Queue Management**: BullMQ for job processing
+- **Rate Limiting**: API call throttling
+- **Error Handling**: Retry mechanisms
+- **Monitoring**: Job status tracking
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🎯 Roadmap
+
+### Phase 1: Core Features ✅
+- [x] Multi-tenant family management
+- [x] Chore creation and assignment
+- [x] Star-based reward system
+- [x] Real-time updates
+- [x] Admin portal
+
+### Phase 2: Gamification ✅
+- [x] Streak tracking
+- [x] Challenge mode (Showdown)
+- [x] Leaderboards
+- [x] Child themes
+
+### Phase 3: Affiliate Integration ✅
+- [x] Amazon PA-API integration
+- [x] SiteStripe support
+- [x] Product categorization
+- [x] Price monitoring
+
+### Phase 4: Advanced Features (Planned)
+- [ ] Mobile app
+- [ ] Push notifications
+- [ ] Advanced analytics
+- [ ] Social features
+
 ---
 
-## 🚧 Roadmap
+**ChoreBlimey!** - Making chores fun for the whole family! 🧹⭐
 
-### High Priority
-- [ ] Client-side encryption for child PII
-- [ ] Photo proof uploads (re-add MinIO or use S3)
-- [ ] Push notifications for chore reminders
-- [ ] Reward catalog with affiliate links
-- [ ] Team-Up cooperative missions
-
-### Medium Priority
-- [ ] Dark mode for teens
-- [ ] Voice feedback mode (accessibility)
-- [ ] Weekly family challenges
-- [ ] Analytics dashboard for parents
-- [ ] Export reports (CSV/PDF)
-
-### Low Priority
-- [ ] Multi-language support (i18n)
-- [ ] Mobile apps (React Native)
-- [ ] Social features (friend leaderboards)
-- [ ] Gamified progression (level badges)
-
----
-
-## 📝 License
-
-This project is proprietary and confidential. All rights reserved.
-
----
-
-## 🙏 Acknowledgments
-
-- Built with ❤️ for families who want to make chores fun!
-- Inspired by the ChoreBlimey! brand: fun, family-friendly, accessible
-
----
-
-## 📞 Support
-
-For technical questions or issues:
-- Check [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) for architecture details
-- Review logs: `docker logs choreblimey-api-1`
-- Consult [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow
-
-**Turn chores into cheers!** 🎉
-
+**Last Updated**: January 2025  
+**Version**: 1.0.0  
+**Maintainer**: Development Team
