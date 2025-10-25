@@ -129,15 +129,28 @@ const PrivacyPolicy: React.FC = () => {
 
             <h2 className="text-2xl font-bold text-gray-800 mt-8 mb-4">⏰ Automatic Account Deletion</h2>
             <p className="text-gray-600 mb-4">
-              To protect your privacy, we automatically delete inactive accounts:
+              To protect your privacy and comply with data protection laws, we automatically delete inactive accounts:
             </p>
             
-            <ul className="list-disc pl-6 text-gray-600 mb-6 space-y-2">
-              <li><strong>6 months inactive:</strong> Accounts with no parent or child logins are automatically deleted</li>
-              <li><strong>12 months suspended:</strong> If you suspend your account, we'll keep it for 12 months before deletion</li>
-              <li><strong>Email notifications:</strong> We'll email you 30 days before automatic deletion</li>
-              <li><strong>Easy reactivation:</strong> Just log in to prevent deletion</li>
-            </ul>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold text-orange-800 mb-2">🕐 Auto-Delete Timeline:</h4>
+              <ul className="text-sm text-orange-700 space-y-1">
+                <li>• <strong>6 months inactive:</strong> Accounts with no parent or child logins are automatically deleted</li>
+                <li>• <strong>12 months suspended:</strong> If you click "Suspend Account", we'll keep it for 12 months before deletion</li>
+                <li>• <strong>Email notifications:</strong> We'll email you 30 days before automatic deletion</li>
+                <li>• <strong>Easy reactivation:</strong> Just log in to prevent deletion</li>
+              </ul>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold text-blue-800 mb-2">🛡️ Account Protection Options:</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• <strong>Suspend Account:</strong> Click the "Suspend Account" button to prevent deletion for 12 months</li>
+                <li>• <strong>Regular Login:</strong> Simply log in once every 6 months to keep your account active</li>
+                <li>• <strong>Email Reminders:</strong> We'll send you email reminders before deletion</li>
+                <li>• <strong>Instant Reactivation:</strong> Log in anytime to reactivate a suspended account</li>
+              </ul>
+            </div>
 
             <h2 className="text-2xl font-bold text-gray-800 mt-8 mb-4">🔐 Smart Login & Data Security</h2>
             <p className="text-gray-600 mb-4">
@@ -164,6 +177,22 @@ const PrivacyPolicy: React.FC = () => {
               <li>Regular security audits and updates</li>
               <li>No third-party data sharing without your explicit consent</li>
             </ul>
+
+            <h2 className="text-2xl font-bold text-gray-800 mt-8 mb-4">👶 COPPA Compliance (Children's Privacy)</h2>
+            <p className="text-gray-600 mb-4">
+              ChoreBlimey is designed for families with children. We comply with COPPA (Children's Online Privacy Protection Act):
+            </p>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold text-yellow-800 mb-2">🛡️ Child Privacy Protection:</h4>
+              <ul className="text-sm text-yellow-700 space-y-1">
+                <li>• <strong>Parental consent required</strong> - Parents must create accounts and invite children</li>
+                <li>• <strong>No direct child data collection</strong> - All child data goes through parent accounts</li>
+                <li>• <strong>Minimal data collection</strong> - Only nickname, age group, and optional preferences</li>
+                <li>• <strong>No behavioral advertising</strong> - We don't track children for ads</li>
+                <li>• <strong>Parental controls</strong> - Parents can delete child data at any time</li>
+              </ul>
+            </div>
 
             <h2 className="text-2xl font-bold text-gray-800 mt-8 mb-4">👨‍👩‍👧‍👦 Your Rights (GDPR)</h2>
             <p className="text-gray-600 mb-4">

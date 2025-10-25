@@ -14,6 +14,7 @@ import { syncRewards } from './jobs/syncRewards.js'
 import { updatePopularity } from './jobs/updatePopularity.js'
 import { birthdayBonus } from './jobs/birthdayBonus.js'
 import { refreshPriceCache } from './jobs/refreshPriceCache.js'
+import { accountCleanup } from './jobs/accountCleanup.js'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:1507'
 
@@ -27,7 +28,8 @@ const QUEUE_NAMES = {
   REWARDS_SYNC: 'rewards-sync',
   POPULARITY_UPDATE: 'popularity-update',
   BIRTHDAY_BONUS: 'birthday-bonus',
-  PRICE_CACHE: 'price-cache'
+  PRICE_CACHE: 'price-cache',
+  ACCOUNT_CLEANUP: 'account-cleanup'
 }
 
 // Create queues (BullMQ v5+ handles scheduling automatically, no need for QueueScheduler)
@@ -35,6 +37,7 @@ const rewardsSyncQueue = new Queue(QUEUE_NAMES.REWARDS_SYNC, { connection })
 const popularityUpdateQueue = new Queue(QUEUE_NAMES.POPULARITY_UPDATE, { connection })
 const birthdayBonusQueue = new Queue(QUEUE_NAMES.BIRTHDAY_BONUS, { connection })
 const priceCacheQueue = new Queue(QUEUE_NAMES.PRICE_CACHE, { connection })
+const accountCleanupQueue = new Queue(QUEUE_NAMES.ACCOUNT_CLEANUP, { connection })
 
 // Create workers
 const rewardsSyncWorker = new Worker(

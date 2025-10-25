@@ -23,6 +23,10 @@ model Family {
   budgetPeriod   BudgetPeriod?  @default(weekly) // weekly or monthly
   budgetStartDate DateTime?      // When the current budget period started
   showLifetimeEarnings Boolean @default(true) // Toggle to show/hide lifetime earnings on child portal
+  
+  // Login tracking for auto-delete
+  lastLoginAt   DateTime?       // When ANY family member last logged in
+  suspendedAt   DateTime?       // When account was suspended (for 12-month deletion)
 
   // Back-relations
   members       FamilyMember[]

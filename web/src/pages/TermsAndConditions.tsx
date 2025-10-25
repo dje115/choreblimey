@@ -11,139 +11,242 @@ const TermsAndConditions: React.FC = () => {
       <div className="min-h-screen bg-background text-foreground">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <div className="bg-card rounded-lg shadow-lg p-8">
-            <h1 className="text-4xl font-bold text-primary mb-8 text-center">
-              Terms and Conditions
-            </h1>
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-primary mb-4">
+                Welcome to ChoreBlimey! 🧹⭐
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Let's make chores fun for the whole family!
+              </p>
+            </div>
             
             <div className="prose prose-lg max-w-none">
-              <p className="text-muted-foreground mb-6 text-center">
-                Last updated: {new Date().toLocaleDateString()}
-              </p>
+              <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg p-6 mb-8 border-l-4 border-blue-500">
+                <p className="text-foreground mb-0">
+                  <strong>Hey there! 👋</strong> These are our friendly rules for using ChoreBlimey. 
+                  We've written them in plain English so everyone in the family can understand them. 
+                  If you have any questions, just ask!
+                </p>
+              </div>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">1. Acceptance of Terms</h2>
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">🤝</span>
+                  How We Work Together
+                </h2>
                 <p className="text-foreground mb-4">
-                  By accessing and using ChoreBlimey ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+                  When you use ChoreBlimey, you're joining our family-friendly community! 
+                  We're here to help make chores more fun and rewarding for everyone. 
+                  By using our app, you're agreeing to play fair and be kind to each other.
                 </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">2. Use License</h2>
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">👨‍👩‍👧‍👦</span>
+                  Your Family Account
+                </h2>
                 <p className="text-foreground mb-4">
-                  Permission is granted to temporarily download one copy of ChoreBlimey per device for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:
+                  We keep your family's information safe and separate from other families. 
+                  Parents are in charge of their family's account and making sure everyone 
+                  uses ChoreBlimey in a positive way.
                 </p>
-                <ul className="list-disc pl-6 text-foreground mb-4">
-                  <li>modify or copy the materials</li>
-                  <li>use the materials for any commercial purpose or for any public display</li>
-                  <li>attempt to reverse engineer any software contained on ChoreBlimey's website</li>
-                  <li>remove any copyright or other proprietary notations from the materials</li>
+                <p className="text-foreground mb-4">
+                  <strong>For Parents:</strong> You're responsible for supervising your children's 
+                  use of the app and making sure they're safe while having fun!
+                </p>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">🛡️</span>
+                  Keeping Everyone Safe
+                </h2>
+                <p className="text-foreground mb-4">
+                  ChoreBlimey is designed to be a safe, fun place for families. Here's how we keep it that way:
+                </p>
+                <ul className="list-disc pl-6 text-foreground mb-4 space-y-2">
+                  <li><strong>Be Kind:</strong> No bullying, mean words, or hurtful behavior</li>
+                  <li><strong>Be Honest:</strong> Don't cheat or lie about completing chores</li>
+                  <li><strong>Be Respectful:</strong> Treat everyone in your family with respect</li>
+                  <li><strong>Be Safe:</strong> Don't share personal information with strangers</li>
+                  <li><strong>Be Fair:</strong> Play by the rules and help others succeed too</li>
+                </ul>
+                
+                <div className="bg-red-50 dark:bg-red-900/10 rounded-lg p-4 mt-4 border-l-4 border-red-500">
+                  <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">🚫 Prohibited Content:</h4>
+                  <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                    <li>• No inappropriate language or content</li>
+                    <li>• No sharing of personal information</li>
+                    <li>• No harassment or bullying</li>
+                    <li>• No spam or unwanted messages</li>
+                    <li>• No content that violates family values</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">⭐</span>
+                  Your Content & Privacy
+                </h2>
+                <p className="text-foreground mb-4">
+                  ChoreBlimey is designed to be private and safe for your family. Here's what we do and don't collect:
+                </p>
+                
+                <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-4 mb-4 border-l-4 border-green-500">
+                  <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✅ What We Collect (Minimal & Safe):</h4>
+                  <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                    <li>• <strong>Parent email</strong> - For secure login (no passwords needed!)</li>
+                    <li>• <strong>Child nickname</strong> - Just what they want to be called</li>
+                    <li>• <strong>Real name</strong> - Optional, encrypted for family records</li>
+                    <li>• <strong>Age group</strong> - Like "5-8 years" or "9-11 years" for safety</li>
+                    <li>• <strong>Birth month & year</strong> - Optional, for birthday bonuses and age-appropriate rewards</li>
+                    <li>• <strong>Chore progress</strong> - What chores are done and when</li>
+                    <li>• <strong>Text notes</strong> - Optional messages about completed chores</li>
+                  </ul>
+                </div>
+
+                <div className="bg-red-50 dark:bg-red-900/10 rounded-lg p-4 mb-4 border-l-4 border-red-500">
+                  <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">❌ What We DON'T Collect:</h4>
+                  <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                    <li>• <strong>No photos</strong> - We don't collect or store any photos</li>
+                    <li>• <strong>No exact birth dates</strong> - Just month and year for birthday features</li>
+                    <li>• <strong>No location data</strong> - We don't track where you are</li>
+                    <li>• <strong>No personal details</strong> - No addresses, phone numbers, etc.</li>
+                  </ul>
+                </div>
+
+                <p className="text-foreground mb-4">
+                  <strong>Your Privacy Matters:</strong> We never share your family's information with 
+                  other families or companies without your permission. Check out our 
+                  <a href="/privacy" className="text-primary hover:underline"> Privacy Policy</a> to learn more!
+                </p>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">🎯</span>
+                  How We Make Chores Fun
+                </h2>
+                <p className="text-foreground mb-4">
+                  ChoreBlimey uses games, rewards, and friendly competition to make chores more enjoyable:
+                </p>
+                <ul className="list-disc pl-6 text-foreground mb-4 space-y-2">
+                  <li><strong>Star System:</strong> Earn stars for completing chores</li>
+                  <li><strong>Streaks:</strong> Build daily habits with streak bonuses</li>
+                  <li><strong>Challenges:</strong> Friendly competition between siblings</li>
+                  <li><strong>Rewards:</strong> Redeem stars for real rewards</li>
                 </ul>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">3. User Accounts</h2>
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">💰</span>
+                  How We Keep ChoreBlimey Free
+                </h2>
+                <div className="bg-blue-50 dark:bg-blue-900/10 rounded-lg p-4 mb-4 border-l-4 border-blue-500">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">💡 Our Free Model:</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                    ChoreBlimey is completely free to use! We keep it free through optional affiliate partnerships:
+                  </p>
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• <strong>Amazon & other retailers</strong> - We may earn small commissions on purchases</li>
+                    <li>• <strong>Always optional</strong> - You never have to buy anything to use ChoreBlimey</li>
+                    <li>• <strong>No pressure</strong> - Rewards are just suggestions, not requirements</li>
+                    <li>• <strong>Transparent</strong> - We're upfront about how we support the app</li>
+                  </ul>
+                </div>
                 <p className="text-foreground mb-4">
-                  When you create an account with us, you must provide information that is accurate, complete, and current at all times. You are responsible for safeguarding the password and for all activities that occur under your account.
-                </p>
-                <p className="text-foreground mb-4">
-                  You must notify us immediately upon becoming aware of any breach of security or unauthorized use of your account.
+                  When families choose to purchase rewards through our suggested links (like Amazon), 
+                  we may receive a small commission. This helps us keep ChoreBlimey free for everyone! 
+                  You're never obligated to buy anything - the app works perfectly without any purchases.
                 </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">4. Family Safety</h2>
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">🔄</span>
+                  Changes & Updates
+                </h2>
                 <p className="text-foreground mb-4">
-                  ChoreBlimey is designed for family use. Parents and guardians are responsible for:
+                  We're always working to make ChoreBlimey better! Sometimes we might update these rules 
+                  to add new features or improve safety. When we do, we'll let you know so you can stay informed.
                 </p>
-                <ul className="list-disc pl-6 text-foreground mb-4">
-                  <li>Supervising their children's use of the service</li>
-                  <li>Ensuring appropriate content and interactions</li>
-                  <li>Managing family member access and permissions</li>
-                  <li>Protecting their children's privacy and safety</li>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">⚠️</span>
+                  Important Disclaimers
+                </h2>
+                <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-lg p-4 mb-4 border-l-4 border-yellow-500">
+                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Please Note:</h4>
+                  <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-2">
+                    <li>• <strong>No uptime guarantee</strong> - We can't promise ChoreBlimey will always be available</li>
+                    <li>• <strong>No data backup guarantee</strong> - Please don't rely on us as your only record of chore progress</li>
+                    <li>• <strong>Development focus</strong> - We're focused on making fun family apps, not enterprise software</li>
+                    <li>• <strong>Terms are necessary</strong> - We need these rules to protect everyone, but our main goal is family fun!</li>
+                  </ul>
+                </div>
+                <p className="text-foreground mb-4">
+                  We're a small team passionate about making chores fun for families. While we do our best 
+                  to keep ChoreBlimey running smoothly, we can't guarantee it will always be available or 
+                  that your data will never be lost. Please keep your own records of important chore progress!
+                </p>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">🗑️</span>
+                  Account Management & Deletion
+                </h2>
+                <p className="text-foreground mb-4">
+                  You have full control over your family's ChoreBlimey account:
+                </p>
+                <ul className="list-disc pl-6 text-foreground mb-4 space-y-2">
+                  <li><strong>Delete anytime:</strong> You can delete your family account at any time</li>
+                  <li><strong>Complete data removal:</strong> All family data is permanently deleted within 30 days</li>
+                  <li><strong>Child data protection:</strong> Parents control all child data and can remove it instantly</li>
+                  <li><strong>No data retention:</strong> We don't keep backups of deleted family data</li>
                 </ul>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">5. Prohibited Uses</h2>
+                <h2 className="text-2xl font-semibold text-primary mb-4 flex items-center">
+                  <span className="mr-3">🤔</span>
+                  Questions? We're Here to Help!
+                </h2>
                 <p className="text-foreground mb-4">
-                  You may not use our service:
-                </p>
-                <ul className="list-disc pl-6 text-foreground mb-4">
-                  <li>For any unlawful purpose or to solicit others to perform unlawful acts</li>
-                  <li>To violate any international, federal, provincial, or state regulations, rules, laws, or local ordinances</li>
-                  <li>To infringe upon or violate our intellectual property rights or the intellectual property rights of others</li>
-                  <li>To harass, abuse, insult, harm, defame, slander, disparage, intimidate, or discriminate</li>
-                  <li>To submit false or misleading information</li>
-                  <li>To upload or transmit viruses or any other type of malicious code</li>
-                </ul>
-              </section>
-
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">6. Content</h2>
-                <p className="text-foreground mb-4">
-                  Our service allows you to post, link, store, share and otherwise make available certain information, text, graphics, videos, or other material ("Content"). You are responsible for the Content that you post to the service, including its legality, reliability, and appropriateness.
-                </p>
-                <p className="text-foreground mb-4">
-                  By posting Content to our service, you grant us the right and license to use, modify, publicly perform, publicly display, reproduce, and distribute such Content on and through the service.
+                  If you or your family have any questions about these rules or how ChoreBlimey works, 
+                  don't hesitate to reach out! We're here to help make your family's chore experience 
+                  as fun and successful as possible.
                 </p>
               </section>
 
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">7. Privacy Policy</h2>
-                <p className="text-foreground mb-4">
-                  Your privacy is important to us. Please review our Privacy Policy, which also governs your use of the service, to understand our practices.
+              <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-6 mb-8 border-l-4 border-green-500">
+                <h3 className="text-lg font-semibold text-primary mb-3">Remember: ChoreBlimey is About Fun! 🎉</h3>
+                <p className="text-foreground mb-0">
+                  These rules are here to make sure everyone has a great time using ChoreBlimey. 
+                  When we all work together and follow these guidelines, chores become something 
+                  the whole family can enjoy!
                 </p>
-              </section>
-
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">8. Termination</h2>
-                <p className="text-foreground mb-4">
-                  We may terminate or suspend your account and bar access to the service immediately, without prior notice or liability, under our sole discretion, for any reason whatsoever and without limitation, including but not limited to a breach of the Terms.
-                </p>
-              </section>
-
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">9. Disclaimer</h2>
-                <p className="text-foreground mb-4">
-                  The information on this service is provided on an "as is" basis. To the fullest extent permitted by law, this Company:
-                </p>
-                <ul className="list-disc pl-6 text-foreground mb-4">
-                  <li>excludes all representations and warranties relating to this service and its contents</li>
-                  <li>excludes all liability for damages arising out of or in connection with your use of this service</li>
-                </ul>
-              </section>
-
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">10. Governing Law</h2>
-                <p className="text-foreground mb-4">
-                  These Terms shall be interpreted and governed by the laws of the jurisdiction in which ChoreBlimey operates, without regard to its conflict of law provisions.
-                </p>
-              </section>
-
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">11. Changes</h2>
-                <p className="text-foreground mb-4">
-                  We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days notice prior to any new terms taking effect.
-                </p>
-              </section>
-
-              <section className="mb-8">
-                <h2 className="text-2xl font-semibold text-primary mb-4">12. Contact Information</h2>
-                <p className="text-foreground mb-4">
-                  If you have any questions about these Terms and Conditions, please contact us through our support channels.
-                </p>
-              </section>
+              </div>
 
               <div className="mt-12 pt-8 border-t border-border">
-                <p className="text-center text-muted-foreground">
-                  By using ChoreBlimey, you agree to these terms and conditions.
+                <p className="text-center text-muted-foreground mb-6">
+                  <strong>Last updated:</strong> {new Date().toLocaleDateString()}
                 </p>
-                <div className="text-center mt-4">
+                <p className="text-center text-muted-foreground mb-6">
+                  By using ChoreBlimey, you're agreeing to these friendly rules. 
+                  Let's make chores fun together! 🧹⭐
+                </p>
+                <div className="text-center">
                   <a 
                     href="/" 
-                    className="inline-flex items-center px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                    className="inline-flex items-center px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-lg font-semibold"
                   >
-                    Return to ChoreBlimey
+                    🏠 Back to ChoreBlimey
                   </a>
                 </div>
               </div>
