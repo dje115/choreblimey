@@ -6,9 +6,7 @@ import { apiClient } from '../lib/api'
 const ChildJoinPage: React.FC = () => {
   const [formData, setFormData] = useState({
     code: '',
-    nickname: '',
-    ageGroup: '5-8',
-    gender: ''
+    nickname: ''
   })
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -58,8 +56,6 @@ const ChildJoinPage: React.FC = () => {
     try {
       const joinData = {
         nickname: formData.nickname.trim(),
-        ageGroup: formData.ageGroup,
-        gender: formData.gender || undefined,
         ...(useQRCode && formData.code ? { qrData: JSON.stringify({ type: 'child_join', code: formData.code }) } : { code: formData.code.toUpperCase() })
       }
 
@@ -163,40 +159,6 @@ const ChildJoinPage: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label htmlFor="ageGroup" className="block text-sm font-medium text-foreground mb-2">
-                Age Group
-              </label>
-              <select
-                id="ageGroup"
-                name="ageGroup"
-                value={formData.ageGroup}
-                onChange={handleInputChange}
-                className="relative block w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="5-8">5-8 years old</option>
-                <option value="9-11">9-11 years old</option>
-                <option value="12-15">12-15 years old</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="gender" className="block text-sm font-medium text-foreground mb-2">
-                Gender (optional - helps us show relevant rewards)
-              </label>
-              <select
-                id="gender"
-                name="gender"
-                value={formData.gender}
-                onChange={handleInputChange}
-                className="relative block w-full px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="">Prefer not to say</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
           </div>
 
           <div>

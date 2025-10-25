@@ -11,8 +11,10 @@ const TokenHandler: React.FC = () => {
   const token = urlParams.get('token')
 
   useEffect(() => {
+    console.log('TokenHandler: useEffect triggered', { token, isAuthenticated })
+    
     if (token && !isAuthenticated) {
-      console.log('TokenHandler: Processing token from root URL:', token)
+      console.log('TokenHandler: Processing token from URL:', token)
       
       apiClient.callback(token)
         .then(response => {

@@ -166,7 +166,10 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
       }
     }
 
-    // Credit wallet
+    // Calculate stars to award (use override if set, otherwise 1 star per £0.10, minimum 1 star)
+    const starsToAward = completion.assignment.chore.starsOverride || Math.max(1, Math.floor(rewardAmount / 10))
+    
+    // Credit wallet (both cash and stars)
     const wallet = await prisma.wallet.upsert({
       where: {
         childId_familyId: {
@@ -175,12 +178,14 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
         }
       },
       update: {
-        balancePence: { increment: rewardAmount }
+        balancePence: { increment: rewardAmount },
+        stars: { increment: starsToAward }
       },
       create: {
         familyId,
         childId: completion.childId,
-        balancePence: rewardAmount
+        balancePence: rewardAmount,
+        stars: starsToAward
       }
     })
 

@@ -16,15 +16,21 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 
 ### 👨‍👩‍👧‍👦 Family Management
 - **Multi-Tenant**: Each family is completely isolated
-- **Role-Based Access**: Parent, child, and admin roles
+- **Role-Based Access**: Parent, child, co-parent, grandparent, and admin roles
 - **Real-Time Updates**: Instant synchronization between dashboards
 - **Child Profiles**: Age-appropriate themes and customization
+- **Extended Family**: Support for multiple parents and grandparents
 
 ### 🏆 Competitive Elements
 - **Showdown Mode**: Children can bid on chores to win double stars
 - **Streak Protection**: Defend your streaks from siblings
 - **Weekly Leaderboards**: Track family performance
 - **Bonus Rewards**: Streak bonuses and rivalry multipliers
+
+### 🌍 Internationalization
+- **Multi-Language Support**: Romanian and English with easy switching
+- **Currency Support**: USD, EUR, GBP, RON with localized formatting
+- **Cultural Adaptation**: Region-specific content and features
 
 ### 🛍️ Reward System
 - **Affiliate Integration**: Amazon PA-API and SiteStripe support
@@ -327,6 +333,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **ChoreBlimey!** - Making chores fun for the whole family! 🧹⭐
 
-**Last Updated**: January 2025  
-**Version**: 1.0.0  
+**Last Updated**: October 2025  
+**Version**: 1.6.0  
 **Maintainer**: Development Team

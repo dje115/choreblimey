@@ -2,11 +2,13 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider } from './theme/ThemeProvider'
+import { LanguageProvider } from './contexts/LanguageContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import TokenHandler from './components/TokenHandler'
 
 // Pages
+import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import ParentDashboard from './pages/ParentDashboard'
 import ChildDashboard from './pages/ChildDashboard'
@@ -19,6 +21,10 @@ import AdminEmailVerify from './pages/AdminEmailVerify'
 import AdminMailConfig from './pages/AdminMailConfig'
 import AdminAffiliateConfig from './pages/AdminAffiliateConfig'
 import AdminDashboard from './pages/AdminDashboard'
+import CoParentDashboard from './pages/CoParentDashboard'
+import GrandparentDashboard from './pages/GrandparentDashboard'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import TermsAndConditions from './pages/TermsAndConditions'
 
 // Component to access auth context for theme
 const AppContent = () => {
@@ -39,8 +45,9 @@ const AppContent = () => {
     <ThemeProvider role={user?.role as any} age={getThemeAge()}>
       <Router>
         <div className="min-h-screen bg-background text-foreground">
-          <Routes>
+            <Routes>
               {/* Public routes */}
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/child-join" element={<ChildJoinPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />
@@ -48,15 +55,29 @@ const AppContent = () => {
               <Route path="/admin/2fa" element={<AdminTwoFactor />} />
               <Route path="/admin/verify-email" element={<AdminEmailVerify />} />
               <Route path="/admin/mail-config" element={<AdminMailConfig />} />
-            <Route path="/admin/affiliate-config" element={<AdminAffiliateConfig />} />
+              <Route path="/admin/affiliate-config" element={<AdminAffiliateConfig />} />
               
-              {/* Root route with potential token */}
-              <Route path="/" element={<TokenHandler />} />
+              {/* Legal pages */}
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsAndConditions />} />
+              
+              {/* Token handler route */}
+              <Route path="/token" element={<TokenHandler />} />
               
               {/* Protected routes */}
               <Route path="/dashboard" element={
                 <ProtectedRoute allowedRoles={['parent_admin', 'parent_viewer', 'relative_contributor']}>
                   <ParentDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/co-parent" element={
+                <ProtectedRoute allowedRoles={['parent_co_parent']}>
+                  <CoParentDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/grandparent" element={
+                <ProtectedRoute allowedRoles={['grandparent', 'uncle_aunt']}>
+                  <GrandparentDashboard />
                 </ProtectedRoute>
               } />
               <Route path="/chores" element={
@@ -83,7 +104,9 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
     </AuthProvider>
   )
 }

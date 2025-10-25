@@ -3,6 +3,30 @@ import { prisma } from '../db/prisma.js'
 import { generateJoinCode } from '../utils/crypto.js'
 import { cache } from '../utils/cache.js'
 
+/**
+ * Calculate age group from birth month and year
+ * @param birthMonth 1-12
+ * @param birthYear e.g., 2015
+ * @returns age group string
+ */
+function calculateAgeGroup(birthMonth: number, birthYear: number): string {
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1 // getMonth() returns 0-11
+  
+  let age = currentYear - birthYear
+  
+  // Adjust age if birthday hasn't occurred this year
+  if (currentMonth < birthMonth) {
+    age--
+  }
+  
+  if (age <= 8) return '5-8'
+  if (age <= 11) return '9-11'
+  if (age <= 15) return '12-15'
+  return '12-15' // Default to oldest group
+}
+
 interface CreateChildBody {
   nickname: string
   realNameCipher?: string
@@ -14,6 +38,7 @@ interface UpdateChildBody {
   nickname?: string
   ageGroup?: string
   gender?: string
+  email?: string
   birthMonth?: number
   birthYear?: number
   theme?: string
@@ -71,7 +96,7 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
   try {
     const { familyId } = req.claims!
     const { id } = req.params
-    const { nickname, ageGroup, gender, birthMonth, birthYear, theme } = req.body
+    const { nickname, ageGroup, gender, email, birthMonth, birthYear, theme } = req.body
 
     // Verify child belongs to family
     const existingChild = await prisma.child.findFirst({
@@ -82,13 +107,20 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
       return reply.status(404).send({ error: 'Child not found' })
     }
 
+    // Auto-calculate age group if birthday is provided
+    let calculatedAgeGroup = ageGroup
+    if (birthMonth !== undefined && birthYear !== undefined) {
+      calculatedAgeGroup = calculateAgeGroup(birthMonth, birthYear)
+    }
+
     // Update child
     const child = await prisma.child.update({
       where: { id },
       data: {
         nickname: nickname !== undefined ? nickname : undefined,
-        ageGroup: ageGroup !== undefined ? ageGroup : undefined,
+        ageGroup: calculatedAgeGroup !== undefined ? calculatedAgeGroup : undefined,
         gender: gender !== undefined ? gender : undefined,
+        email: email !== undefined ? email : undefined,
         birthMonth: birthMonth !== undefined ? birthMonth : undefined,
         birthYear: birthYear !== undefined ? birthYear : undefined,
         theme: theme !== undefined ? theme : undefined
@@ -104,6 +136,7 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
         nickname: child.nickname,
         ageGroup: child.ageGroup,
         gender: child.gender,
+        email: child.email,
         birthMonth: child.birthMonth,
         birthYear: child.birthYear,
         theme: child.theme

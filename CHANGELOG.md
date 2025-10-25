@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2025-10-23
+
+### ✨ Features
+
+- **Multi-language support (i18n)**:
+  - Added Romanian language support
+  - Language selector component with flag icons
+  - Context-based language switching
+  - Localized content for all major UI elements
+- **Currency support**:
+  - Multi-currency support (USD, EUR, GBP, RON)
+  - Currency selector with symbol display
+  - Localized currency formatting
+- **Enhanced family management**:
+  - Support for multiple parents per family
+  - Co-parent and grandparent dashboards
+  - Extended family member roles
+  - Child email addresses for notifications
+- **Legal compliance**:
+  - Terms and Conditions page
+  - Privacy Policy page
+  - GDPR-compliant data handling
+  - Cookie consent management
+
+### 🎨 UI/UX
+
+- **Landing page**:
+  - Modern hero section with feature highlights
+  - Multi-language support
+  - Responsive design for all devices
+- **Enhanced dashboards**:
+  - Co-parent dashboard for secondary parents
+  - Grandparent dashboard for extended family
+  - Improved navigation and user experience
+- **SEO optimization**:
+  - Dynamic meta tags
+  - Open Graph support
+  - Structured data markup
+
+### 🔧 Technical
+
+- **Database schema updates**:
+  - Added gender categorization
+  - Multi-parent support
+  - Child email addresses
+  - Stars override system
+- **API enhancements**:
+  - Improved validation schemas
+  - Enhanced error handling
+  - Better internationalization support
+- **Frontend improvements**:
+  - TypeScript strict mode
+  - Better component organization
+  - Enhanced accessibility
+
+### 🐛 Bug Fixes
+
+- **Fixed missing TermsAndConditions component** causing import errors
+- **Resolved language context issues** in child dashboards
+- **Fixed currency display** in various components
+- **Improved error handling** for missing translations
+
+---
+
 ## [1.5.0] - 2025-10-21
 
 ### 🚀 Performance
@@ -169,6 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| **1.6.0** | 2025-10-23 | Multi-language support, currency support, enhanced family management, legal compliance |
 | **1.5.0** | 2025-10-21 | Redis caching, payout system, Challenge Mode, themes, comprehensive docs |
 | **1.0.0** | 2025-10-20 | Initial MVP release |
 

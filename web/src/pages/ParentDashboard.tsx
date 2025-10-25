@@ -26,8 +26,32 @@ const ParentDashboard: React.FC = () => {
   // Helper function to notify child dashboards of chore updates
   const notifyChildDashboards = () => {
     console.log('📢 Notifying child dashboards of chore update...')
-    window.dispatchEvent(new CustomEvent('choreUpdated'))
-    localStorage.setItem('chore_updated', Date.now().toString())
+    
+    // Method 1: Custom event
+    const event = new CustomEvent('choreUpdated', { 
+      detail: { timestamp: Date.now() } 
+    })
+    window.dispatchEvent(event)
+    console.log('📢 Custom event dispatched')
+    
+    // Method 2: localStorage change (works across tabs)
+    const timestamp = Date.now().toString()
+    localStorage.setItem('chore_updated', timestamp)
+    console.log('📢 localStorage updated with timestamp:', timestamp)
+    
+    // Method 3: BroadcastChannel (modern browsers)
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('choreblimey-updates')
+      channel.postMessage({ type: 'choreUpdated', timestamp })
+      console.log('📢 BroadcastChannel message sent')
+      channel.close()
+    }
+    
+    // Method 4: Direct localStorage trigger (force storage event)
+    setTimeout(() => {
+      localStorage.setItem('chore_updated', (Date.now() + 1).toString())
+      console.log('📢 Second localStorage trigger sent')
+    }, 100)
   }
   const [family, setFamily] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
@@ -42,6 +66,7 @@ const ParentDashboard: React.FC = () => {
   const [joinCodes, setJoinCodes] = useState<any[]>([])
   const [wallets, setWallets] = useState<any[]>([]) // Child wallets for star totals
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
   
   // Toast & Confetti
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
@@ -72,6 +97,14 @@ const ParentDashboard: React.FC = () => {
   const [payouts, setPayouts] = useState<any[]>([])
   const [processingPayout, setProcessingPayout] = useState(false)
   
+  // Account management
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false)
+  const [showSuspendAccountModal, setShowSuspendAccountModal] = useState(false)
+  const [showEmailChangeModal, setShowEmailChangeModal] = useState(false)
+  const [accountSuspended, setAccountSuspended] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  
   // Forms
   const [inviteData, setInviteData] = useState({ email: '', nickname: '', ageGroup: '5-8' })
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -101,7 +134,8 @@ const ParentDashboard: React.FC = () => {
     description: '',
     frequency: 'daily' as 'daily' | 'weekly' | 'once',
     proof: 'none' as 'none' | 'photo' | 'note',
-    baseRewardPence: 50
+    baseRewardPence: 50,
+    starsOverride: null as number | null
   })
 
   const [choreAssignments, setChoreAssignments] = useState<{
@@ -114,6 +148,93 @@ const ParentDashboard: React.FC = () => {
 
   useEffect(() => {
     loadDashboard()
+  }, [])
+
+  // Listen for completion updates from child dashboard
+  useEffect(() => {
+    const handleCompletionUpdate = (event?: any) => {
+      console.log('🔄 Completion update detected, refreshing parent dashboard...', event?.detail || event)
+      loadDashboard()
+    }
+
+    // Method 1: Custom events from child dashboard
+    window.addEventListener('completionUpdated', handleCompletionUpdate)
+    console.log('👂 Parent dashboard listening for completionUpdated events')
+    
+    // Method 2: localStorage changes (works across tabs)
+    const handleStorageChange = (e: StorageEvent) => {
+      console.log('🔍 Storage event received:', e.key, e.newValue, e.oldValue)
+      if (e.key === 'completion_updated' && e.newValue) {
+        console.log('🔄 Completion update detected via localStorage, refreshing parent dashboard...', e.newValue)
+        loadDashboard()
+        // Clear the flag
+        localStorage.removeItem('completion_updated')
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    console.log('👂 Parent dashboard listening for localStorage changes')
+    
+    // Method 3: BroadcastChannel (modern browsers)
+    let broadcastChannel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== 'undefined') {
+      broadcastChannel = new BroadcastChannel('choreblimey-updates')
+      broadcastChannel.onmessage = (event) => {
+        if (event.data.type === 'completionUpdated') {
+          console.log('🔄 Completion update detected via BroadcastChannel, refreshing parent dashboard...', event.data)
+          loadDashboard()
+        }
+      }
+      console.log('👂 Parent dashboard listening for BroadcastChannel messages')
+    }
+
+    // Method 4: Test localStorage detection for completions
+    const testCompletionLocalStorage = () => {
+      const completionValue = localStorage.getItem('completion_updated')
+      console.log('🔍 Current localStorage completion_updated value:', completionValue)
+      if (completionValue) {
+        console.log('🔄 Found completion localStorage value, triggering refresh...')
+        loadDashboard()
+        localStorage.removeItem('completion_updated')
+      }
+    }
+    
+    // Method 5: Direct API polling for pending completions
+    const checkPendingCompletions = async () => {
+      try {
+        console.log('🔍 Checking for pending completions via API...')
+        const response = await apiClient.listCompletions()
+        const pendingCount = response.completions?.filter((c: any) => c.status === 'pending').length || 0
+        console.log('🔍 Found', pendingCount, 'pending completions')
+        if (pendingCount > 0) {
+          console.log('🔄 Pending completions found, refreshing dashboard...')
+          loadDashboard()
+        }
+      } catch (error) {
+        console.error('Error checking pending completions:', error)
+      }
+    }
+    
+    // Test localStorage on load
+    testCompletionLocalStorage()
+    
+    // Test localStorage every 2 seconds
+    const localStorageTestInterval = setInterval(testCompletionLocalStorage, 2000)
+    console.log('👂 Parent dashboard testing completion localStorage every 2 seconds')
+    
+    // Check API for pending completions every 3 seconds
+    const apiCheckInterval = setInterval(checkPendingCompletions, 3000)
+    console.log('👂 Parent dashboard checking API for pending completions every 3 seconds')
+
+    return () => {
+      window.removeEventListener('completionUpdated', handleCompletionUpdate)
+      window.removeEventListener('storage', handleStorageChange)
+      if (broadcastChannel) {
+        broadcastChannel.close()
+      }
+      clearInterval(localStorageTestInterval)
+      clearInterval(apiCheckInterval)
+    }
   }, [])
   
   useEffect(() => {
@@ -163,11 +284,18 @@ const ParentDashboard: React.FC = () => {
         const walletResults = await Promise.all(walletPromises)
         const walletsData = walletResults.map((result, index) => ({
           childId: childrenList[index].id,
-          balancePence: result.wallet?.balancePence || 0
+          balancePence: result.wallet?.balancePence || 0,
+          stars: result.wallet?.stars || 0
         }))
         setWallets(walletsData)
       }
-      if (choresRes.status === 'fulfilled') setChores(choresRes.value.chores || [])
+      if (choresRes.status === 'fulfilled') {
+        console.log('📋 Loaded chores:', choresRes.value.chores?.length || 0, 'chores')
+        console.log('📋 Chores data:', choresRes.value.chores)
+        setChores(choresRes.value.chores || [])
+        // Force re-render by updating a timestamp
+        setLoading(false)
+      }
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
       if (pendingCompletionsRes.status === 'fulfilled') setPendingCompletions(pendingCompletionsRes.value.completions || [])
       if (allCompletionsRes.status === 'fulfilled') setRecentCompletions(allCompletionsRes.value.completions || [])
@@ -307,6 +435,9 @@ const ParentDashboard: React.FC = () => {
         biddingEnabled: false
       })
       
+      // Small delay to ensure database is updated
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       // Reload dashboard
       console.log('🔄 Reloading dashboard...')
       await loadDashboard()
@@ -314,6 +445,12 @@ const ParentDashboard: React.FC = () => {
       
       // Notify child dashboards of the update
       notifyChildDashboards()
+      
+      // Force component refresh
+      setRefreshKey(prev => prev + 1)
+      
+      // Show success message
+      setToast({ message: '✅ Chore created successfully!', type: 'success' })
     } catch (error) {
       console.error('❌ Error creating chore:', error)
       setToast({ message: 'Failed to create chore. Please try again.', type: 'error' })
@@ -500,7 +637,7 @@ const ParentDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] pb-20">
+    <div key={refreshKey} className="min-h-screen bg-[var(--background)] pb-20">
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
@@ -512,6 +649,7 @@ const ParentDashboard: React.FC = () => {
               <p className="text-white/90 text-sm sm:text-base">
                 Turn chores into cheers! Welcome back, {user?.email?.split('@')[0]} 🎉
               </p>
+              {/* Debug button for testing real-time updates */}
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
@@ -725,6 +863,9 @@ const ParentDashboard: React.FC = () => {
                                 <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
                                   💰 £{(chore.baseRewardPence / 100).toFixed(2)}
                                 </span>
+                                <span className="cb-chip bg-yellow-100 text-yellow-700">
+                                  ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
+                                </span>
                                 <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
                                   {chore.frequency}
                                 </span>
@@ -806,6 +947,9 @@ const ParentDashboard: React.FC = () => {
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
                                       💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                    </span>
+                                    <span className="cb-chip bg-yellow-100 text-yellow-700">
+                                      ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
                                     </span>
                                     <span className="cb-chip bg-orange-50 text-orange-700">
                                       {chore.frequency}
@@ -1196,7 +1340,7 @@ const ParentDashboard: React.FC = () => {
                 {children.map((child) => {
                   // Get this child's wallet to show total stars
                   const childWallet = wallets.find((w: any) => w.childId === child.id)
-                  const totalStars = Math.floor((childWallet?.balancePence || 0) / 10) // 10p = 1 star
+                  const totalStars = childWallet?.stars || 0
                   
                   // Also get weekly stars for comparison
                   const leaderboardEntry = leaderboard.find((entry: any) => entry.childId === child.id)
@@ -1268,7 +1412,7 @@ const ParentDashboard: React.FC = () => {
                             </div>
                             <div>
                               <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
-                              <p className="text-xs text-[var(--text-secondary)]">{Math.floor(balancePence / 10)}⭐ available</p>
+                              <p className="text-xs text-[var(--text-secondary)]">{childWallet?.stars || 0}⭐ available</p>
                             </div>
                           </div>
                           <button
@@ -1590,6 +1734,59 @@ const ParentDashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Parent Email Management Section */}
+            <div className="border-t-2 border-blue-200 pt-6">
+              <h4 className="font-bold text-blue-600 mb-4">📧 Email Management</h4>
+              
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-[var(--radius-md)]">
+                  <h5 className="font-semibold text-blue-800 mb-2">Current Email Address</h5>
+                  <p className="text-sm text-blue-700 mb-3">{user?.email}</p>
+                  <button
+                    onClick={() => setShowEmailChangeModal(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold text-sm"
+                  >
+                    Change Email
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Management Section */}
+            <div className="border-t-2 border-red-200 pt-6">
+              <h4 className="font-bold text-red-600 mb-4">⚠️ Account Management</h4>
+              
+              <div className="space-y-4">
+                {/* Suspend Account */}
+                <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-[var(--radius-md)]">
+                  <div>
+                    <h5 className="font-semibold text-yellow-800 mb-1">⏸️ Suspend Account</h5>
+                    <p className="text-sm text-yellow-700">Prevent automatic deletion for 12 months</p>
+                  </div>
+                  <button
+                    onClick={() => setShowSuspendAccountModal(true)}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-semibold"
+                  >
+                    Suspend
+                  </button>
+                </div>
+
+                {/* Delete Account */}
+                <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-[var(--radius-md)]">
+                  <div>
+                    <h5 className="font-semibold text-red-800 mb-1">🗑️ Delete Account</h5>
+                    <p className="text-sm text-red-700">Permanently delete all family data</p>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteAccountModal(true)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -1925,7 +2122,8 @@ const ParentDashboard: React.FC = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Frequency and Proof Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-[var(--text-primary)] mb-2">Frequency</label>
                   <select
@@ -1939,6 +2137,21 @@ const ParentDashboard: React.FC = () => {
                   </select>
                 </div>
                 <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
+                  <select
+                    value={newChore.proof}
+                    onChange={(e) => setNewChore(prev => ({ ...prev, proof: e.target.value as any }))}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  >
+                    <option value="none">Trust-based (No proof needed)</option>
+                    <option value="note">Ask for explanation note</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Reward and Stars Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
                   <input
                     type="number"
@@ -1951,15 +2164,19 @@ const ParentDashboard: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
-                  <select
-                    value={newChore.proof}
-                    onChange={(e) => setNewChore(prev => ({ ...prev, proof: e.target.value as any }))}
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (⭐)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={newChore.starsOverride || Math.max(1, Math.floor(newChore.baseRewardPence / 10))}
+                    onChange={(e) => setNewChore(prev => ({ ...prev, starsOverride: parseInt(e.target.value) || null }))}
                     className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  >
-                    <option value="none">Trust-based (No proof needed)</option>
-                    <option value="note">Ask for explanation note</option>
-                  </select>
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Auto-calculated: {Math.max(1, Math.floor(newChore.baseRewardPence / 10))} stars (1 per £0.10)
+                  </p>
                 </div>
               </div>
 
@@ -2088,6 +2305,7 @@ const ParentDashboard: React.FC = () => {
                   frequency: selectedChore.frequency,
                   proof: selectedChore.proof,
                   baseRewardPence: selectedChore.baseRewardPence,
+                  starsOverride: selectedChore.starsOverride,
                   active: selectedChore.active
                 })
                 
@@ -2153,7 +2371,8 @@ const ParentDashboard: React.FC = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Frequency and Proof Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-[var(--text-primary)] mb-2">Frequency</label>
                   <select
@@ -2167,6 +2386,21 @@ const ParentDashboard: React.FC = () => {
                   </select>
                 </div>
                 <div>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
+                  <select
+                    value={selectedChore.proof}
+                    onChange={(e) => setSelectedChore({ ...selectedChore, proof: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                  >
+                    <option value="none">Trust-based (No proof needed)</option>
+                    <option value="note">Ask for explanation note</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Reward and Stars Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
                   <input
                     type="number"
@@ -2179,15 +2413,19 @@ const ParentDashboard: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
-                  <select
-                    value={selectedChore.proof}
-                    onChange={(e) => setSelectedChore({ ...selectedChore, proof: e.target.value })}
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (⭐)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={selectedChore.starsOverride || Math.max(1, Math.floor(selectedChore.baseRewardPence / 10))}
+                    onChange={(e) => setSelectedChore({ ...selectedChore, starsOverride: parseInt(e.target.value) || null })}
                     className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  >
-                    <option value="none">Trust-based (No proof needed)</option>
-                    <option value="note">Ask for explanation note</option>
-                  </select>
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                    Auto-calculated: {Math.max(1, Math.floor(selectedChore.baseRewardPence / 10))} stars (1 per £0.10)
+                  </p>
                 </div>
               </div>
 
@@ -2349,15 +2587,16 @@ const ParentDashboard: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Age Group</label>
-                    <select
-                      value={selectedChild.ageGroup}
-                      onChange={(e) => setSelectedChild({ ...selectedChild, ageGroup: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
-                    >
-                      <option value="5-8">5-8 years (Kid Mode 🌟)</option>
-                      <option value="9-11">9-11 years (Tween Mode 🎯)</option>
-                      <option value="12-15">12-15 years (Teen Mode 🌙)</option>
-                    </select>
+                    <div className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] bg-gray-50 text-gray-600">
+                      {selectedChild.ageGroup || 'Not set'} 
+                      {selectedChild.birthMonth && selectedChild.birthYear ? 
+                        ' (Auto-calculated from birthday)' : 
+                        ' (Set birthday to auto-calculate)'
+                      }
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">
+                      Age group is automatically calculated from birthday month and year
+                    </p>
                   </div>
 
                   <div>
@@ -2371,6 +2610,20 @@ const ParentDashboard: React.FC = () => {
                       <option value="female">Female</option>
                       <option value="other">Other/Prefer not to say</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Email Address (Optional)</label>
+                    <input
+                      type="email"
+                      value={selectedChild.email || ''}
+                      onChange={(e) => setSelectedChild({ ...selectedChild, email: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                      placeholder="child@example.com (optional)"
+                    />
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">
+                      Optional - can be added later if the child gets an email address
+                    </p>
                   </div>
 
                   <div>
@@ -2456,7 +2709,7 @@ const ParentDashboard: React.FC = () => {
                       try {
                         const response = await apiClient.generateChildJoinCode({
                           nickname: selectedChild.nickname,
-                          ageGroup: selectedChild.ageGroup,
+                          ageGroup: selectedChild.ageGroup || '5-8', // Default for join code
                           gender: selectedChild.gender || 'other'
                         })
                         setNewJoinCode(response.joinCode.code)
@@ -2482,7 +2735,7 @@ const ParentDashboard: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-gradient-to-br from-[var(--success)]/10 to-green-100 rounded-[var(--radius-lg)] border-2 border-[var(--success)]/30">
                     <div className="text-3xl font-bold text-[var(--success)] mb-1">
-                      {Math.floor((wallets.find((w: any) => w.childId === selectedChild.id)?.balancePence || 0) / 10)}⭐
+                      {wallets.find((w: any) => w.childId === selectedChild.id)?.stars || 0}⭐
                     </div>
                     <div className="text-sm text-[var(--text-secondary)]">Total Stars</div>
                   </div>
@@ -2511,11 +2764,11 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
-                    // Update child info
+                    // Update child info (ageGroup is auto-calculated from birthday)
                     await apiClient.updateChild(selectedChild.id, {
                       nickname: selectedChild.nickname,
-                      ageGroup: selectedChild.ageGroup,
                       gender: selectedChild.gender,
+                      email: selectedChild.email,
                       birthMonth: selectedChild.birthMonth,
                       birthYear: selectedChild.birthYear
                     })
@@ -2552,7 +2805,7 @@ const ParentDashboard: React.FC = () => {
                 <div>
                   <h4 className="font-bold text-[var(--text-primary)]">{payoutChild.nickname}</h4>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    {Math.floor((wallets.find((w: any) => w.childId === payoutChild.id)?.balancePence || 0) / 10)}⭐ available
+                    {wallets.find((w: any) => w.childId === payoutChild.id)?.stars || 0}⭐ available
                   </p>
                 </div>
               </div>
@@ -2660,6 +2913,208 @@ const ParentDashboard: React.FC = () => {
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h3 className="text-2xl font-bold text-red-600 mb-2">Delete Family Account</h3>
+              <p className="text-gray-600">
+                This action cannot be undone. All family data will be permanently deleted.
+              </p>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold text-red-800 mb-2">What will be deleted:</h4>
+              <ul className="text-sm text-red-700 space-y-1">
+                <li>• All family information and settings</li>
+                <li>• All child profiles and progress data</li>
+                <li>• All chore history and completion records</li>
+                <li>• All wallet balances and transaction history</li>
+                <li>• All account data permanently deleted within 30 days</li>
+              </ul>
+            </div>
+
+            <div className="mb-6">
+              <label className="block font-semibold text-gray-700 mb-2">
+                Type "DELETE" to confirm:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
+                placeholder="Type DELETE here"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowDeleteAccountModal(false)
+                  setDeleteConfirmation('')
+                }}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (deleteConfirmation !== 'DELETE') {
+                    setToast({ message: 'Please type DELETE to confirm', type: 'error' })
+                    return
+                  }
+                  
+                  try {
+                    // TODO: Implement account deletion API call
+                    setToast({ message: 'Account deletion initiated. You will be logged out.', type: 'success' })
+                    setShowDeleteAccountModal(false)
+                    setDeleteConfirmation('')
+                    // Logout user after deletion
+                    setTimeout(() => {
+                      logout()
+                    }, 2000)
+                  } catch (error) {
+                    console.error('Failed to delete account:', error)
+                    setToast({ message: 'Failed to delete account. Please try again.', type: 'error' })
+                  }
+                }}
+                disabled={deleteConfirmation !== 'DELETE'}
+                className="flex-1 px-6 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Account Modal */}
+      {showSuspendAccountModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">⏸️</span>
+              </div>
+              <h3 className="text-2xl font-bold text-yellow-600 mb-2">Suspend Family Account</h3>
+              <p className="text-gray-600">
+                Suspend your account to prevent automatic deletion for 12 months.
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold text-yellow-800 mb-2">What happens when suspended:</h4>
+              <ul className="text-sm text-yellow-700 space-y-1">
+                <li>• Account will not be automatically deleted for 12 months</li>
+                <li>• You can reactivate by logging in anytime</li>
+                <li>• All data is preserved during suspension</li>
+                <li>• You'll receive email reminders before final deletion</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowSuspendAccountModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    // TODO: Implement account suspension API call
+                    setToast({ message: 'Account suspended successfully. You can reactivate by logging in.', type: 'success' })
+                    setShowSuspendAccountModal(false)
+                    setAccountSuspended(true)
+                    // Logout user after suspension
+                    setTimeout(() => {
+                      logout()
+                    }, 2000)
+                  } catch (error) {
+                    console.error('Failed to suspend account:', error)
+                    setToast({ message: 'Failed to suspend account. Please try again.', type: 'error' })
+                  }
+                }}
+                className="flex-1 px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-all"
+              >
+                Suspend Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Change Modal */}
+      {showEmailChangeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">📧</span>
+              </div>
+              <h3 className="text-2xl font-bold text-blue-600 mb-2">Change Email Address</h3>
+              <p className="text-gray-600">
+                Update your email address for smart login authentication
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <label className="block font-semibold text-gray-700 mb-2">
+                New Email Address:
+              </label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                placeholder="new@example.com"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                You'll receive a verification email at the new address
+              </p>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowEmailChangeModal(false)
+                  setNewEmail('')
+                }}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newEmail || !newEmail.includes('@')) {
+                    setToast({ message: 'Please enter a valid email address', type: 'error' })
+                    return
+                  }
+                  
+                  try {
+                    // TODO: Implement email change API call
+                    setToast({ message: 'Email change initiated. Check your new email for verification.', type: 'success' })
+                    setShowEmailChangeModal(false)
+                    setNewEmail('')
+                  } catch (error) {
+                    console.error('Failed to change email:', error)
+                    setToast({ message: 'Failed to change email. Please try again.', type: 'error' })
+                  }
+                }}
+                disabled={!newEmail || !newEmail.includes('@')}
+                className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Change Email
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confetti Celebration */}

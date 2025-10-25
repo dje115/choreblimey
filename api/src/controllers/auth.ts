@@ -17,8 +17,6 @@ interface ChildJoinBody {
   code?: string
   qrData?: string
   nickname: string
-  ageGroup?: string
-  gender?: string
 }
 
 export const signupParent = async (req: FastifyRequest<{ Body: SignupParentBody }>, reply: FastifyReply) => {
@@ -205,7 +203,7 @@ export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }
 
 export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, reply: FastifyReply) => {
   try {
-    const { code, qrData, nickname, ageGroup, gender } = req.body
+    const { code, qrData, nickname } = req.body
 
     if (!nickname) {
       return reply.status(400).send({ error: 'Nickname is required' })
@@ -248,13 +246,13 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
 
     familyId = joinCodeRecord.familyId
 
-    // Create child
+    // Create child with default values (parent will set age/gender later)
     const child = await prisma.child.create({
       data: {
         familyId,
         nickname,
-        ageGroup: ageGroup || null,
-        gender: gender ? (gender as 'male' | 'female' | 'other') : null
+        ageGroup: '5-8', // Default to youngest group - parent will update
+        gender: null // Parent will set this in parent portal
       }
     })
 

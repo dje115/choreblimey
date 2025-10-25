@@ -18,6 +18,10 @@ model Family {
   nameCipher    String
   region        String?
   
+  // Internationalization
+  language      String          @default("en") // en, fr, de, it, es, ro, uk, zh, ar (Arabic)
+  currency      String          @default("GBP") // GBP, EUR, RON, UAH, CNY, ETB
+  
   // Budget management
   maxBudgetPence Int?           // Max pocket money budget
   budgetPeriod   BudgetPeriod?  @default(weekly) // weekly or monthly
@@ -54,10 +58,13 @@ model User {
 }
 
 enum Role {
-  parent_admin
-  parent_viewer
-  relative_contributor
-  child_player
+  parent_admin        // Full control - can invite others, manage all settings
+  parent_co_parent    // Can manage chores, children, but not invite other parents
+  parent_viewer       // Can view but not edit
+  grandparent         // Can view children, send gifts, limited permissions
+  uncle_aunt          // Can view children, send gifts, limited permissions
+  relative_contributor // Can contribute to rewards
+  child_player        // Child access
 }
 
 model FamilyMember {
@@ -90,6 +97,7 @@ model Child {
   avatarId       String?
   ageGroup       String?
   gender         Gender?
+  email          String?  // Optional email address for child
   theme          String?  @default("superhero") // Theme selection: superhero, unicorn, ocean, sunset, neon-city, galaxy, high-contrast
   
   // Birthday tracking for age-appropriate rewards (COPPA/GDPR-friendly)
@@ -145,6 +153,7 @@ model Chore {
   frequency       Frequency
   proof           ProofType @default(none)
   baseRewardPence Int
+  starsOverride   Int?       // Custom star amount (overrides auto-calculation)
   minBidPence     Int?
   maxBidPence     Int?
   startDate       DateTime?
@@ -256,6 +265,7 @@ model Wallet {
   familyId     String
   childId      String
   balancePence Int      @default(0)
+  stars        Int      @default(0)  // Separate star balance for rewards/gifts
 
   family    Family   @relation(fields: [familyId], references: [id])
   child     Child    @relation(fields: [childId], references: [id])

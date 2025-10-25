@@ -16,6 +16,8 @@ interface ChoreCreateBody {
   proof: 'none' | 'photo' | 'note'
   /** Base reward in pence */
   baseRewardPence: number
+  /** Custom star amount (overrides auto-calculation) */
+  starsOverride?: number
   /** Minimum bid amount in pence (optional) */
   minBidPence?: number
   /** Maximum bid amount in pence (optional) */
@@ -40,6 +42,8 @@ interface ChoreUpdateBody {
   proof?: 'none' | 'photo' | 'note'
   /** Updated base reward in pence */
   baseRewardPence?: number
+  /** Updated custom star amount (overrides auto-calculation) */
+  starsOverride?: number
   /** Updated minimum bid amount in pence */
   minBidPence?: number
   /** Updated maximum bid amount in pence */

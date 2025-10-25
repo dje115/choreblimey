@@ -54,6 +54,37 @@ type Tab = 'today' | 'streaks' | 'shop' | 'showdown' | 'bank'
 
 const ChildDashboard: React.FC = () => {
   const { user, logout } = useAuth()
+  
+  // Helper function to notify parent dashboard of completion updates
+  const notifyParentDashboard = () => {
+    console.log('📢 Notifying parent dashboard of completion update...')
+    
+    // Method 1: Custom event
+    const event = new CustomEvent('completionUpdated', { 
+      detail: { timestamp: Date.now() } 
+    })
+    window.dispatchEvent(event)
+    console.log('📢 Custom event dispatched')
+    
+    // Method 2: localStorage change (works across tabs)
+    const timestamp = Date.now().toString()
+    localStorage.setItem('completion_updated', timestamp)
+    console.log('📢 localStorage updated with timestamp:', timestamp)
+    
+    // Method 3: BroadcastChannel (modern browsers)
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('choreblimey-updates')
+      channel.postMessage({ type: 'completionUpdated', timestamp })
+      console.log('📢 BroadcastChannel message sent')
+      channel.close()
+    }
+    
+    // Method 4: Direct localStorage trigger (force storage event)
+    setTimeout(() => {
+      localStorage.setItem('completion_updated', (Date.now() + 1).toString())
+      console.log('📢 Second localStorage trigger sent')
+    }, 100)
+  }
   const [isLoading, setIsLoading] = useState(true)
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [walletStats, setWalletStats] = useState<any>(null)
@@ -109,18 +140,20 @@ const ChildDashboard: React.FC = () => {
 
   // Listen for chore updates from parent dashboard
   useEffect(() => {
-    const handleChoreUpdate = () => {
-      console.log('🔄 Chore update detected, refreshing child dashboard...')
+    const handleChoreUpdate = (event?: any) => {
+      console.log('🔄 Chore update detected, refreshing child dashboard...', event?.detail || event)
       loadDashboard()
     }
 
-    // Listen for custom events from parent dashboard
+    // Method 1: Custom events from parent dashboard
     window.addEventListener('choreUpdated', handleChoreUpdate)
+    console.log('👂 Child dashboard listening for choreUpdated events')
     
-    // Listen for localStorage changes (alternative method)
+    // Method 2: localStorage changes (works across tabs)
     const handleStorageChange = (e: StorageEvent) => {
+      console.log('🔍 Storage event received:', e.key, e.newValue, e.oldValue)
       if (e.key === 'chore_updated' && e.newValue) {
-        console.log('🔄 Chore update detected via localStorage, refreshing child dashboard...')
+        console.log('🔄 Chore update detected via localStorage, refreshing child dashboard...', e.newValue)
         loadDashboard()
         // Clear the flag
         localStorage.removeItem('chore_updated')
@@ -128,10 +161,54 @@ const ChildDashboard: React.FC = () => {
     }
     
     window.addEventListener('storage', handleStorageChange)
+    console.log('👂 Child dashboard listening for localStorage changes')
+    
+    // Method 3: BroadcastChannel (modern browsers)
+    let broadcastChannel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== 'undefined') {
+      broadcastChannel = new BroadcastChannel('choreblimey-updates')
+      broadcastChannel.onmessage = (event) => {
+        if (event.data.type === 'choreUpdated') {
+          console.log('🔄 Chore update detected via BroadcastChannel, refreshing child dashboard...', event.data)
+          loadDashboard()
+        }
+      }
+      console.log('👂 Child dashboard listening for BroadcastChannel messages')
+    }
+
+    // Method 4: Polling fallback (every 5 seconds)
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling for updates...')
+      loadDashboard()
+    }, 5000)
+    console.log('👂 Child dashboard polling every 5 seconds as fallback')
+    
+    // Method 5: Test localStorage detection
+    const testLocalStorage = () => {
+      const currentValue = localStorage.getItem('chore_updated')
+      console.log('🔍 Current localStorage chore_updated value:', currentValue)
+      if (currentValue) {
+        console.log('🔄 Found localStorage value, triggering refresh...')
+        loadDashboard()
+        localStorage.removeItem('chore_updated')
+      }
+    }
+    
+    // Test localStorage on load
+    testLocalStorage()
+    
+    // Test localStorage every 2 seconds
+    const localStorageTestInterval = setInterval(testLocalStorage, 2000)
+    console.log('👂 Child dashboard testing localStorage every 2 seconds')
 
     return () => {
       window.removeEventListener('choreUpdated', handleChoreUpdate)
       window.removeEventListener('storage', handleStorageChange)
+      if (broadcastChannel) {
+        broadcastChannel.close()
+      }
+      clearInterval(pollInterval)
+      clearInterval(localStorageTestInterval)
     }
   }, [])
 
@@ -298,6 +375,9 @@ const ChildDashboard: React.FC = () => {
       // Small delay to ensure DB is updated, then reload
       await new Promise(resolve => setTimeout(resolve, 300))
       await loadDashboard()
+      
+      // Notify parent dashboard of the completion
+      notifyParentDashboard()
     } catch (error) {
       console.error('Failed to submit completion:', error)
       setToast({ message: 'Failed to submit. Please try again.', type: 'error' })
@@ -334,7 +414,7 @@ const ChildDashboard: React.FC = () => {
     }
   }
 
-  const totalStars = Math.floor((wallet?.balancePence || 0) / 10) // 10p = 1 star
+  const totalStars = wallet?.stars || 0
 
   const handleThemeChange = async (themeId: string) => {
     try {
@@ -527,6 +607,9 @@ const ChildDashboard: React.FC = () => {
                           <span className="flex-1 cb-chip bg-[var(--success)] text-white text-center font-bold border-2 border-[var(--success)]/30">
                             💰 £{(chore.baseRewardPence / 100).toFixed(2)}
                           </span>
+                          <span className="flex-1 cb-chip bg-yellow-500 text-white text-center font-bold border-2 border-yellow-400/30">
+                            ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
+                          </span>
                           <span className="flex-1 cb-chip bg-[var(--secondary)] text-white text-center font-bold border-2 border-[var(--secondary)]/30">
                             {chore.frequency === 'daily' ? '📅 Daily' : chore.frequency === 'weekly' ? '📆 Weekly' : '🎯 Once'}
                           </span>
@@ -695,6 +778,9 @@ const ChildDashboard: React.FC = () => {
                         <div className="text-center">
                           <span className="text-base font-bold text-[var(--bonus-stars)]">
                             💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                          </span>
+                          <span className="text-base font-bold text-yellow-600 ml-2">
+                            ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
                           </span>
                         </div>
                       </div>
@@ -1428,6 +1514,9 @@ const ChildDashboard: React.FC = () => {
               <div className="mt-3 flex items-center gap-2">
                 <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
                   💰 £{(selectedAssignment.chore.baseRewardPence / 100).toFixed(2)}
+                </span>
+                <span className="cb-chip bg-yellow-100 text-yellow-700">
+                  ⭐ {selectedAssignment.chore.starsOverride || Math.max(1, Math.floor(selectedAssignment.chore.baseRewardPence / 10))}
                 </span>
               </div>
             </div>

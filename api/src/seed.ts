@@ -13,7 +13,7 @@ async function main() {
   const choresSeed = [
     ['Make bed', 30], ['Brush teeth AM/PM', 20], ['Tidy bedroom', 50],
     ['Set the table', 30], ['Clear the table', 30], ['Wash dishes', 50],
-    ['Load/unload dishwasher', 50], ['Feed pets', 30], ['Water plants', 30],
+    ['Load dishwasher', 20], ['Empty dishwasher', 20], ['Feed pets', 30], ['Water plants', 30],
     ['Take out rubbish', 50], ['Recycling sort', 40], ['Sweep/vacuum room', 60],
     ['Fold laundry', 50], ['Put laundry away', 40], ['Wipe kitchen surfaces', 40],
     ['Clean bathroom sink', 50], ['Homework (20 min)', 60], ['Read book (15 min)', 40],
@@ -26,6 +26,7 @@ async function main() {
       data: {
         familyId: family.id, title, baseRewardPence: p,
         frequency: 'daily', proof: 'none',
+        starsOverride: title.includes('dishwasher') ? 2 : undefined, // 2 stars for dishwasher chores
         minBidPence: Math.floor(p * 0.5), maxBidPence: Math.floor(p * 1.5)
       }
     })
