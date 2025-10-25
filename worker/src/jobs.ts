@@ -64,12 +64,19 @@ const priceCacheWorker = new Worker(
   { connection }
 )
 
+const accountCleanupWorker = new Worker(
+  QUEUE_NAMES.ACCOUNT_CLEANUP,
+  async (job) => await accountCleanup(job),
+  { connection }
+)
+
 // Worker event handlers
 const workers = [
   { name: 'Rewards Sync', worker: rewardsSyncWorker },
   { name: 'Popularity Update', worker: popularityUpdateWorker },
   { name: 'Birthday Bonus', worker: birthdayBonusWorker },
-  { name: 'Price Cache', worker: priceCacheWorker }
+  { name: 'Price Cache', worker: priceCacheWorker },
+  { name: 'Account Cleanup', worker: accountCleanupWorker }
 ]
 
 workers.forEach(({ name, worker }) => {
@@ -138,6 +145,18 @@ async function scheduleJobs() {
   )
   console.log('⏰ Scheduled: Price cache refresh (every 6 hours)')
   
+  // 5. Monthly account cleanup on the 1st of each month at 2:00 AM
+  await accountCleanupQueue.add(
+    'monthly-cleanup',
+    {},
+    {
+      repeat: {
+        pattern: '0 2 1 * *' // 2:00 AM on the 1st of each month
+      }
+    }
+  )
+  console.log('⏰ Scheduled: Monthly account cleanup (1st of month at 2:00 AM)')
+  
   // Optional: Run jobs immediately on startup for testing
   if (process.env.RUN_JOBS_ON_STARTUP === 'true') {
     console.log('🚀 Running jobs immediately on startup...')
@@ -157,14 +176,16 @@ async function shutdown() {
     rewardsSyncWorker.close(),
     popularityUpdateWorker.close(),
     birthdayBonusWorker.close(),
-    priceCacheWorker.close()
+    priceCacheWorker.close(),
+    accountCleanupWorker.close()
   ])
   
   await Promise.all([
     rewardsSyncQueue.close(),
     popularityUpdateQueue.close(),
     birthdayBonusQueue.close(),
-    priceCacheQueue.close()
+    priceCacheQueue.close(),
+    accountCleanupQueue.close()
   ])
   
   await connection.quit()

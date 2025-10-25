@@ -61,7 +61,7 @@ export async function accountCleanup(job: any) {
 
     console.log(`📧 Found ${inactiveAccounts.length} accounts at 5 months - sending warnings`)
 
-    // Send warning emails
+    // Send 5-month warning emails (30 days before deletion)
     for (const family of inactiveAccounts) {
       const parentEmails = family.members
         .filter(member => member.role === 'parent_admin')
@@ -74,24 +74,34 @@ export async function accountCleanup(job: any) {
             subject: 'ChoreBlimey Account - 30 Days Until Deletion',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h1 style="color: #6DA3FF;">⚠️ Account Deletion Warning</h1>
+                <h1 style="color: #ff6b6b;">⚠️ Account Deletion Warning</h1>
                 <p>Your ChoreBlimey family account hasn't been used in 5 months and will be automatically deleted in 30 days.</p>
                 <p><strong>To keep your account:</strong> Simply log in to ChoreBlimey anytime in the next 30 days.</p>
                 <p><strong>To suspend your account:</strong> Log in and click "Suspend Account" to prevent deletion for 12 months.</p>
-                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                  <h3>What happens if deleted:</h3>
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                  <h3>⚠️ What happens if deleted:</h3>
                   <ul>
                     <li>All family data will be permanently removed</li>
                     <li>All chore history will be lost</li>
                     <li>All child progress will be deleted</li>
+                    <li>All earned stars and rewards will be lost</li>
                   </ul>
                 </div>
-                <p>Visit <a href="https://choreblimey.com">ChoreBlimey.com</a> to log in and keep your account active.</p>
+                <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+                  <h3>✅ How to keep your account:</h3>
+                  <ul>
+                    <li>Log in to ChoreBlimey anytime in the next 30 days</li>
+                    <li>Or click "Suspend Account" to prevent deletion for 12 months</li>
+                    <li>Any family member login will reset the timer</li>
+                  </ul>
+                </div>
+                <p>Visit <a href="https://choreblimey.com" style="color: #6DA3FF; text-decoration: none; font-weight: bold;">ChoreBlimey.com</a> to log in and keep your account active.</p>
                 <p style="color: #666; font-size: 14px;">This is an automated message. Please do not reply.</p>
               </div>
             `
           })
           stats.warningEmailsSent++
+          console.log(`📧 Sent 5-month warning email to ${email}`)
         } catch (error) {
           console.error(`Failed to send warning email to ${email}:`, error)
         }
@@ -175,7 +185,7 @@ export async function accountCleanup(job: any) {
 
     console.log(`📧 Found ${suspendedAccounts.length} suspended accounts at 11 months - sending warnings`)
 
-    // Send warning emails to suspended accounts
+    // Send 11-month warning emails to suspended accounts (30 days before deletion)
     for (const family of suspendedAccounts) {
       const parentEmails = family.members
         .filter(member => member.role === 'parent_admin')
@@ -188,24 +198,34 @@ export async function accountCleanup(job: any) {
             subject: 'ChoreBlimey Suspended Account - 30 Days Until Deletion',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h1 style="color: #6DA3FF;">⚠️ Suspended Account Deletion Warning</h1>
+                <h1 style="color: #ff6b6b;">⚠️ Suspended Account Deletion Warning</h1>
                 <p>Your suspended ChoreBlimey family account will be permanently deleted in 30 days.</p>
                 <p><strong>To reactivate:</strong> Simply log in to ChoreBlimey anytime in the next 30 days.</p>
-                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                  <h3>What happens if deleted:</h3>
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                  <h3>⚠️ What happens if deleted:</h3>
                   <ul>
                     <li>All family data will be permanently removed</li>
                     <li>All chore history will be lost</li>
                     <li>All child progress will be deleted</li>
+                    <li>All earned stars and rewards will be lost</li>
                     <li>You'll need to start over if you want to use ChoreBlimey again</li>
                   </ul>
                 </div>
-                <p>Visit <a href="https://choreblimey.com">ChoreBlimey.com</a> to log in and reactivate your account.</p>
+                <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+                  <h3>✅ How to reactivate:</h3>
+                  <ul>
+                    <li>Log in to ChoreBlimey anytime in the next 30 days</li>
+                    <li>Your account will be automatically reactivated</li>
+                    <li>All your data will be preserved</li>
+                  </ul>
+                </div>
+                <p>Visit <a href="https://choreblimey.com" style="color: #6DA3FF; text-decoration: none; font-weight: bold;">ChoreBlimey.com</a> to log in and reactivate your account.</p>
                 <p style="color: #666; font-size: 14px;">This is an automated message. Please do not reply.</p>
               </div>
             `
           })
           stats.suspendedWarningsSent++
+          console.log(`📧 Sent 11-month suspended warning email to ${email}`)
         } catch (error) {
           console.error(`Failed to send suspended warning email to ${email}:`, error)
         }

@@ -143,6 +143,8 @@ Children can choose from multiple themes:
 - **Role-Based Access**: Granular permissions per role
 - **Data Encryption**: Sensitive information encrypted at rest
 - **Admin Separation**: Isolated admin portal
+- **Auto-Delete**: Inactive accounts automatically deleted (6 months inactive, 12 months suspended)
+- **Login Tracking**: Monitors family activity for proper account management
 
 ### Authentication
 - **JWT Tokens**: Stateless authentication
@@ -155,6 +157,21 @@ Children can choose from multiple themes:
 - **Rate Limiting**: 500 requests/minute per user
 - **CORS Configuration**: Proper origin handling
 - **SQL Injection Prevention**: Prisma ORM protection
+
+## ⚙️ Background Workers
+
+### Auto-Delete System
+- **Monthly Cleanup**: Runs monthly to maintain database hygiene
+- **6-Month Rule**: Inactive accounts (no login for 6 months) are automatically deleted
+- **12-Month Rule**: Suspended accounts are deleted after 12 months
+- **Email Warnings**: 30-day advance notice before deletion
+- **Cascade Deletion**: Properly removes all related data (children, chores, etc.)
+
+### Other Workers
+- **Reward Sync**: Nightly sync with affiliate providers (3:00 AM)
+- **Popularity Updates**: Hourly popularity score calculations
+- **Birthday Bonuses**: Daily birthday bonus awards (6:00 AM)
+- **Price Cache**: 6-hourly price cache refresh
 
 ## 🧪 Testing
 

@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Privacy Policy page
   - GDPR-compliant data handling
   - Cookie consent management
+- **Auto-delete system**:
+  - Automatic cleanup of inactive accounts (6 months inactive, 12 months suspended)
+  - Family-level login tracking for account management
+  - Monthly background worker for database hygiene
+  - Email warnings before account deletion
+  - Proper cascade deletion of all related data
 
 ### 🎨 UI/UX
 
