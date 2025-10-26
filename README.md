@@ -38,11 +38,15 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 - **Price Monitoring**: Automatic price updates
 - **Redemption Tracking**: Full reward fulfillment workflow
 
-### 🔧 Admin Portal
+### 🔧 Secure Admin Portal
+- **Isolated Architecture**: Separate admin-api and admin-web containers
+- **Network Security**: Dedicated admin network with proper segmentation
 - **Site-Wide Configuration**: Email and affiliate settings
 - **Multi-Provider Support**: Amazon PA-API + SiteStripe
 - **Centralized Management**: All settings in one place
-- **Authentication**: Email/password + 2FA security
+- **Enhanced Authentication**: Email/password + 2FA security
+- **Account Cleanup**: Automated inactive account management
+- **System Monitoring**: Performance and security monitoring
 
 ## 🏗️ Architecture
 
@@ -61,6 +65,13 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 - **Admin Portal**: Separate from parent/child dashboards
 - **Security**: Role-based access with encrypted sensitive data
 
+### Secure Architecture
+- **Service Isolation**: Admin services separated from user services
+- **Network Segmentation**: Dedicated networks for admin, user, and database services
+- **Container Security**: Minimal attack surface with Alpine Linux
+- **Health Monitoring**: Comprehensive health checks for all services
+- **Email Security**: Isolated email service with proper authentication
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -69,6 +80,8 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 - Git
 
 ### Installation
+
+#### Standard Development Stack
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -81,7 +94,19 @@ docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build
 # - Web: http://localhost:1500
 # - API: http://localhost:1501
 # - MailHog: http://localhost:1506
-# - Admin: http://localhost:1500/admin
+```
+
+#### Secure Admin Portal Stack
+```bash
+# Start secure stack with isolated admin portal
+docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build
+
+# Access services
+# - User Web: http://localhost:1500
+# - User API: http://localhost:1501
+# - Admin Web: http://localhost:1503
+# - Admin API: http://localhost:1502
+# - MailHog: http://localhost:1506
 ```
 
 ### First Time Setup

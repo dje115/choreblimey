@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2025-10-26
+
+### 🔒 Security & Architecture
+
+- **Secure Admin Portal**:
+  - Separated admin services into isolated containers (admin-api, admin-web)
+  - Implemented network segmentation with dedicated admin_network
+  - Enhanced security posture with proper service isolation
+  - Added comprehensive health checks for all services
+
+### ✨ Features
+
+- **Admin Portal Enhancements**:
+  - Beautiful, centered admin login/signup pages matching original design
+  - Comprehensive admin dashboard with cleanup, email, affiliate management
+  - Enhanced authentication flow with 2FA support
+  - Admin email service with HTML templates for verification and security codes
+  - Account cleanup management with automated inactive account handling
+  - System monitoring and performance tracking
+
+- **Technical Improvements**:
+  - Fixed Tailwind CSS processing with proper PostCSS configuration
+  - Updated all admin-web tools to latest versions
+  - Improved Docker Compose configuration with secure networking
+  - Enhanced error handling and logging throughout admin system
+
+### 🔧 Infrastructure
+
+- **Docker & Networking**:
+  - Added `docker-compose-secure.yml` for secure admin portal deployment
+  - Implemented proper network segmentation (admin_network, user_network, database_network)
+  - Updated port mappings to avoid conflicts
+  - Added comprehensive health checks for all services
+
+- **Admin Services**:
+  - Created separate admin-api container with Fastify + TypeScript
+  - Created separate admin-web container with React + Vite + Tailwind
+  - Implemented proper service isolation and security boundaries
+  - Added admin-specific email service with HTML templates
+
+### 🐛 Bug Fixes
+
+- Fixed admin portal styling issues with proper Tailwind CSS processing
+- Resolved Docker health check failures with correct endpoint URLs
+- Fixed admin email service initialization in server startup
+- Corrected admin API authentication flow and error handling
+
+### 📚 Documentation
+
+- Updated README.md with secure architecture information
+- Added comprehensive SECURE_ARCHITECTURE.md documentation
+- Updated installation instructions for both standard and secure stacks
+- Enhanced architecture documentation with security details
+
+---
+
 ## [1.6.0] - 2025-10-23
 
 ### ✨ Features

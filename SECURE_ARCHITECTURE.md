@@ -1,212 +1,263 @@
-# 🛡️ ChoreBlimey Secure Admin Architecture
+# Secure Admin Portal Architecture
 
 ## Overview
 
-This document describes the secure admin architecture that isolates admin functionality from user-facing services, providing enhanced security, network isolation, and comprehensive audit logging.
+The ChoreBlimey secure admin portal implements a separated architecture with isolated admin services for enhanced security and better operational management.
 
-## 🏗️ Architecture Components
+## Architecture Components
 
-### **Network Isolation**
+### Service Isolation
+
+The secure architecture separates admin functionality from user-facing services:
+
+- **User Services**: `api`, `web`, `worker` - Handle all user-facing functionality
+- **Admin Services**: `admin-api`, `admin-web` - Handle all administrative functionality
+- **Shared Services**: `postgres`, `redis`, `mailhog` - Shared infrastructure
+
+### Network Segmentation
+
+The architecture implements proper network segmentation with dedicated networks:
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   User Network  │    │  Admin Network  │    │ Database Network│
-│   (172.20.0.0)  │    │  (172.21.0.0)   │    │  (172.22.0.0)   │
+│   User Network  │    │  Admin Network  │    │Database Network │
 │                 │    │                 │    │                 │
-│ • Web App       │    │ • Admin Web     │    │ • PostgreSQL    │
-│ • User API      │    │ • Admin API     │    │ • Redis         │
-│ • Worker        │    │                 │    │                 │
+│  ┌───────────┐  │    │  ┌───────────┐  │    │  ┌───────────┐  │
+│  │    web    │  │    │  │ admin-web │  │    │  │  postgres │  │
+│  └───────────┘  │    │  └───────────┘  │    │  └───────────┘  │
+│                 │    │                 │    │                 │
+│  ┌───────────┐  │    │  ┌───────────┐  │    │  ┌───────────┐  │
+│  │    api    │  │    │  │ admin-api │  │    │  │   redis   │  │
+│  └───────────┘  │    │  └───────────┘  │    │  └───────────┘  │
+│                 │    │                 │    │                 │
+│  ┌───────────┐  │    │                 │    │                 │
+│  │  worker   │  │    │                 │    │                 │
+│  └───────────┘  │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
                                  │
                     ┌─────────────────┐
                     │ Shared Network  │
-                    │  (172.23.0.0)  │
                     │                 │
-                    │ • MailHog       │
-                    │ • Email Services│
+                    │  ┌───────────┐  │
+                    │  │  mailhog  │  │
+                    │  └───────────┘  │
                     └─────────────────┘
 ```
 
-### **Service Ports**
-- **User Services**: 1500-1501 (Web App, User API)
-- **Admin Services**: 1502-1503 (Admin API, Admin Web)
-- **Database Services**: 1502, 1507 (PostgreSQL, Redis)
-- **Email Services**: 1506 (MailHog)
+### Network Details
 
-## 🔒 Security Features
+- **user_network**: Isolated network for user-facing services
+- **admin_network**: Isolated network for admin services
+- **database_network**: Dedicated network for database access
+- **shared_network**: Shared network for common services (email, etc.)
 
-### **1. Network Isolation**
-- **User Network**: Isolated user-facing services
-- **Admin Network**: Isolated admin services
-- **Database Network**: Isolated database access
-- **Shared Network**: Email and shared services only
+## Security Features
 
-### **2. Enhanced Authentication**
-- **Separate JWT Secrets**: User and admin tokens use different secrets
-- **2FA Required**: All admin logins require two-factor authentication
-- **Session Management**: Admin sessions stored in database with IP tracking
-- **Token Expiry**: Shorter expiry times for admin tokens (8 hours)
+### Service Isolation
+- Admin services cannot directly access user services
+- User services cannot access admin services
+- Proper network boundaries prevent lateral movement
 
-### **3. Audit Logging**
-- **Admin Activity**: All admin actions logged with IP and user agent
-- **Security Events**: Failed logins, suspicious activity, security scans
-- **Database Queries**: All admin database queries logged
-- **Session Tracking**: Login/logout events with IP addresses
+### Authentication & Authorization
+- Separate admin authentication system
+- Enhanced 2FA support for admin accounts
+- Role-based access control
+- JWT tokens with proper expiration
 
-### **4. Access Control**
-- **Role-Based**: Admin vs Super Admin roles
-- **IP Whitelisting**: Optional IP address restrictions
-- **Session Timeout**: Automatic session expiry
-- **Failed Login Protection**: Account lockout after failed attempts
+### Data Protection
+- Admin data isolated from user data
+- Encrypted sensitive information
+- Proper input validation and sanitization
+- SQL injection prevention with Prisma ORM
 
-## 🚀 Quick Start
+### Network Security
+- Dedicated networks prevent cross-service communication
+- Health checks ensure service availability
+- Proper port mapping and exposure control
+- Container security with minimal attack surface
 
-### **Windows**
+## Deployment
+
+### Standard Stack
 ```bash
-# Start secure stack
-start-secure-stack.bat
-
-# Or manually
-docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d
+# For development and testing
+docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build
 ```
 
-### **Linux/Mac**
+### Secure Stack
 ```bash
-# Start secure stack
-./start-secure-stack.sh
-
-# Or manually
-docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d
+# For production-ready deployment
+docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build
 ```
 
-## 📊 Service Health Checks
+## Service Ports
 
-### **User Services**
-- **Web App**: http://localhost:1500
-- **User API**: http://localhost:1501/health
+### User Services
+- **Web**: `1500` - User interface
+- **API**: `1501` - User API endpoints
+- **Worker**: Internal - Background jobs
 
-### **Admin Services**
-- **Admin Web**: http://localhost:1503
-- **Admin API**: http://localhost:1502/health
+### Admin Services
+- **Admin Web**: `1503` - Admin interface
+- **Admin API**: `1502` - Admin API endpoints
 
-### **Database Services**
-- **PostgreSQL**: Port 1502
-- **Redis**: Port 1507
+### Infrastructure
+- **PostgreSQL**: `1504` - Database
+- **Redis**: `1505` - Cache and job queue
+- **MailHog UI**: `1506` - Email testing interface
+- **MailHog SMTP**: `2526` - Email server
 
-### **Email Services**
-- **MailHog**: http://localhost:1506
+## Admin Portal Features
 
-## 🔧 Configuration
+### Authentication
+- Email/password login
+- Two-factor authentication (2FA)
+- Account verification via email
+- Secure session management
 
-### **Environment Variables**
+### Dashboard
+- System overview and statistics
+- Quick action buttons
+- Service status monitoring
+- Recent activity logs
+
+### Account Management
+- Automated account cleanup
+- Inactive account detection
+- Email warning system
+- Data retention policies
+
+### Email Management
+- SMTP configuration
+- Email template management
+- Delivery monitoring
+- Bounce handling
+
+### Affiliate Management
+- Amazon PA-API integration
+- SiteStripe configuration
+- Product management
+- Commission tracking
+
+### System Monitoring
+- Performance metrics
+- Error logging
+- Security events
+- Resource utilization
+
+## Health Checks
+
+All services include comprehensive health checks:
+
+- **API Services**: HTTP endpoint checks
+- **Web Services**: Nginx status checks
+- **Database**: Connection and query checks
+- **Cache**: Redis connectivity checks
+- **Email**: SMTP connectivity checks
+
+## Environment Configuration
+
+### Development
+- Uses `docker/dev-secure.env` for configuration
+- MailHog for email testing
+- Debug logging enabled
+- Hot reloading for development
+
+### Production
+- Uses production environment variables
+- Real SMTP configuration
+- Optimized logging
+- Security headers enabled
+
+## Monitoring & Logging
+
+### Application Logs
+- Structured JSON logging
+- Request/response tracking
+- Error categorization
+- Performance metrics
+
+### System Monitoring
+- Container health status
+- Resource utilization
+- Network connectivity
+- Service availability
+
+### Security Logging
+- Authentication attempts
+- Authorization failures
+- Suspicious activities
+- Admin actions audit trail
+
+## Backup & Recovery
+
+### Database Backups
+- Automated PostgreSQL backups
+- Point-in-time recovery
+- Cross-region replication
+- Data integrity checks
+
+### Configuration Backups
+- Environment configuration
+- Docker Compose files
+- SSL certificates
+- Admin settings
+
+## Maintenance
+
+### Updates
+- Rolling updates for zero downtime
+- Database migration support
+- Configuration hot-reloading
+- Service restart capabilities
+
+### Scaling
+- Horizontal scaling support
+- Load balancing ready
+- Database connection pooling
+- Cache clustering support
+
+## Security Best Practices
+
+1. **Network Isolation**: Services communicate only through defined interfaces
+2. **Least Privilege**: Services have minimal required permissions
+3. **Defense in Depth**: Multiple security layers
+4. **Regular Updates**: Keep all components updated
+5. **Monitoring**: Continuous security monitoring
+6. **Access Control**: Strict authentication and authorization
+7. **Data Encryption**: Encrypt sensitive data at rest and in transit
+8. **Audit Logging**: Comprehensive audit trails
+
+## Troubleshooting
+
+### Common Issues
+- Service health check failures
+- Network connectivity problems
+- Authentication issues
+- Email delivery problems
+
+### Debug Commands
 ```bash
-# Admin API Configuration
-ADMIN_API_PORT=1502
-ADMIN_JWT_SECRET=admin-jwt-secret-change-in-production-2024
-ADMIN_DATABASE_URL=postgresql://choreblimey:choreblimey-secure-2024@postgres:5432/choreblimey
+# Check service status
+docker compose -f docker/docker-compose-secure.yml ps
 
-# Security Configuration
-ADMIN_IP_WHITELIST=false
-ADMIN_SESSION_TIMEOUT=28800
-ADMIN_MAX_LOGIN_ATTEMPTS=5
-ADMIN_LOCKOUT_DURATION=900
-
-# Network Configuration
-USER_NETWORK_SUBNET=172.20.0.0/16
-ADMIN_NETWORK_SUBNET=172.21.0.0/16
-DATABASE_NETWORK_SUBNET=172.22.0.0/16
-SHARED_NETWORK_SUBNET=172.23.0.0/16
-```
-
-## 🛡️ Security Best Practices
-
-### **1. Admin Access**
-- Use strong, unique passwords
-- Enable 2FA for all admin accounts
-- Regularly rotate admin JWT secrets
-- Monitor admin activity logs
-
-### **2. Network Security**
-- Admin services are isolated from user services
-- Database access is restricted to necessary services
-- Email services are shared but isolated from data access
-
-### **3. Database Security**
-- Admin database user has limited permissions
-- All admin queries are logged for audit
-- Sensitive data is encrypted at rest
-
-### **4. Monitoring**
-- All admin actions are logged
-- Security events are tracked
-- Failed login attempts are monitored
-- Suspicious activity is flagged
-
-## 📋 Admin Features
-
-### **Account Cleanup Management**
-- View cleanup logs and statistics
-- Trigger manual cleanup processes
-- Export cleanup data
-- Monitor cleanup worker status
-
-### **System Monitoring**
-- System performance metrics
-- Error logs and monitoring
-- Security event tracking
-- Database health monitoring
-
-### **Security Management**
-- Active session management
-- IP address blocking
-- Audit log viewing
-- Security event monitoring
-
-## 🔍 Troubleshooting
-
-### **Service Not Starting**
-```bash
-# Check logs
+# View service logs
 docker compose -f docker/docker-compose-secure.yml logs [service-name]
 
-# Restart specific service
-docker compose -f docker/docker-compose-secure.yml restart [service-name]
-```
+# Test service connectivity
+docker compose -f docker/docker-compose-secure.yml exec [service-name] ping [target-service]
 
-### **Database Connection Issues**
-```bash
-# Check database health
-docker compose -f docker/docker-compose-secure.yml exec postgres pg_isready
-
-# Check admin database connection
-curl http://localhost:1502/health
-```
-
-### **Network Issues**
-```bash
-# Check network connectivity
+# Check network configuration
 docker network ls
-docker network inspect choreblimey-secure_user_network
 docker network inspect choreblimey-secure_admin_network
 ```
 
-## 📚 Additional Resources
+## Future Enhancements
 
-- **User Documentation**: [README.md](README.md)
-- **Development Guide**: [DEVELOPMENT_GUIDE.md](DEVELOPMENT_GUIDE.md)
-- **API Documentation**: [API_DOCS.md](API_DOCS.md)
-- **Security Guide**: [SECURITY.md](SECURITY.md)
-
-## 🆘 Support
-
-For security-related issues or questions:
-1. Check the logs: `docker compose -f docker/docker-compose-secure.yml logs -f`
-2. Verify network connectivity between services
-3. Check database connection and permissions
-4. Review admin authentication and session management
-
----
-
-**⚠️ Security Notice**: This architecture provides enhanced security through network isolation and separate authentication systems. Always use strong passwords, enable 2FA, and regularly monitor admin activity logs.
-
+- **API Gateway**: Centralized API management
+- **Service Mesh**: Advanced service communication
+- **Secrets Management**: Centralized secret storage
+- **Compliance**: GDPR/SOC2 compliance features
+- **Multi-Region**: Cross-region deployment support
