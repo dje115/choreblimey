@@ -102,7 +102,7 @@ services:
     env_file:
       - ./dev-secure.env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - DATABASE_URL=postgresql://choreblimey:choreblimey-secure-2024@postgres:5432/choreblimey
       - REDIS_URL=redis://redis:6379
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -157,7 +157,7 @@ services:
     env_file:
       - ./dev-secure.env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - DATABASE_URL=postgresql://choreblimey:choreblimey-secure-2024@postgres:5432/choreblimey
       - REDIS_URL=redis://redis:6379
       - REDIS_HOST=redis
       - REDIS_PORT=6379
