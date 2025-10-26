@@ -1,0 +1,236 @@
+name: choreblimey-secure
+
+# Secure network architecture with isolation
+networks:
+  # User-facing services network
+  user_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  
+  # Admin services network (isolated)
+  admin_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+  
+  # Database network (isolated)
+  database_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+  
+  # Shared services network
+  shared_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.0.0/16
+
+volumes:
+  pgdata: {}
+  web_node_modules: {}
+  api_node_modules: {}
+  admin_api_node_modules: {}
+  admin_web_node_modules: {}
+
+services:
+  # ===========================================
+  # DATABASE SERVICES (Isolated Network)
+  # ===========================================
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-choreblimey}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-choreblimey}
+      POSTGRES_DB: ${POSTGRES_DB:-choreblimey}
+    ports:
+      - "1504:5432"
+    networks:
+      - database_network
+      - shared_network  # For admin access
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-choreblimey}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--aclfile", "/usr/local/etc/redis-acl.conf"]
+    volumes:
+      - ./redis-acl.conf:/usr/local/etc/redis-acl.conf:ro
+    ports:
+      - "1505:6379"
+    networks:
+      - database_network
+      - shared_network  # For admin access
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # SHARED SERVICES (Shared Network)
+  # ===========================================
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1506:8025"
+      - "2526:1025"
+    networks:
+      - shared_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8025"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
+  # USER-FACING SERVICES (User Network)
+  # ===========================================
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - REDIS_URL=redis://redis:6379
+      - API_PORT=1501
+      - API_HOST=0.0.0.0
+    ports:
+      - "1501:1501"
+    networks:
+      - user_network
+      - database_network  # Database access only
+      - shared_network    # Email access
+    volumes:
+      - api_node_modules:/app/api/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:1501/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      - VITE_API_BASE_URL=http://localhost:1501/v1
+    ports:
+      - "1500:1500"
+    networks:
+      - user_network
+    volumes:
+      - web_node_modules:/app/web/node_modules
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:1500"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/worker.Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - user_network
+      - database_network  # Database access only
+      - shared_network    # Email access
+    volumes:
+      - api_node_modules:/app/api/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
+  # ADMIN SERVICES (Admin Network - Isolated)
+  # ===========================================
+  admin-api:
+    build:
+      context: ..
+      dockerfile: admin-api/Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      - ADMIN_DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - ADMIN_REDIS_URL=redis://redis:6379
+      - ADMIN_API_PORT=1502
+      - ADMIN_API_HOST=0.0.0.0
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-admin-secret-key-change-in-production}
+      - ADMIN_SMTP_HOST=${ADMIN_SMTP_HOST:-mailhog}
+      - ADMIN_SMTP_PORT=${ADMIN_SMTP_PORT:-1025}
+      - ADMIN_SMTP_FROM=${ADMIN_SMTP_FROM:-admin@choreblimey.com}
+      - ADMIN_WEB_URL=http://localhost:1503
+    ports:
+      - "1502:1502"
+    networks:
+      - admin_network
+      - database_network  # Database access only
+      - shared_network    # Email access
+    volumes:
+      - admin_api_node_modules:/app/admin-api/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:1502/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  admin-web:
+    build:
+      context: ..
+      dockerfile: infra/docker/admin-web.Dockerfile
+    env_file:
+      - ./dev.env
+    environment:
+      - VITE_ADMIN_API_URL=http://localhost:1502
+    ports:
+      - "1503:1503"
+    networks:
+      - admin_network
+    volumes:
+      - admin_web_node_modules:/app/admin-web/node_modules
+    depends_on:
+      admin-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:1502/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

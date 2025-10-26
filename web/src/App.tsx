@@ -14,13 +14,6 @@ import ParentDashboard from './pages/ParentDashboard'
 import ChildDashboard from './pages/ChildDashboard'
 import ChoreManagement from './pages/ChoreManagement'
 import ChildJoinPage from './pages/ChildJoinPage'
-import AdminLogin from './pages/AdminLogin'
-import AdminSignup from './pages/AdminSignup'
-import AdminTwoFactor from './pages/AdminTwoFactor'
-import AdminEmailVerify from './pages/AdminEmailVerify'
-import AdminMailConfig from './pages/AdminMailConfig'
-import AdminAffiliateConfig from './pages/AdminAffiliateConfig'
-import AdminDashboard from './pages/AdminDashboard'
 import CoParentDashboard from './pages/CoParentDashboard'
 import GrandparentDashboard from './pages/GrandparentDashboard'
 import PrivacyPolicy from './pages/PrivacyPolicy'
@@ -50,12 +43,6 @@ const AppContent = () => {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/child-join" element={<ChildJoinPage />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin/signup" element={<AdminSignup />} />
-              <Route path="/admin/2fa" element={<AdminTwoFactor />} />
-              <Route path="/admin/verify-email" element={<AdminEmailVerify />} />
-              <Route path="/admin/mail-config" element={<AdminMailConfig />} />
-              <Route path="/admin/affiliate-config" element={<AdminAffiliateConfig />} />
               
               {/* Legal pages */}
               <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -90,7 +77,6 @@ const AppContent = () => {
                   <ChildDashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/admin" element={<AdminDashboard />} />
               
               {/* Catch all for unknown routes */}
               <Route path="*" element={<Navigate to="/login" replace />} />

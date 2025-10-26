@@ -1,0 +1,29 @@
+[33mcommit fb7daec111e6928e59ba05f42e6dc7860f433e05[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: David <david@example.com>
+Date:   Sat Oct 25 18:46:32 2025 +0100
+
+    feat: complete auto-delete system with email warnings
+    
+    - Add monthly account cleanup worker (1st of month at 2:00 AM)
+    - Implement 5-month and 11-month email warnings before deletion
+    - Use system-wide email configuration from admin settings
+    - Add professional HTML email templates with clear warnings
+    - Include proper cascade deletion for all related data
+    - Add comprehensive logging and error handling
+    - Update documentation with worker system details
+    - Test email functionality with MailHog integration
+    
+    Features:
+    - 5 months inactive: Send warning email (30 days before deletion)
+    - 6 months inactive: Delete account and all data
+    - 11 months suspended: Send warning email (30 days before deletion)
+    - 12 months suspended: Delete account and all data
+    - Monthly scheduling: Automatic cleanup on 1st of each month
+    - System email config: Uses admin panel email settings
+    - Professional emails: HTML templates with clear warnings and instructions
+
+CHANGELOG.md
+README.md
+worker/src/jobs.ts
+worker/src/jobs/accountCleanup.ts
+worker/src/utils/email.ts

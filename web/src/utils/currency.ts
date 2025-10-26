@@ -66,3 +66,4 @@ export function getSupportedCurrencies(): CurrencyInfo[] {
   return Object.values(CURRENCIES)
 }
 
+

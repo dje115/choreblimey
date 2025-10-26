@@ -10,7 +10,8 @@
   "dependencies": {
     "@prisma/client": "^6.17.1",
     "bullmq": "^5.20.6",
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.4.1",
+    "nodemailer": "^6.10.1"
   },
   "devDependencies": {
     "prisma": "^6.17.1",

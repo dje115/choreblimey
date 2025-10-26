@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAdminAuth } from '../contexts/AdminAuthContext'
 
 const AdminLogin: React.FC = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { adminLogin } = useAdminAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -14,34 +16,14 @@ const AdminLogin: React.FC = () => {
     setError('')
 
     try {
-      // Admin authentication endpoint
-      const response = await fetch('http://localhost:1501/v1/admin/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        
-        if (data.requiresTwoFactor) {
-          // Redirect to 2FA page with email and password
-          navigate('/admin/2fa', { 
-            state: { email, password } 
-          })
-        } else {
-          // Direct login (shouldn't happen with new system)
-          localStorage.setItem('admin_token', data.token)
-          navigate('/admin')
-        }
+      const result = await adminLogin(email, password)
+      if (result.requiresTwoFactor) {
+        navigate('/admin/2fa')
       } else {
-        const data = await response.json()
-        setError(data.error || 'Invalid admin credentials')
+        navigate('/admin')
       }
     } catch (err) {
-      setError('Login failed. Please try again.')
+      setError('Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -144,3 +126,4 @@ const AdminLogin: React.FC = () => {
 }
 
 export default AdminLogin
+

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import apiClient from '../lib/api'
 
 const AdminSignup: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -29,22 +30,10 @@ const AdminSignup: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:1501/v1/admin/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, name }),
-      })
-
-      if (response.ok) {
-        setSuccess(true)
-      } else {
-        const data = await response.json()
-        setError(data.error || 'Signup failed')
-      }
+      await apiClient.adminSignup(email, password, name)
+      setSuccess(true)
     } catch (err) {
-      setError('Signup failed. Please try again.')
+      setError(err instanceof Error ? err.message : 'Signup failed')
     } finally {
       setLoading(false)
     }
@@ -209,4 +198,3 @@ const AdminSignup: React.FC = () => {
 }
 
 export default AdminSignup
-

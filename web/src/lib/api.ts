@@ -266,30 +266,6 @@ class ApiClient {
     return this.get(`/payouts/unpaid/${childId}`)
   }
 
-  // Admin functions
-  async adminListAffiliateSources() {
-    return this.get('/admin/affiliate-sources')
-  }
-
-  async adminCreateAffiliateSource(data: any) {
-    return this.post('/admin/affiliate-sources', data)
-  }
-
-  async adminUpdateAffiliateSource(id: string, data: any) {
-    return this.patch(`/admin/affiliate-sources/${id}`, data)
-  }
-
-  async adminDeleteAffiliateSource(id: string) {
-    return this.delete(`/admin/affiliate-sources/${id}`)
-  }
-
-  async adminGetSyncStats() {
-    return this.get('/admin/sync-stats')
-  }
-
-  async adminTriggerSync() {
-    return this.post('/admin/trigger-sync')
-  }
 }
 
 export const apiClient = new ApiClient()

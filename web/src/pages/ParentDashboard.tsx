@@ -2304,8 +2304,8 @@ const ParentDashboard: React.FC = () => {
                   description: selectedChore.description,
                   frequency: selectedChore.frequency,
                   proof: selectedChore.proof,
-                  baseRewardPence: selectedChore.baseRewardPence,
-                  starsOverride: selectedChore.starsOverride,
+                  baseRewardPence: Number(selectedChore.baseRewardPence),
+                  starsOverride: selectedChore.starsOverride ? Number(selectedChore.starsOverride) : undefined,
                   active: selectedChore.active
                 })
                 
