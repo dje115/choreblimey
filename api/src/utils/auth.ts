@@ -6,9 +6,15 @@ declare module 'fastify' { interface FastifyRequest { claims?: Claims } }
 export const authPlugin = fp(async (app) => {
   app.decorateRequest('claims', null)
   app.addHook('preHandler', async (req, reply) => {
-    // Allow auth routes and health check to pass through
+    // Allow specific auth routes and health check to pass through
     const url = req.url || ''
-    if (url.includes('/auth/') || url.includes('/health')) return
+    const allowedAuthRoutes = [
+      '/auth/signup-parent',
+      '/auth/callback', 
+      '/auth/child-join'
+    ]
+    
+    if (url.includes('/health') || allowedAuthRoutes.some(route => url.includes(route))) return
     
     const header = req.headers.authorization || ''
     const token = header.replace('Bearer ', '')
