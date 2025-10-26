@@ -2987,3 +2987,5 @@ const ParentDashboard: React.FC = () => {
     </div>
   )
 }
+
+export default ParentDashboard
