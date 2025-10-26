@@ -1,5 +1,10 @@
 FROM node:22-alpine as builder
 
+# Set UTF-8 locale and environment
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV LC_CTYPE=C.UTF-8
+
 # Create admin user for security
 RUN addgroup -g 1001 -S admin && \
     adduser -S admin -u 1001 -G admin
@@ -19,6 +24,11 @@ RUN cd admin-web && npm run build
 
 # Production stage
 FROM nginx:alpine
+
+# Set UTF-8 locale and environment
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV LC_CTYPE=C.UTF-8
 
 # Create admin user
 RUN addgroup -g 1001 -S admin && \

@@ -135,6 +135,9 @@ services:
       - ./dev.env
     environment:
       - VITE_API_BASE_URL=http://localhost:1501/v1
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - LC_CTYPE=C.UTF-8
     ports:
       - "1500:1500"
     networks:
@@ -224,6 +227,9 @@ services:
       - ./dev.env
     environment:
       - VITE_ADMIN_API_URL=http://localhost:1502
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+      - LC_CTYPE=C.UTF-8
     ports:
       - "1503:1503"
     networks:
