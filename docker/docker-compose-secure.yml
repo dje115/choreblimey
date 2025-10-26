@@ -104,6 +104,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
       - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - API_PORT=1501
       - API_HOST=0.0.0.0
     ports:
@@ -157,6 +159,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
       - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     networks:
       - user_network
       - database_network  # Database access only
