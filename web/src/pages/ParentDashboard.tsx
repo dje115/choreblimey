@@ -2927,8 +2927,10 @@ const ParentDashboard: React.FC = () => {
       )}
 
       {/* Payout Modal */}
-                      onChange={(e) => setSelectedChild({ ...selectedChild, nickname: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+      {showPayoutModal && payoutChild && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">💸 Pay Out Pocket Money</h3>
                     />
                   </div>
                   
