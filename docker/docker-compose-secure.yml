@@ -100,7 +100,7 @@ services:
       context: ..
       dockerfile: infra/docker/api.Dockerfile
     env_file:
-      - ./dev.env
+      - ./dev-secure.env
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
       - REDIS_URL=redis://redis:6379
@@ -153,7 +153,7 @@ services:
       context: ..
       dockerfile: infra/docker/worker.Dockerfile
     env_file:
-      - ./dev.env
+      - ./dev-secure.env
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
       - REDIS_URL=redis://redis:6379
@@ -182,7 +182,7 @@ services:
       context: ..
       dockerfile: admin-api/Dockerfile
     env_file:
-      - ./dev.env
+      - ./dev-secure.env
     environment:
       - ADMIN_DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
       - ADMIN_REDIS_URL=redis://redis:6379
