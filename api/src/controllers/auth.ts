@@ -240,30 +240,54 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       return reply.status(400).send({ error: 'Join code has expired' })
     }
 
-    if (joinCodeRecord.usedAt) {
-      return reply.status(400).send({ error: 'Join code has already been used' })
+    // Check if join code has been used by a different child
+    if (joinCodeRecord.usedAt && joinCodeRecord.usedByChildId) {
+      // Check if the existing child matches the nickname being used
+      const existingChild = await prisma.child.findUnique({
+        where: { id: joinCodeRecord.usedByChildId }
+      })
+      
+      if (existingChild && existingChild.nickname !== nickname.trim()) {
+        return reply.status(400).send({ error: 'Join code has already been used by a different child' })
+      }
     }
 
     familyId = joinCodeRecord.familyId
 
-    // Create child with default values (parent will set age/gender later)
-    const child = await prisma.child.create({
-      data: {
+    // Check if a child with this nickname already exists in the family
+    let child = await prisma.child.findFirst({
+      where: {
         familyId,
-        nickname,
-        ageGroup: '5-8', // Default to youngest group - parent will update
-        gender: null // Parent will set this in parent portal
+        nickname: nickname.trim()
       }
     })
 
-    // Mark join code as used
-    await prisma.childJoinCode.update({
-      where: { id: joinCodeRecord.id },
-      data: {
-        usedAt: new Date(),
-        usedByChildId: child.id
-      }
-    })
+    if (child) {
+      // Child already exists - re-authenticate them
+      console.log('Re-authenticating existing child:', child.id, 'nickname:', child.nickname)
+    } else {
+      // Create new child with default values (parent will set age/gender later)
+      console.log('Creating new child for nickname:', nickname)
+      child = await prisma.child.create({
+        data: {
+          familyId,
+          nickname: nickname.trim(),
+          ageGroup: '5-8', // Default to youngest group - parent will update
+          gender: null // Parent will set this in parent portal
+        }
+      })
+    }
+
+    // Mark join code as used (only if not already used)
+    if (!joinCodeRecord.usedAt) {
+      await prisma.childJoinCode.update({
+        where: { id: joinCodeRecord.id },
+        data: {
+          usedAt: new Date(),
+          usedByChildId: child.id
+        }
+      })
+    }
 
     // Invalidate family cache so parent dashboard shows new child immediately
     await cache.invalidateFamily(familyId)
