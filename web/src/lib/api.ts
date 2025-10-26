@@ -139,6 +139,10 @@ class ApiClient {
     return this.patch(`/children/${childId}`, data)
   }
 
+  async removeChild(childId: string) {
+    return this.delete(`/children/${childId}`)
+  }
+
   async generateChildJoinCode(data: { nickname: string; ageGroup: string; gender?: string }) {
     return this.post('/auth/generate-join-code', data)
   }

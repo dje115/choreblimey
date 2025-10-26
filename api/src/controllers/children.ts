@@ -147,3 +147,64 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
     reply.status(500).send({ error: 'Failed to update child' })
   }
 }
+
+export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+
+    // Verify child belongs to family
+    const existingChild = await prisma.child.findFirst({
+      where: { id, familyId },
+      include: {
+        assignments: true,
+        completions: true,
+        wallet: true,
+        transactions: true,
+        streaks: true
+      }
+    })
+
+    if (!existingChild) {
+      return reply.status(404).send({ error: 'Child not found' })
+    }
+
+    console.log(`🗑️ Removing child ${existingChild.nickname} (ID: ${id}) and all related data...`)
+
+    // Delete in correct order to avoid foreign key constraints
+    await prisma.transaction.deleteMany({
+      where: { childId: id }
+    })
+
+    await prisma.completion.deleteMany({
+      where: { childId: id }
+    })
+
+    await prisma.assignment.deleteMany({
+      where: { childId: id }
+    })
+
+    await prisma.streak.deleteMany({
+      where: { childId: id }
+    })
+
+    await prisma.wallet.deleteMany({
+      where: { childId: id }
+    })
+
+    // Finally delete the child
+    await prisma.child.delete({
+      where: { id }
+    })
+
+    // Invalidate family cache so changes are reflected immediately
+    await cache.invalidateFamily(familyId)
+
+    console.log(`✅ Successfully removed child ${existingChild.nickname} and all related data`)
+
+    return { message: 'Child removed successfully' }
+  } catch (error) {
+    console.error('Failed to remove child:', error)
+    reply.status(500).send({ error: 'Failed to remove child' })
+  }
+}

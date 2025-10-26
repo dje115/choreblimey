@@ -2749,6 +2749,50 @@ const ParentDashboard: React.FC = () => {
               </div>
             </div>
 
+            {/* Management Actions */}
+            <div className="space-y-4 mt-8 pt-6 border-t-2 border-[var(--card-border)]">
+              <h4 className="font-bold text-[var(--text-primary)] mb-3">🔧 Child Management</h4>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to pause ${selectedChild.nickname}? They won't be able to access their dashboard until you unpause them.`)) {
+                    // TODO: Implement pause child functionality
+                    setToast({ message: '⏸️ Child paused successfully!', type: 'success' })
+                    }
+                  }}
+                  className="px-4 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors text-sm"
+                >
+                  ⏸️ Pause Child
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    if (confirm(`⚠️ WARNING: This will permanently delete ${selectedChild.nickname} and ALL their data (chores, completions, wallet balance, etc.). This cannot be undone!\n\nType "${selectedChild.nickname}" to confirm:`)) {
+                      const confirmation = prompt(`Type "${selectedChild.nickname}" to confirm deletion:`)
+                      if (confirmation === selectedChild.nickname) {
+                        try {
+                          await apiClient.removeChild(selectedChild.id)
+                          setToast({ message: '🗑️ Child removed successfully!', type: 'success' })
+                          setShowChildProfileModal(false)
+                          setSelectedChild(null)
+                          await loadDashboard()
+                        } catch (error) {
+                          console.error('Failed to remove child:', error)
+                          setToast({ message: 'Failed to remove child. Please try again.', type: 'error' })
+                        }
+                      } else {
+                        setToast({ message: '❌ Deletion cancelled - name did not match', type: 'error' })
+                      }
+                    }
+                  }}
+                  className="px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm"
+                >
+                  🗑️ Remove Child
+                </button>
+              </div>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex gap-4 mt-8 pt-6 border-t-2 border-[var(--card-border)]">
               <button

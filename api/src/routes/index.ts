@@ -23,6 +23,7 @@ export async function routes(app: FastifyInstance) {
   // Children management
   app.post('/children', ctrl.children.create)
   app.patch('/children/:id', ctrl.children.update)
+  app.delete('/children/:id', ctrl.children.remove)
 
   // Chores management
   app.get('/chores', ctrl.chores.list)
