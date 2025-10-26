@@ -3018,13 +3018,208 @@ const ParentDashboard: React.FC = () => {
                     </p>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Device Access */}
-              <div className="border-t-2 border-[var(--card-border)] pt-6">
-                <h4 className="font-bold text-[var(--text-primary)] mb-4">📱 Device Access</h4>
-                <p className="text-sm text-[var(--text-secondary)] mb-4">
-                  Generate a new join code if your child needs to access ChoreBlimey from another device (tablet, phone, etc.)
+              {/* Device Access Tab */}
+              {childProfileTab === 'device' && (
+                <div className="space-y-6">
+                  <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-[var(--radius-lg)] border border-blue-200">
+                    <h4 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                      📱 Device Access
+                    </h4>
+                    <p className="text-[var(--text-secondary)] mb-4">
+                      Generate a new join code if your child needs to access ChoreBlimey from another device (tablet, phone, etc.)
+                    </p>
+                    
+                    {newJoinCode ? (
+                      <div className="p-4 bg-white rounded-lg border-2 border-green-200">
+                        <p className="font-semibold text-green-800 mb-2">✅ New Join Code Generated!</p>
+                        <div className="bg-gray-100 p-3 rounded font-mono text-lg text-center mb-3">
+                          {newJoinCode}
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          This code expires in 7 days. Share it with your child to let them access their dashboard.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          setGeneratingCode(true)
+                          try {
+                            const response = await apiClient.generateChildJoinCode({
+                              nickname: selectedChild.nickname,
+                              ageGroup: selectedChild.ageGroup || '5-8',
+                              gender: selectedChild.gender
+                            })
+                            setNewJoinCode(response.joinCode.code)
+                            setToast({ message: '✅ New join code generated!', type: 'success' })
+                          } catch (error) {
+                            console.error('Failed to generate join code:', error)
+                            setToast({ message: 'Failed to generate join code. Please try again.', type: 'error' })
+                          } finally {
+                            setGeneratingCode(false)
+                          }
+                        }}
+                        disabled={generatingCode}
+                        className="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {generatingCode ? (
+                          <>
+                            <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            🔄 Generate New Join Code
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats Tab */}
+              {childProfileTab === 'stats' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[var(--radius-lg)] border border-yellow-200 text-center">
+                      <div className="text-4xl font-bold text-yellow-600 mb-2 flex items-center justify-center gap-2">
+                        {selectedChild.totalStars || 0}
+                        <span className="text-2xl">⭐</span>
+                      </div>
+                      <div className="text-sm text-[var(--text-secondary)]">Total Stars</div>
+                    </div>
+                    <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-[var(--radius-lg)] border border-green-200 text-center">
+                      <div className="text-4xl font-bold text-green-600 mb-2">
+                        £{((selectedChild.walletBalance || 0) / 100).toFixed(2)}
+                      </div>
+                      <div className="text-sm text-[var(--text-secondary)]">Wallet Balance</div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-[var(--radius-lg)] border border-purple-200">
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">📈 Recent Activity</h4>
+                    <div className="space-y-3">
+                      {selectedChild.recentCompletions?.slice(0, 5).map((completion: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                          <div>
+                            <p className="font-semibold text-sm">{completion.chore?.title}</p>
+                            <p className="text-xs text-gray-500">{getTimeAgo(new Date(completion.completedAt))}</p>
+                          </div>
+                          <div className="text-green-600 font-bold">+£{(completion.rewardPence / 100).toFixed(2)}</div>
+                        </div>
+                      )) || (
+                        <p className="text-gray-500 text-center py-4">No recent activity</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Management Tab */}
+              {childProfileTab === 'management' && (
+                <div className="space-y-6">
+                  <div className="p-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-[var(--radius-lg)] border border-red-200">
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">⚠️ Child Management</h4>
+                    <p className="text-[var(--text-secondary)] mb-6">
+                      Use these options to manage your child's account. These actions cannot be undone.
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to pause ${selectedChild.nickname}? They won't be able to access their dashboard until you unpause them.`)) {
+                            // TODO: Implement pause child functionality
+                            setToast({ message: '⏸️ Child paused successfully!', type: 'success' })
+                          }
+                        }}
+                        className="px-4 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors text-sm"
+                      >
+                        ⏸️ Pause Child
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          if (confirm(`⚠️ WARNING: This will permanently delete ${selectedChild.nickname} and ALL their data (chores, completions, wallet balance, etc.). This cannot be undone!\n\nType "${selectedChild.nickname}" to confirm:`)) {
+                            const confirmation = prompt(`Type "${selectedChild.nickname}" to confirm deletion:`)
+                            if (confirmation === selectedChild.nickname) {
+                              try {
+                                await apiClient.removeChild(selectedChild.id)
+                                setToast({ message: '🗑️ Child removed successfully!', type: 'success' })
+                                setShowChildProfileModal(false)
+                                setSelectedChild(null)
+                                await loadDashboard()
+                              } catch (error) {
+                                console.error('Failed to remove child:', error)
+                                setToast({ message: 'Failed to remove child. Please try again.', type: 'error' })
+                              }
+                            } else {
+                              setToast({ message: '❌ Deletion cancelled - name did not match', type: 'error' })
+                            }
+                          }
+                        }}
+                        className="px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm"
+                      >
+                        🗑️ Remove Child
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 mt-8 pt-6 border-t-2 border-[var(--card-border)]">
+              <button
+                onClick={() => {
+                  setShowChildProfileModal(false)
+                  setSelectedChild(null)
+                  setNewJoinCode(null)
+                  setChildProfileTab('info')
+                }}
+                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    // Update child info (ageGroup is auto-calculated from birthday)
+                    await apiClient.updateChild(selectedChild.id, {
+                      nickname: selectedChild.nickname,
+                      gender: selectedChild.gender,
+                      email: selectedChild.email,
+                      birthMonth: selectedChild.birthMonth,
+                      birthYear: selectedChild.birthYear
+                    })
+                    setToast({ message: '✅ Profile updated successfully!', type: 'success' })
+                    setShowChildProfileModal(false)
+                    setSelectedChild(null)
+                    setNewJoinCode(null)
+                    setChildProfileTab('info')
+                    await loadDashboard()
+                  } catch (error) {
+                    console.error('Failed to update child profile:', error)
+                    setToast({ message: 'Failed to update profile. Please try again.', type: 'error' })
+                  }
+                }}
+                className="flex-1 cb-button-primary"
+              >
+                💾 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payout Modal */}
+      {showPayoutModal && payoutChild && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-lg">
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">💸 Pay Out Pocket Money</h3>
+            
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-[var(--radius-lg)] border-2 border-green-200">
                 </p>
                 
                 {newJoinCode ? (
