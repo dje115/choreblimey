@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext'
 import AdminLogin from './pages/AdminLogin'
 import AdminSignup from './pages/AdminSignup'
+import AdminTwoFactor from './pages/AdminTwoFactor'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminCleanup from './pages/AdminCleanup'
 import AdminEmail from './pages/AdminEmail'
@@ -42,6 +43,7 @@ function App() {
             {/* Public routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/signup" element={<AdminSignup />} />
+            <Route path="/admin/2fa" element={<AdminTwoFactor />} />
             
             {/* Protected admin routes */}
             <Route path="/admin" element={

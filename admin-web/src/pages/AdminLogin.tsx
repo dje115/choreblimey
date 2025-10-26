@@ -18,7 +18,7 @@ const AdminLogin: React.FC = () => {
     try {
       const result = await adminLogin(email, password)
       if (result.requiresTwoFactor) {
-        navigate('/admin/2fa')
+        navigate('/admin/2fa', { state: { email, password } })
       } else {
         navigate('/admin')
       }
