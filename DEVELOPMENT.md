@@ -22,11 +22,18 @@ ChoreBlimey! is a gamified family chore management system that motivates childre
 - **Admin Portal**: Separate from parent/child dashboards
 - **Authentication**: Role-based (parent_admin, child, admin)
 
+### Secure Admin Portal Architecture
+- **Service Isolation**: Admin services separated from user services
+- **Network Segmentation**: Dedicated networks for admin, user, and database services
+- **Container Security**: Minimal attack surface with Alpine Linux
+- **Health Monitoring**: Comprehensive health checks for all services
+- **Email Security**: Isolated email service with proper authentication
+
 ## 📁 Project Structure
 
 ```
 choreblimey/
-├── api/                          # Backend API
+├── api/                          # User Backend API
 │   ├── src/
 │   │   ├── controllers/          # API route handlers
 │   │   ├── services/             # Business logic layer
@@ -38,13 +45,25 @@ choreblimey/
 │   │   ├── schema.prisma         # Database schema
 │   │   └── migrations/           # Database migrations
 │   └── Dockerfile
-├── web/                          # Frontend React app
+├── admin-api/                    # Admin Backend API (Secure)
+│   ├── src/
+│   │   ├── controllers/          # Admin API route handlers
+│   │   ├── services/             # Admin business logic
+│   │   ├── utils/                # Admin utilities
+│   │   ├── middleware/           # Admin middleware
+│   │   ├── db/                   # Admin database connection
+│   │   └── routes/               # Admin route definitions
+│   └── Dockerfile
+├── web/                          # User Frontend React app
 │   ├── src/
 │   │   ├── pages/                # React pages
 │   │   ├── components/          # Reusable components
-│   │   ├── contexts/            # React contexts
-│   │   ├── lib/                 # API client & utilities
-│   │   └── themes/              # Child theme system
+├── admin-web/                    # Admin Frontend React app (Secure)
+│   ├── src/
+│   │   ├── pages/                # Admin React pages
+│   │   ├── components/          # Admin components
+│   │   ├── contexts/            # Admin React contexts
+│   │   └── lib/                 # Admin utilities
 │   └── Dockerfile
 ├── worker/                       # Background job processor
 │   ├── src/
@@ -209,6 +228,8 @@ model TwoFactorCode {
 - Git
 
 ### Quick Start
+
+#### Standard Development Stack
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -221,7 +242,19 @@ docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build
 # - Web: http://localhost:1500
 # - API: http://localhost:1501
 # - MailHog: http://localhost:1506
-# - Admin: http://localhost:1500/admin
+```
+
+#### Secure Admin Portal Stack
+```bash
+# Start secure stack with isolated admin portal
+docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build
+
+# Access services
+# - User Web: http://localhost:1500
+# - User API: http://localhost:1501
+# - Admin Web: http://localhost:1503
+# - Admin API: http://localhost:1502
+# - MailHog: http://localhost:1506
 ```
 
 ### Environment Variables
