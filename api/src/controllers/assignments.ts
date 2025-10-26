@@ -39,6 +39,7 @@ export const list = async (req: FastifyRequest<{ Querystring: { childId?: string
             frequency: true,
             proof: true,
             baseRewardPence: true,
+            starsOverride: true,
             minBidPence: true,
             maxBidPence: true,
             active: true
