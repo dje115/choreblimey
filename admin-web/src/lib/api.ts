@@ -78,50 +78,50 @@ class AdminApiClient {
 
   // Admin Authentication
   async adminSignup(email: string, password: string, name?: string) {
-    return this.post('/admin/auth/signup', { email, password, name }, false)
+    return this.post('/v1/admin/auth/signup', { email, password, name }, false)
   }
 
   async adminVerifyEmail(token: string) {
-    return this.post('/admin/auth/verify-email', { token }, false)
+    return this.post('/v1/admin/auth/verify-email', { token }, false)
   }
 
   async adminLogin(email: string, password: string) {
-    return this.post('/admin/auth/login', { email, password }, false)
+    return this.post('/v1/admin/auth/login', { email, password }, false)
   }
 
   async adminVerifyTwoFactor(data: { email: string; password: string; code: string }) {
-    return this.post('/admin/auth/verify-2fa', data, false)
+    return this.post('/v1/admin/auth/verify-2fa', data, false)
   }
 
   async adminLogout() {
-    return this.post('/admin/auth/logout')
+    return this.post('/v1/admin/auth/logout')
   }
 
   async getAdminProfile() {
-    return this.get('/admin/profile')
+    return this.get('/v1/admin/profile')
   }
 
   // Account Cleanup
   async getCleanupLogs(params?: any) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    return this.get(`/admin/cleanup/logs${queryString}`)
+    return this.get(`/v1/admin/cleanup/logs${queryString}`)
   }
 
   async getCleanupStats() {
-    return this.get('/admin/cleanup/stats')
+    return this.get('/v1/admin/cleanup/stats')
   }
 
   async getCleanupStatus() {
-    return this.get('/admin/cleanup/status')
+    return this.get('/v1/admin/cleanup/status')
   }
 
   async triggerCleanup() {
-    return this.post('/admin/cleanup/trigger')
+    return this.post('/v1/admin/cleanup/trigger')
   }
 
   async exportCleanupLogs(params?: any) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    const response = await fetch(`${this.baseUrl}/admin/cleanup/export${queryString}`, {
+    const response = await fetch(`${this.baseUrl}/v1/admin/cleanup/export${queryString}`, {
       method: 'GET',
       headers: this.getHeaders(),
     })
@@ -135,44 +135,44 @@ class AdminApiClient {
 
   // System Monitoring
   async getSystemOverview() {
-    return this.get('/admin/monitoring/overview')
+    return this.get('/v1/admin/monitoring/overview')
   }
 
   async getPerformanceMetrics() {
-    return this.get('/admin/monitoring/performance')
+    return this.get('/v1/admin/monitoring/performance')
   }
 
   async getErrorLogs(params?: any) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    return this.get(`/admin/monitoring/errors${queryString}`)
+    return this.get(`/v1/admin/monitoring/errors${queryString}`)
   }
 
   async getSecurityEvents(params?: any) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    return this.get(`/admin/monitoring/security${queryString}`)
+    return this.get(`/v1/admin/monitoring/security${queryString}`)
   }
 
   // Security Management
   async getSecurityLogs(params?: any) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    return this.get(`/admin/security/logs${queryString}`)
+    return this.get(`/v1/admin/security/logs${queryString}`)
   }
 
   async getActiveSessions() {
-    return this.get('/admin/security/sessions')
+    return this.get('/v1/admin/security/sessions')
   }
 
   async revokeSession(sessionId: string) {
-    return this.post('/admin/security/revoke-session', { sessionId })
+    return this.post('/v1/admin/security/revoke-session', { sessionId })
   }
 
   async getAuditLogs(params?: any) {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : ''
-    return this.get(`/admin/security/audit${queryString}`)
+    return this.get(`/v1/admin/security/audit${queryString}`)
   }
 
   async blockIPAddress(ipAddress: string, reason: string) {
-    return this.post('/admin/security/block-ip', { ipAddress, reason })
+    return this.post('/v1/admin/security/block-ip', { ipAddress, reason })
   }
 }
 
