@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTemplate } from '../data/choreTemplates'
@@ -25,32 +25,32 @@ const ParentDashboard: React.FC = () => {
   
   // Helper function to notify child dashboards of chore updates
   const notifyChildDashboards = () => {
-    console.log('📢 Notifying child dashboards of chore update...')
+    console.log('ðŸ“¢ Notifying child dashboards of chore update...')
     
     // Method 1: Custom event
     const event = new CustomEvent('choreUpdated', { 
       detail: { timestamp: Date.now() } 
     })
     window.dispatchEvent(event)
-    console.log('📢 Custom event dispatched')
+    console.log('ðŸ“¢ Custom event dispatched')
     
     // Method 2: localStorage change (works across tabs)
     const timestamp = Date.now().toString()
     localStorage.setItem('chore_updated', timestamp)
-    console.log('📢 localStorage updated with timestamp:', timestamp)
+    console.log('ðŸ“¢ localStorage updated with timestamp:', timestamp)
     
     // Method 3: BroadcastChannel (modern browsers)
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel('choreblimey-updates')
       channel.postMessage({ type: 'choreUpdated', timestamp })
-      console.log('📢 BroadcastChannel message sent')
+      console.log('ðŸ“¢ BroadcastChannel message sent')
       channel.close()
     }
     
     // Method 4: Direct localStorage trigger (force storage event)
     setTimeout(() => {
       localStorage.setItem('chore_updated', (Date.now() + 1).toString())
-      console.log('📢 Second localStorage trigger sent')
+      console.log('ðŸ“¢ Second localStorage trigger sent')
     }, 100)
   }
   const [family, setFamily] = useState<any>(null)
@@ -154,19 +154,19 @@ const ParentDashboard: React.FC = () => {
   // Listen for completion updates from child dashboard
   useEffect(() => {
     const handleCompletionUpdate = (event?: any) => {
-      console.log('🔄 Completion update detected, refreshing parent dashboard...', event?.detail || event)
+      console.log('ðŸ”„ Completion update detected, refreshing parent dashboard...', event?.detail || event)
       loadDashboard()
     }
 
     // Method 1: Custom events from child dashboard
     window.addEventListener('completionUpdated', handleCompletionUpdate)
-    console.log('👂 Parent dashboard listening for completionUpdated events')
+    console.log('ðŸ‘‚ Parent dashboard listening for completionUpdated events')
     
     // Method 2: localStorage changes (works across tabs)
     const handleStorageChange = (e: StorageEvent) => {
-      console.log('🔍 Storage event received:', e.key, e.newValue, e.oldValue)
+      console.log('ðŸ” Storage event received:', e.key, e.newValue, e.oldValue)
       if (e.key === 'completion_updated' && e.newValue) {
-        console.log('🔄 Completion update detected via localStorage, refreshing parent dashboard...', e.newValue)
+        console.log('ðŸ”„ Completion update detected via localStorage, refreshing parent dashboard...', e.newValue)
         loadDashboard()
         // Clear the flag
         localStorage.removeItem('completion_updated')
@@ -174,7 +174,7 @@ const ParentDashboard: React.FC = () => {
     }
     
     window.addEventListener('storage', handleStorageChange)
-    console.log('👂 Parent dashboard listening for localStorage changes')
+    console.log('ðŸ‘‚ Parent dashboard listening for localStorage changes')
     
     // Method 3: BroadcastChannel (modern browsers)
     let broadcastChannel: BroadcastChannel | null = null
@@ -182,19 +182,19 @@ const ParentDashboard: React.FC = () => {
       broadcastChannel = new BroadcastChannel('choreblimey-updates')
       broadcastChannel.onmessage = (event) => {
         if (event.data.type === 'completionUpdated') {
-          console.log('🔄 Completion update detected via BroadcastChannel, refreshing parent dashboard...', event.data)
+          console.log('ðŸ”„ Completion update detected via BroadcastChannel, refreshing parent dashboard...', event.data)
           loadDashboard()
         }
       }
-      console.log('👂 Parent dashboard listening for BroadcastChannel messages')
+      console.log('ðŸ‘‚ Parent dashboard listening for BroadcastChannel messages')
     }
 
     // Method 4: Test localStorage detection for completions
     const testCompletionLocalStorage = () => {
       const completionValue = localStorage.getItem('completion_updated')
-      console.log('🔍 Current localStorage completion_updated value:', completionValue)
+      console.log('ðŸ” Current localStorage completion_updated value:', completionValue)
       if (completionValue) {
-        console.log('🔄 Found completion localStorage value, triggering refresh...')
+        console.log('ðŸ”„ Found completion localStorage value, triggering refresh...')
         loadDashboard()
         localStorage.removeItem('completion_updated')
       }
@@ -203,12 +203,12 @@ const ParentDashboard: React.FC = () => {
     // Method 5: Direct API polling for pending completions
     const checkPendingCompletions = async () => {
       try {
-        console.log('🔍 Checking for pending completions via API...')
+        console.log('ðŸ” Checking for pending completions via API...')
         const response = await apiClient.listCompletions()
         const pendingCount = response.completions?.filter((c: any) => c.status === 'pending').length || 0
-        console.log('🔍 Found', pendingCount, 'pending completions')
+        console.log('ðŸ” Found', pendingCount, 'pending completions')
         if (pendingCount > 0) {
-          console.log('🔄 Pending completions found, refreshing dashboard...')
+          console.log('ðŸ”„ Pending completions found, refreshing dashboard...')
           loadDashboard()
         }
       } catch (error) {
@@ -221,11 +221,11 @@ const ParentDashboard: React.FC = () => {
     
     // Test localStorage every 2 seconds
     const localStorageTestInterval = setInterval(testCompletionLocalStorage, 2000)
-    console.log('👂 Parent dashboard testing completion localStorage every 2 seconds')
+    console.log('ðŸ‘‚ Parent dashboard testing completion localStorage every 2 seconds')
     
     // Check API for pending completions every 3 seconds
     const apiCheckInterval = setInterval(checkPendingCompletions, 3000)
-    console.log('👂 Parent dashboard checking API for pending completions every 3 seconds')
+    console.log('ðŸ‘‚ Parent dashboard checking API for pending completions every 3 seconds')
 
     return () => {
       window.removeEventListener('completionUpdated', handleCompletionUpdate)
@@ -291,8 +291,8 @@ const ParentDashboard: React.FC = () => {
         setWallets(walletsData)
       }
       if (choresRes.status === 'fulfilled') {
-        console.log('📋 Loaded chores:', choresRes.value.chores?.length || 0, 'chores')
-        console.log('📋 Chores data:', choresRes.value.chores)
+        console.log('ðŸ“‹ Loaded chores:', choresRes.value.chores?.length || 0, 'chores')
+        console.log('ðŸ“‹ Chores data:', choresRes.value.chores)
         setChores(choresRes.value.chores || [])
         // Force re-render by updating a timestamp
         setLoading(false)
@@ -335,7 +335,7 @@ const ParentDashboard: React.FC = () => {
         sendEmail: true
       })
 
-      setInviteMessage(`✅ Join code: ${result.joinCode} – Sent to ${inviteData.email}`)
+      setInviteMessage(`âœ… Join code: ${result.joinCode} â€“ Sent to ${inviteData.email}`)
       setTimeout(() => {
         setShowInviteModal(false)
         setInviteMessage('')
@@ -343,7 +343,7 @@ const ParentDashboard: React.FC = () => {
         loadDashboard()
       }, 3000)
     } catch (error: any) {
-      setInviteMessage(`❌ ${error.message}`)
+      setInviteMessage(`âŒ ${error.message}`)
     } finally {
       setInviteLoading(false)
     }
@@ -356,14 +356,14 @@ const ParentDashboard: React.FC = () => {
 
     try {
       await apiClient.updateFamily({ nameCipher: familyName })
-      setFamilyMessage('✅ Family name updated successfully!')
+      setFamilyMessage('âœ… Family name updated successfully!')
       setFamily({ ...family, nameCipher: familyName })
       setTimeout(() => {
         setShowFamilyModal(false)
         setFamilyMessage('')
       }, 2000)
     } catch (error: any) {
-      setFamilyMessage(`❌ ${error.message}`)
+      setFamilyMessage(`âŒ ${error.message}`)
     } finally {
       setFamilyLoading(false)
     }
@@ -371,7 +371,7 @@ const ParentDashboard: React.FC = () => {
 
   const handleSelectChoreTemplate = (template: ChoreTemplate) => {
     // Calculate suggested reward based on weekly budget
-    const weeklyBudgetPence = budget?.maxBudgetPence || 2000 // Default £20/week
+    const weeklyBudgetPence = budget?.maxBudgetPence || 2000 // Default Â£20/week
     const budgetToUse = budget?.budgetPeriod === 'monthly' ? weeklyBudgetPence / 4 : weeklyBudgetPence
     const suggestedReward = calculateSuggestedReward(template, budgetToUse)
 
@@ -391,23 +391,23 @@ const ParentDashboard: React.FC = () => {
 
   const handleCreateChore = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('🎯 handleCreateChore called')
-    console.log('📋 newChore:', newChore)
-    console.log('👨‍👩‍👧‍👦 choreAssignments:', choreAssignments)
+    console.log('ðŸŽ¯ handleCreateChore called')
+    console.log('ðŸ“‹ newChore:', newChore)
+    console.log('ðŸ‘¨â€ðŸ‘©â€ðŸ‘§â€ðŸ‘¦ choreAssignments:', choreAssignments)
     
     try {
       // Create the chore first
-      console.log('📡 Creating chore...')
+      console.log('ðŸ“¡ Creating chore...')
       const result = await apiClient.createChore(newChore)
       const choreId = result.chore.id
-      console.log('✅ Chore created with ID:', choreId)
+      console.log('âœ… Chore created with ID:', choreId)
 
       // Create assignments for each selected child
-      console.log('👥 Selected child IDs:', choreAssignments.childIds)
-      console.log('🔢 Number of children:', choreAssignments.childIds.length)
+      console.log('ðŸ‘¥ Selected child IDs:', choreAssignments.childIds)
+      console.log('ðŸ”¢ Number of children:', choreAssignments.childIds.length)
       
       if (choreAssignments.childIds.length > 0) {
-        console.log('📡 Creating assignments for', choreAssignments.childIds.length, 'children...')
+        console.log('ðŸ“¡ Creating assignments for', choreAssignments.childIds.length, 'children...')
         const assignmentPromises = choreAssignments.childIds.map(childId => {
           console.log('  -> Creating assignment for childId:', childId)
           return apiClient.createAssignment({
@@ -417,9 +417,9 @@ const ParentDashboard: React.FC = () => {
           })
         })
         await Promise.all(assignmentPromises)
-        console.log('✅ All assignments created')
+        console.log('âœ… All assignments created')
       } else {
-        console.log('⚠️ No children selected - skipping assignment creation')
+        console.log('âš ï¸ No children selected - skipping assignment creation')
       }
 
       // Reset form and close modal
@@ -440,9 +440,9 @@ const ParentDashboard: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 500))
       
       // Reload dashboard
-      console.log('🔄 Reloading dashboard...')
+      console.log('ðŸ”„ Reloading dashboard...')
       await loadDashboard()
-      console.log('✅ Dashboard reloaded')
+      console.log('âœ… Dashboard reloaded')
       
       // Notify child dashboards of the update
       notifyChildDashboards()
@@ -451,9 +451,9 @@ const ParentDashboard: React.FC = () => {
       setRefreshKey(prev => prev + 1)
       
       // Show success message
-      setToast({ message: '✅ Chore created successfully!', type: 'success' })
+      setToast({ message: 'âœ… Chore created successfully!', type: 'success' })
     } catch (error) {
-      console.error('❌ Error creating chore:', error)
+      console.error('âŒ Error creating chore:', error)
       setToast({ message: 'Failed to create chore. Please try again.', type: 'error' })
     }
   }
@@ -466,7 +466,7 @@ const ParentDashboard: React.FC = () => {
       if (result.rivalryBonus) {
         setShowConfetti(true)
         setToast({ 
-          message: `🏆 RIVALRY WINNER! Earned £${(result.rivalryBonus.doubledReward / 100).toFixed(2)} + DOUBLE STARS (2⭐)!`, 
+          message: `ðŸ† RIVALRY WINNER! Earned Â£${(result.rivalryBonus.doubledReward / 100).toFixed(2)} + DOUBLE STARS (2â­)!`, 
           type: 'success' 
         })
         setTimeout(() => setShowConfetti(false), 3000)
@@ -475,12 +475,12 @@ const ParentDashboard: React.FC = () => {
       else if (result.streakBonus) {
         setShowConfetti(true)
         setToast({ 
-          message: `🎉 Approved! +${result.streakBonus.stars} BONUS stars for ${result.streakBonus.streakLength}-day streak!`, 
+          message: `ðŸŽ‰ Approved! +${result.streakBonus.stars} BONUS stars for ${result.streakBonus.streakLength}-day streak!`, 
           type: 'success' 
         })
         setTimeout(() => setShowConfetti(false), 2000)
       } else {
-        setToast({ message: '✅ Chore approved! Wallet credited', type: 'success' })
+        setToast({ message: 'âœ… Chore approved! Wallet credited', type: 'success' })
       }
       
       // Small delay to ensure DB is updated, then reload
@@ -514,7 +514,7 @@ const ParentDashboard: React.FC = () => {
     try {
       await apiClient.fulfillRedemption(redemptionId)
       setShowConfetti(true)
-      setToast({ message: '🎁 Reward marked as delivered!', type: 'success' })
+      setToast({ message: 'ðŸŽ Reward marked as delivered!', type: 'success' })
       setTimeout(() => setShowConfetti(false), 2000)
       await loadDashboard()
       
@@ -546,7 +546,7 @@ const ParentDashboard: React.FC = () => {
       })
 
       setShowConfetti(true)
-      setToast({ message: `💰 £${payoutAmount} paid out to ${payoutChild.nickname}!`, type: 'success' })
+      setToast({ message: `ðŸ’° Â£${payoutAmount} paid out to ${payoutChild.nickname}!`, type: 'success' })
       setTimeout(() => setShowConfetti(false), 2000)
       
       // Reset form
@@ -645,22 +645,22 @@ const ParentDashboard: React.FC = () => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="cb-heading-xl mb-1">
-                🏠 {family?.nameCipher || 'Family Dashboard'}
+                ðŸ  {family?.nameCipher || 'Family Dashboard'}
               </h1>
               <p className="text-white/90 text-sm sm:text-base">
-                Turn chores into cheers! Welcome back, {user?.email?.split('@')[0]} 🎉
+                Turn chores into cheers! Welcome back, {user?.email?.split('@')[0]} ðŸŽ‰
               </p>
               {/* Debug button for testing real-time updates */}
             </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
-                ⚙️ Settings
+                âš™ï¸ Settings
               </button>
               <button onClick={() => setShowFamilyModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
-                ✏️ Edit Family
+                âœï¸ Edit Family
               </button>
               <button onClick={logout} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
-                👋 Logout
+                ðŸ‘‹ Logout
               </button>
             </div>
           </div>
@@ -674,7 +674,7 @@ const ParentDashboard: React.FC = () => {
           <div className="cb-card bg-gradient-to-br from-[var(--primary)] to-[#FF6B00] text-white p-6 shadow-xl bounce-hover">
             <div className="flex items-start justify-between mb-4">
               <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                📝
+                ðŸ“
               </div>
               <span className="text-5xl font-bold">{chores.length}</span>
             </div>
@@ -686,7 +686,7 @@ const ParentDashboard: React.FC = () => {
           <div className="cb-card bg-gradient-to-br from-[var(--secondary)] to-[#1E7DB8] text-white p-6 shadow-xl bounce-hover">
             <div className="flex items-start justify-between mb-4">
               <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                👨‍👩‍👧‍👦
+                ðŸ‘¨â€ðŸ‘©â€ðŸ‘§â€ðŸ‘¦
               </div>
               <span className="text-5xl font-bold">{children.length}</span>
             </div>
@@ -698,7 +698,7 @@ const ParentDashboard: React.FC = () => {
           <div className="cb-card bg-gradient-to-br from-[var(--warning)] to-[#F5A623] text-white p-6 shadow-xl bounce-hover">
             <div className="flex items-start justify-between mb-4">
               <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                ⏳
+                â³
               </div>
               <span className="text-5xl font-bold">{pendingCompletions.length}</span>
             </div>
@@ -710,7 +710,7 @@ const ParentDashboard: React.FC = () => {
           <div className="cb-card bg-gradient-to-br from-purple-500 to-pink-600 text-white p-6 shadow-xl bounce-hover">
             <div className="flex items-start justify-between mb-4">
               <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                🎁
+                ðŸŽ
               </div>
               <span className="text-5xl font-bold">{pendingRedemptions.length}</span>
             </div>
@@ -730,14 +730,14 @@ const ParentDashboard: React.FC = () => {
           }`}>
             <div className="flex items-start justify-between mb-4">
               <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                💰
+                ðŸ’°
               </div>
               <div className="text-right">
                 {budget?.maxBudgetPence ? (
                   <>
                     <div className="text-5xl font-bold">{budget.percentUsed}%</div>
                     <div className="text-sm text-white/70 mt-1">
-                      £{((budget.allocatedPence || 0) / 100).toFixed(2)} / £{(budget.maxBudgetPence / 100).toFixed(2)}
+                      Â£{((budget.allocatedPence || 0) / 100).toFixed(2)} / Â£{(budget.maxBudgetPence / 100).toFixed(2)}
                     </div>
                   </>
                 ) : (
@@ -750,7 +750,7 @@ const ParentDashboard: React.FC = () => {
             </h3>
             <p className="text-white/80 text-sm">
               {budget?.maxBudgetPence 
-                ? `£${((budget.remainingPence || 0) / 100).toFixed(2)} remaining`
+                ? `Â£${((budget.remainingPence || 0) / 100).toFixed(2)} remaining`
                 : 'Set in Settings'
               }
             </p>
@@ -764,12 +764,12 @@ const ParentDashboard: React.FC = () => {
             {/* Manage Chores Section */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="cb-heading-lg text-[var(--primary)]">🧹 Manage Chores</h2>
+                <h2 className="cb-heading-lg text-[var(--primary)]">ðŸ§¹ Manage Chores</h2>
                 <button
                   onClick={() => setShowChoreLibraryModal(true)}
                   className="cb-button-primary text-sm"
                 >
-                  ➕ Add Chore
+                  âž• Add Chore
                 </button>
               </div>
 
@@ -795,7 +795,7 @@ const ParentDashboard: React.FC = () => {
                 <>
                   {filteredChores.length === 0 ? (
                     <div className="text-center py-12">
-                      <div className="text-6xl mb-4">🎯</div>
+                      <div className="text-6xl mb-4">ðŸŽ¯</div>
                       <p className="cb-body text-[var(--text-secondary)]">
                         No chores yet! Create one to get started.
                       </p>
@@ -828,7 +828,7 @@ const ParentDashboard: React.FC = () => {
                           >
                             <div className="flex items-start gap-3 mb-3">
                               <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl flex-shrink-0">
-                                🧽
+                                ðŸ§½
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
@@ -848,12 +848,12 @@ const ParentDashboard: React.FC = () => {
                                     key={child.id}
                                     className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
                                   >
-                                    👤 {child.nickname}
+                                    ðŸ‘¤ {child.nickname}
                                   </span>
                                 ))}
                                 {hasBidding && (
                                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
-                                    ⚔️ Rivalry
+                                    âš”ï¸ Rivalry
                                   </span>
                                 )}
                               </div>
@@ -862,17 +862,17 @@ const ParentDashboard: React.FC = () => {
                             <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                  💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                  ðŸ’° Â£{(chore.baseRewardPence / 100).toFixed(2)}
                                 </span>
                                 <span className="cb-chip bg-yellow-100 text-yellow-700">
-                                  ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
+                                  â­ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
                                 </span>
                                 <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
                                   {chore.frequency}
                                 </span>
                                 {chore.proof !== 'none' && (
                                   <span className="cb-chip bg-orange-50 text-orange-700">
-                                    📸 {chore.proof}
+                                    ðŸ“¸ {chore.proof}
                                   </span>
                                 )}
                               </div>
@@ -894,7 +894,7 @@ const ParentDashboard: React.FC = () => {
                                 }}
                                 className="text-[var(--primary)] hover:text-[var(--secondary)] transition-colors"
                               >
-                                ⚙️
+                                âš™ï¸
                               </button>
                             </div>
                           </div>
@@ -932,7 +932,7 @@ const ParentDashboard: React.FC = () => {
                               >
                                 <div className="flex items-start gap-3 mb-3">
                                   <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-xl flex-shrink-0">
-                                    ⏰
+                                    â°
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <h4 className="font-bold text-[var(--text-primary)] mb-1 truncate">
@@ -947,10 +947,10 @@ const ParentDashboard: React.FC = () => {
                                 <div className="flex items-center justify-between pt-3 border-t border-orange-200">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                      💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                      ðŸ’° Â£{(chore.baseRewardPence / 100).toFixed(2)}
                                     </span>
                                     <span className="cb-chip bg-yellow-100 text-yellow-700">
-                                      ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
+                                      â­ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
                                     </span>
                                     <span className="cb-chip bg-orange-50 text-orange-700">
                                       {chore.frequency}
@@ -970,7 +970,7 @@ const ParentDashboard: React.FC = () => {
 
                   {pendingChoresByChild.every(({ chores }) => chores.length === 0) && (
                     <div className="text-center py-12">
-                      <div className="text-6xl mb-4">🎉</div>
+                      <div className="text-6xl mb-4">ðŸŽ‰</div>
                       <p className="cb-body text-[var(--text-secondary)]">
                         All chores are done for today!
                       </p>
@@ -1000,7 +1000,7 @@ const ParentDashboard: React.FC = () => {
                         <div className="space-y-3">
                           {childCompletions.map((completion: any) => {
                             const timeAgo = getTimeAgo(new Date(completion.timestamp))
-                            const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
+                            const icon = completion.status === 'approved' ? 'âœ…' : completion.status === 'rejected' ? 'âŒ' : 'â³'
 
                             return (
                               <div
@@ -1029,13 +1029,13 @@ const ParentDashboard: React.FC = () => {
                                           onClick={() => handleApproveCompletion(completion.id)}
                                           className="flex-1 px-3 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold text-sm transition-all"
                                         >
-                                          ✅ Approve
+                                          âœ… Approve
                                         </button>
                                         <button
                                           onClick={() => handleRejectCompletion(completion.id)}
                                           className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold text-sm transition-all"
                                         >
-                                          ❌ Reject
+                                          âŒ Reject
                                         </button>
                                       </div>
                                     )}
@@ -1043,7 +1043,7 @@ const ParentDashboard: React.FC = () => {
                                     {completion.status === 'approved' && (
                                       <div className="mt-2">
                                         <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                          +£{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}
+                                          +Â£{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}
                                         </span>
                                       </div>
                                     )}
@@ -1059,7 +1059,7 @@ const ParentDashboard: React.FC = () => {
 
                   {completionsByChild.every(({ completions }) => completions.length === 0) && (
                     <div className="text-center py-12">
-                      <div className="text-6xl mb-4">✅</div>
+                      <div className="text-6xl mb-4">âœ…</div>
                       <p className="cb-body text-[var(--text-secondary)]">
                         No completed chores yet!
                       </p>
@@ -1072,7 +1072,7 @@ const ParentDashboard: React.FC = () => {
             {/* Pending Approvals Section */}
             {pendingCompletions.length > 0 && (
               <div className="cb-card p-6 border-4 border-[var(--warning)]">
-                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length})</h2>
+                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">â³ Pending Approvals ({pendingCompletions.length})</h2>
                 <div className="space-y-4">
                   {pendingCompletions.map((completion: any) => (
                     <div
@@ -1081,7 +1081,7 @@ const ParentDashboard: React.FC = () => {
                     >
                       <div className="flex items-start gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                          ✅
+                          âœ…
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3 mb-2">
@@ -1104,12 +1104,12 @@ const ParentDashboard: React.FC = () => {
                               <div className="text-xl font-bold text-[var(--success)]">
                                 {completion.bidAmountPence ? (
                                   <>
-                                    <div className="text-sm text-orange-600 font-bold">⚔️ Challenge Bid</div>
-                                    <div>💰 £{(completion.bidAmountPence / 100).toFixed(2)}</div>
-                                    <div className="text-xs text-yellow-600">🏆 Gets 2⭐ (double!)</div>
+                                    <div className="text-sm text-orange-600 font-bold">âš”ï¸ Challenge Bid</div>
+                                    <div>ðŸ’° Â£{(completion.bidAmountPence / 100).toFixed(2)}</div>
+                                    <div className="text-xs text-yellow-600">ðŸ† Gets 2â­ (double!)</div>
                                   </>
                                 ) : (
-                                  <>💰 £{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}</>
+                                  <>ðŸ’° Â£{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}</>
                                 )}
                               </div>
                               <div className="text-xs text-[var(--text-secondary)]">
@@ -1123,13 +1123,13 @@ const ParentDashboard: React.FC = () => {
                               onClick={() => handleApproveCompletion(completion.id)}
                               className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
                             >
-                              ✅ Approve & Pay
+                              âœ… Approve & Pay
                             </button>
                             <button
                               onClick={() => handleRejectCompletion(completion.id)}
                               className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
                             >
-                              ❌ Reject
+                              âŒ Reject
                             </button>
                           </div>
                         </div>
@@ -1143,7 +1143,7 @@ const ParentDashboard: React.FC = () => {
             {/* Pending Rewards Section */}
             {pendingRedemptions.length > 0 && (
               <div className="cb-card p-6 border-4 border-purple-400">
-                <h2 className="cb-heading-lg text-purple-600 mb-6">🎁 Pending Rewards ({pendingRedemptions.length})</h2>
+                <h2 className="cb-heading-lg text-purple-600 mb-6">ðŸŽ Pending Rewards ({pendingRedemptions.length})</h2>
                 <div className="space-y-4">
                   {pendingRedemptions.map((redemption: any) => (
                     <div
@@ -1152,7 +1152,7 @@ const ParentDashboard: React.FC = () => {
                     >
                       <div className="flex items-start gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                          🎁
+                          ðŸŽ
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3 mb-2">
@@ -1175,7 +1175,7 @@ const ParentDashboard: React.FC = () => {
                                   rel="noopener noreferrer"
                                   className="text-xs text-blue-600 hover:underline"
                                 >
-                                  🔗 View on Amazon
+                                  ðŸ”— View on Amazon
                                 </a>
                               )}
                               {redemption.reward?.daysOutUrl && (
@@ -1185,13 +1185,13 @@ const ParentDashboard: React.FC = () => {
                                   rel="noopener noreferrer"
                                   className="text-xs text-blue-600 hover:underline"
                                 >
-                                  🔗 View Details
+                                  ðŸ”— View Details
                                 </a>
                               )}
                             </div>
                             <div className="text-right flex-shrink-0">
                               <div className="text-xl font-bold text-[var(--bonus-stars)]">
-                                ⭐ {redemption.reward?.starsRequired || 0} stars
+                                â­ {redemption.reward?.starsRequired || 0} stars
                               </div>
                               <div className="text-xs text-[var(--text-secondary)]">
                                 {new Date(redemption.redeemedAt).toLocaleString()}
@@ -1204,7 +1204,7 @@ const ParentDashboard: React.FC = () => {
                               onClick={() => handleFulfillRedemption(redemption.id)}
                               className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[var(--radius-md)] font-semibold transition-all"
                             >
-                              ✅ Mark as Delivered
+                              âœ… Mark as Delivered
                             </button>
                           </div>
                         </div>
@@ -1217,7 +1217,7 @@ const ParentDashboard: React.FC = () => {
 
             {/* Family Activity Feed */}
             <div className="cb-card p-6">
-              <h2 className="cb-heading-lg text-[var(--primary)] mb-4">📊 Family Activity</h2>
+              <h2 className="cb-heading-lg text-[var(--primary)] mb-4">ðŸ“Š Family Activity</h2>
               <div className="space-y-3">
                 {/* Show all recent completions */}
                 {[...recentCompletions]
@@ -1225,7 +1225,7 @@ const ParentDashboard: React.FC = () => {
                   .slice(0, 10)
                   .map((completion: any) => {
                     const timeAgo = getTimeAgo(new Date(completion.timestamp))
-                    const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
+                    const icon = completion.status === 'approved' ? 'âœ…' : completion.status === 'rejected' ? 'âŒ' : 'â³'
                     const action = completion.status === 'approved' 
                       ? `completed "${completion.assignment?.chore?.title || 'a chore'}"` 
                       : completion.status === 'rejected'
@@ -1245,8 +1245,8 @@ const ParentDashboard: React.FC = () => {
                     }
                     const reward = rewardAmount > 0 
                       ? completion.bidAmountPence && completion.assignment?.biddingEnabled
-                        ? `+£${(rewardAmount / 100).toFixed(2)} (2⭐)`
-                        : `+£${(rewardAmount / 100).toFixed(2)}`
+                        ? `+Â£${(rewardAmount / 100).toFixed(2)} (2â­)`
+                        : `+Â£${(rewardAmount / 100).toFixed(2)}`
                       : ''
 
                     return (
@@ -1271,7 +1271,7 @@ const ParentDashboard: React.FC = () => {
                   })}
                 {recentCompletions.length === 0 && (
                   <div className="text-center py-8">
-                    <div className="text-5xl mb-3">📊</div>
+                    <div className="text-5xl mb-3">ðŸ“Š</div>
                     <p className="text-[var(--text-secondary)] font-medium">No recent activity</p>
                     <p className="text-sm text-[var(--text-secondary)] mt-1">Chore completions will appear here</p>
                   </div>
@@ -1285,12 +1285,12 @@ const ParentDashboard: React.FC = () => {
             {/* Family Members */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="cb-heading-md text-[var(--primary)]">👨‍👩‍👧‍👦 Family</h3>
+                <h3 className="cb-heading-md text-[var(--primary)]">ðŸ‘¨â€ðŸ‘©â€ðŸ‘§â€ðŸ‘¦ Family</h3>
                 <button
                   onClick={() => setShowInviteModal(true)}
                   className="cb-button-primary text-sm"
                 >
-                  ➕ Invite
+                  âž• Invite
                 </button>
               </div>
 
@@ -1298,7 +1298,7 @@ const ParentDashboard: React.FC = () => {
               {joinCodes.length > 0 && (
                 <div className="mb-4 p-4 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-[var(--radius-lg)]">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-2xl">🎟️</span>
+                    <span className="text-2xl">ðŸŽŸï¸</span>
                     <h4 className="font-bold text-[var(--text-primary)]">Active Join Codes</h4>
                   </div>
                   <p className="text-xs text-[var(--text-secondary)] mb-3">
@@ -1321,11 +1321,11 @@ const ParentDashboard: React.FC = () => {
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(joinCode.code)
-                            setToast({ message: '📋 Code copied to clipboard!', type: 'info' })
+                            setToast({ message: 'ðŸ“‹ Code copied to clipboard!', type: 'info' })
                           }}
                           className="px-4 py-2 bg-[var(--primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--secondary)] transition-all font-semibold text-sm"
                         >
-                          📋 Copy
+                          ðŸ“‹ Copy
                         </button>
                       </div>
                     ))}
@@ -1365,7 +1365,7 @@ const ParentDashboard: React.FC = () => {
                         <p className="text-xs text-[var(--text-secondary)]">{child.ageGroup} years</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-bold text-[var(--primary)]">{totalStars}⭐</p>
+                        <p className="font-bold text-[var(--primary)]">{totalStars}â­</p>
                         <p className="text-xs text-[var(--text-secondary)]">total</p>
                         {weeklyStars > 0 && (
                           <p className="text-xs text-[var(--success)]">+{weeklyStars} this week</p>
@@ -1376,7 +1376,7 @@ const ParentDashboard: React.FC = () => {
                 })}
                 {children.length === 0 && (
                   <div className="text-center py-8">
-                    <p className="text-6xl mb-2">👨‍👩‍👧</p>
+                    <p className="text-6xl mb-2">ðŸ‘¨â€ðŸ‘©â€ðŸ‘§</p>
                     <p className="cb-body text-[var(--text-secondary)]">Invite children to join!</p>
                   </div>
                 )}
@@ -1386,12 +1386,12 @@ const ParentDashboard: React.FC = () => {
             {/* Pocket Money & Payouts */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="cb-heading-md text-[var(--primary)]">💰 Pocket Money</h3>
+                <h3 className="cb-heading-md text-[var(--primary)]">ðŸ’° Pocket Money</h3>
               </div>
 
               {children.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-4xl mb-2">💵</p>
+                  <p className="text-4xl mb-2">ðŸ’µ</p>
                   <p className="cb-body text-[var(--text-secondary)]">No children yet</p>
                 </div>
               ) : (
@@ -1413,7 +1413,7 @@ const ParentDashboard: React.FC = () => {
                             </div>
                             <div>
                               <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
-                              <p className="text-xs text-[var(--text-secondary)]">{childWallet?.stars || 0}⭐ available</p>
+                              <p className="text-xs text-[var(--text-secondary)]">{childWallet?.stars || 0}â­ available</p>
                             </div>
                           </div>
                           <button
@@ -1425,18 +1425,18 @@ const ParentDashboard: React.FC = () => {
                             disabled={balancePence <= 0}
                             className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                           >
-                            💸 Pay Out
+                            ðŸ’¸ Pay Out
                           </button>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="bg-white/60 rounded-lg p-2">
                             <p className="text-xs text-[var(--text-secondary)]">Unpaid</p>
-                            <p className="font-bold text-green-700">£{(balancePence / 100).toFixed(2)}</p>
+                            <p className="font-bold text-green-700">Â£{(balancePence / 100).toFixed(2)}</p>
                           </div>
                           <div className="bg-white/60 rounded-lg p-2">
                             <p className="text-xs text-[var(--text-secondary)]">Paid Out</p>
-                            <p className="font-bold text-gray-600">£{(totalPaidPence / 100).toFixed(2)}</p>
+                            <p className="font-bold text-gray-600">Â£{(totalPaidPence / 100).toFixed(2)}</p>
                           </div>
                         </div>
                       </div>
@@ -1448,20 +1448,20 @@ const ParentDashboard: React.FC = () => {
               {/* Recent Payouts */}
               {payouts.length > 0 && (
                 <div className="mt-6">
-                  <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">📝 Recent Payouts</h4>
+                  <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">ðŸ“ Recent Payouts</h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {payouts.slice(0, 5).map((payout: any) => (
                       <div key={payout.id} className="flex items-center justify-between p-2 bg-[var(--background)] rounded-lg text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">💵</span>
+                          <span className="text-lg">ðŸ’µ</span>
                           <div>
                             <p className="font-medium text-[var(--text-primary)]">{payout.child?.nickname}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
-                              {new Date(payout.createdAt).toLocaleDateString()} • {payout.method || 'cash'}
+                              {new Date(payout.createdAt).toLocaleDateString()} â€¢ {payout.method || 'cash'}
                             </p>
                           </div>
                         </div>
-                        <p className="font-bold text-green-600">£{(payout.amountPence / 100).toFixed(2)}</p>
+                        <p className="font-bold text-green-600">Â£{(payout.amountPence / 100).toFixed(2)}</p>
                       </div>
                     ))}
                   </div>
@@ -1471,7 +1471,7 @@ const ParentDashboard: React.FC = () => {
 
             {/* Weekly Leaderboard */}
             <div className="cb-card p-6">
-              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🏆 Weekly Leaders</h3>
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">ðŸ† Weekly Leaders</h3>
               <div className="space-y-3">
                 {leaderboard.slice(0, 5).map((entry, index) => (
                   <div key={entry.childId} className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-md)] p-3 hover:shadow-md transition-all">
@@ -1482,23 +1482,23 @@ const ParentDashboard: React.FC = () => {
                         index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-orange-900' :
                         'bg-[var(--card-border)] text-[var(--text-secondary)]'
                       }`}>
-                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1)}
+                        {index === 0 ? 'ðŸ¥‡' : index === 1 ? 'ðŸ¥ˆ' : index === 2 ? 'ðŸ¥‰' : (index + 1)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-[var(--text-primary)] truncate">{entry.nickname}</p>
                         <p className="text-xs text-[var(--text-secondary)]">
-                          {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)}
+                          {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} â€¢ Â£{((entry.totalRewardPence || 0) / 100).toFixed(2)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-xl text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
+                        <p className="font-black text-xl text-[var(--bonus-stars)]">{entry.totalStars || 0}â­</p>
                       </div>
                     </div>
                   </div>
                 ))}
                 {leaderboard.length === 0 && (
                   <div className="text-center py-8">
-                    <div className="text-5xl mb-3">🏆</div>
+                    <div className="text-5xl mb-3">ðŸ†</div>
                     <p className="text-[var(--text-secondary)] font-medium">No activity yet this week</p>
                     <p className="text-sm text-[var(--text-secondary)] mt-1">Complete chores to appear on the leaderboard!</p>
                   </div>
@@ -1514,14 +1514,14 @@ const ParentDashboard: React.FC = () => {
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="cb-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">⚙️ Family Settings</h3>
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">âš™ï¸ Family Settings</h3>
             
             <div className="space-y-6">
               {/* Sibling Rivalry Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
                   <div>
-                    <h4 className="font-bold text-[var(--text-primary)] mb-1">⚔️ Sibling Rivalry</h4>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-1">âš”ï¸ Sibling Rivalry</h4>
                     <p className="text-sm text-[var(--text-secondary)]">Let kids compete for chores</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -1584,7 +1584,7 @@ const ParentDashboard: React.FC = () => {
               {/* Budget Management Section */}
               <div className="space-y-4">
                 <div className="p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
-                  <h4 className="font-bold text-[var(--text-primary)] mb-3">💰 Budget Management</h4>
+                  <h4 className="font-bold text-[var(--text-primary)] mb-3">ðŸ’° Budget Management</h4>
                   <p className="text-sm text-[var(--text-secondary)] mb-4">
                     Set a max pocket money budget to control spending
                   </p>
@@ -1607,7 +1607,7 @@ const ParentDashboard: React.FC = () => {
                       
                       <div>
                         <label className="block font-semibold text-[var(--text-primary)] mb-2 text-sm">
-                          Max Budget (£)
+                          Max Budget (Â£)
                         </label>
                         <input
                           type="number"
@@ -1626,12 +1626,12 @@ const ParentDashboard: React.FC = () => {
                         <div className="p-3 bg-white rounded-[var(--radius-md)] border-2 border-[var(--card-border)]">
                           <div className="flex justify-between text-sm mb-2">
                             <span className="text-[var(--text-secondary)]">Currently Allocated:</span>
-                            <span className="font-bold text-[var(--text-primary)]">£{((budget.allocatedPence || 0) / 100).toFixed(2)}</span>
+                            <span className="font-bold text-[var(--text-primary)]">Â£{((budget.allocatedPence || 0) / 100).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-sm mb-2">
                             <span className="text-[var(--text-secondary)]">Remaining:</span>
                             <span className={`font-bold ${budget.remainingPence < 0 ? 'text-red-600' : 'text-[var(--success)]'}`}>
-                              £{((budget.remainingPence || 0) / 100).toFixed(2)}
+                              Â£{((budget.remainingPence || 0) / 100).toFixed(2)}
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
@@ -1653,7 +1653,7 @@ const ParentDashboard: React.FC = () => {
                         {children.length > 0 && (
                           <div className="mt-4 p-3 bg-gradient-to-br from-blue-50 to-purple-50 rounded-[var(--radius-md)] border-2 border-blue-200">
                             <h5 className="font-bold text-[var(--text-primary)] mb-3 text-sm">
-                              📊 Estimated {budgetSettings.budgetPeriod === 'monthly' ? 'Monthly' : 'Weekly'} Earnings Per Child
+                              ðŸ“Š Estimated {budgetSettings.budgetPeriod === 'monthly' ? 'Monthly' : 'Weekly'} Earnings Per Child
                             </h5>
                             <div className="space-y-2">
                               {children.map((child: any) => {
@@ -1683,7 +1683,7 @@ const ParentDashboard: React.FC = () => {
                                       {child.nickname}
                                     </span>
                                     <span className="font-bold text-[var(--secondary)]">
-                                      £{(earnings / 100).toFixed(2)}
+                                      Â£{(earnings / 100).toFixed(2)}
                                     </span>
                                   </div>
                                 )
@@ -1707,7 +1707,7 @@ const ParentDashboard: React.FC = () => {
                           className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
                         />
                         <div>
-                          <div className="font-bold text-[var(--text-primary)]">💰 Show Lifetime Earnings</div>
+                          <div className="font-bold text-[var(--text-primary)]">ðŸ’° Show Lifetime Earnings</div>
                           <p className="text-sm text-[var(--text-secondary)] mt-1">
                             Display total earned money (lifetime) on children's portal at the top next to their current balance.
                           </p>
@@ -1720,12 +1720,12 @@ const ParentDashboard: React.FC = () => {
 
               {/* Age Mode Info */}
               <div>
-                <h4 className="font-bold text-[var(--text-primary)] mb-3">🎚️ Age Mode Profiles</h4>
+                <h4 className="font-bold text-[var(--text-primary)] mb-3">ðŸŽšï¸ Age Mode Profiles</h4>
                 <div className="grid gap-3">
                   {[
-                    { mode: 'Kid Mode (≤10)', desc: 'Bright colors, friendly mascots', emoji: '🌟', color: 'var(--primary)' },
-                    { mode: 'Tween Mode (11-13)', desc: 'Gradients, achievement badges', emoji: '🎯', color: 'var(--secondary)' },
-                    { mode: 'Teen Mode (14-16)', desc: 'Dark theme, neon accents', emoji: '🌙', color: 'var(--text-primary)' }
+                    { mode: 'Kid Mode (â‰¤10)', desc: 'Bright colors, friendly mascots', emoji: 'ðŸŒŸ', color: 'var(--primary)' },
+                    { mode: 'Tween Mode (11-13)', desc: 'Gradients, achievement badges', emoji: 'ðŸŽ¯', color: 'var(--secondary)' },
+                    { mode: 'Teen Mode (14-16)', desc: 'Dark theme, neon accents', emoji: 'ðŸŒ™', color: 'var(--text-primary)' }
                   ].map((item) => (
                     <div key={item.mode} className="flex items-center gap-3 p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
                       <div className="text-3xl">{item.emoji}</div>
@@ -1741,7 +1741,7 @@ const ParentDashboard: React.FC = () => {
 
             {/* Parent Email Management Section */}
             <div className="border-t-2 border-blue-200 pt-6">
-              <h4 className="font-bold text-blue-600 mb-4">📧 Email Management</h4>
+              <h4 className="font-bold text-blue-600 mb-4">ðŸ“§ Email Management</h4>
               
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-[var(--radius-md)]">
@@ -1759,13 +1759,13 @@ const ParentDashboard: React.FC = () => {
 
             {/* Account Management Section */}
             <div className="border-t-2 border-red-200 pt-6">
-              <h4 className="font-bold text-red-600 mb-4">⚠️ Account Management</h4>
+              <h4 className="font-bold text-red-600 mb-4">âš ï¸ Account Management</h4>
               
               <div className="space-y-4">
                 {/* Suspend Account */}
                 <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-[var(--radius-md)]">
                   <div>
-                    <h5 className="font-semibold text-yellow-800 mb-1">⏸️ Suspend Account</h5>
+                    <h5 className="font-semibold text-yellow-800 mb-1">â¸ï¸ Suspend Account</h5>
                     <p className="text-sm text-yellow-700">Prevent automatic deletion for 12 months</p>
                   </div>
                   <button
@@ -1779,7 +1779,7 @@ const ParentDashboard: React.FC = () => {
                 {/* Delete Account */}
                 <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-[var(--radius-md)]">
                   <div>
-                    <h5 className="font-semibold text-red-800 mb-1">🗑️ Delete Account</h5>
+                    <h5 className="font-semibold text-red-800 mb-1">ðŸ—‘ï¸ Delete Account</h5>
                     <p className="text-sm text-red-700">Permanently delete all family data</p>
                   </div>
                   <button
@@ -1809,7 +1809,7 @@ const ParentDashboard: React.FC = () => {
                       showLifetimeEarnings: budgetSettings.showLifetimeEarnings
                     })
                     // TODO: Save rivalry settings when backend is ready
-                    setToast({ message: '✅ Settings saved successfully!', type: 'success' })
+                    setToast({ message: 'âœ… Settings saved successfully!', type: 'success' })
                     await loadDashboard() // Reload to get updated budget
                   } catch (error) {
                     console.error('Failed to save settings:', error)
@@ -1832,7 +1832,7 @@ const ParentDashboard: React.FC = () => {
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="cb-card w-full max-w-lg">
-            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">➕ Invite to Family</h3>
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">âž• Invite to Family</h3>
             <form onSubmit={handleInvite} className="space-y-5">
               <div>
                 <label className="block font-semibold text-[var(--text-primary)] mb-2">Email *</label>
@@ -1873,7 +1873,7 @@ const ParentDashboard: React.FC = () => {
 
               {inviteMessage && (
                 <div className={`p-4 rounded-[var(--radius-md)] text-sm font-semibold ${
-                  inviteMessage.includes('✅')
+                  inviteMessage.includes('âœ…')
                     ? 'bg-[var(--success)]/10 text-[var(--success)] border-2 border-[var(--success)]/30'
                     : 'bg-red-50 text-red-600 border-2 border-red-200'
                 }`}>
@@ -1898,7 +1898,7 @@ const ParentDashboard: React.FC = () => {
                   disabled={inviteLoading}
                   className="flex-1 cb-button-primary disabled:opacity-50"
                 >
-                  {inviteLoading ? 'Sending…' : 'Send Invite'}
+                  {inviteLoading ? 'Sendingâ€¦' : 'Send Invite'}
                 </button>
               </div>
             </form>
@@ -1910,7 +1910,7 @@ const ParentDashboard: React.FC = () => {
       {showFamilyModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="cb-card w-full max-w-lg">
-            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">✏️ Edit Family Name</h3>
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">âœï¸ Edit Family Name</h3>
             <form onSubmit={handleUpdateFamily} className="space-y-5">
               <div>
                 <label className="block font-semibold text-[var(--text-primary)] mb-2">Family name</label>
@@ -1924,7 +1924,7 @@ const ParentDashboard: React.FC = () => {
               </div>
               {familyMessage && (
                 <div className={`p-4 rounded-[var(--radius-md)] text-sm font-semibold ${
-                  familyMessage.includes('✅')
+                  familyMessage.includes('âœ…')
                     ? 'bg-[var(--success)]/10 text-[var(--success)] border-2 border-[var(--success)]/30'
                     : 'bg-red-50 text-red-600 border-2 border-red-200'
                 }`}>
@@ -1948,7 +1948,7 @@ const ParentDashboard: React.FC = () => {
                   disabled={familyLoading || !familyName}
                   className="flex-1 cb-button-primary disabled:opacity-50"
                 >
-                  {familyLoading ? 'Saving…' : 'Save Changes'}
+                  {familyLoading ? 'Savingâ€¦' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -1961,12 +1961,12 @@ const ParentDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="cb-card w-full max-w-4xl my-8">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">📚 Chore Library</h3>
+              <h3 className="cb-heading-lg text-[var(--primary)]">ðŸ“š Chore Library</h3>
               <button
                 onClick={() => setShowChoreLibraryModal(false)}
                 className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -1980,7 +1980,7 @@ const ParentDashboard: React.FC = () => {
                     : 'bg-[var(--background)] text-[var(--text-secondary)]'
                 }`}
               >
-                ✨ All
+                âœ¨ All
               </button>
               {Object.entries(categoryLabels).map(([key, { label, icon }]) => (
                 <button
@@ -2015,7 +2015,7 @@ const ParentDashboard: React.FC = () => {
                 if (filteredTemplates.length === 0) {
                   return (
                     <div className="col-span-full text-center py-12">
-                      <div className="text-6xl mb-4">✅</div>
+                      <div className="text-6xl mb-4">âœ…</div>
                       <h4 className="font-bold text-[var(--text-primary)] mb-2">All set!</h4>
                       <p className="text-[var(--text-secondary)]">
                         You've already created all the chores in this category.
@@ -2050,10 +2050,10 @@ const ParentDashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                          💰 £{(suggestedReward / 100).toFixed(2)}
+                          ðŸ’° Â£{(suggestedReward / 100).toFixed(2)}
                         </span>
                         <span className="text-xs cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
-                          {template.frequency === 'daily' ? '📅 Daily' : template.frequency === 'weekly' ? '📆 Weekly' : '🎯 Once'}
+                          {template.frequency === 'daily' ? 'ðŸ“… Daily' : template.frequency === 'weekly' ? 'ðŸ“† Weekly' : 'ðŸŽ¯ Once'}
                         </span>
                         {template.ageGroup && (
                           <span className="text-xs cb-chip bg-purple-50 text-purple-700">
@@ -2076,7 +2076,7 @@ const ParentDashboard: React.FC = () => {
                 }}
                 className="w-full text-center"
               >
-                <div className="text-4xl mb-2">➕</div>
+                <div className="text-4xl mb-2">âž•</div>
                 <h4 className="font-bold text-[var(--text-primary)] mb-1">Create Custom Chore</h4>
                 <p className="text-sm text-[var(--text-secondary)]">
                   Build your own chore from scratch
@@ -2092,12 +2092,12 @@ const ParentDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="cb-card w-full max-w-2xl my-8">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">➕ Create New Chore</h3>
+              <h3 className="cb-heading-lg text-[var(--primary)]">âž• Create New Chore</h3>
               <button
                 onClick={() => setShowChoreLibraryModal(true)}
                 className="text-sm text-[var(--secondary)] hover:underline"
               >
-                ← Back to Library
+                â† Back to Library
               </button>
             </div>
             <form onSubmit={handleCreateChore} className="space-y-5">
@@ -2153,7 +2153,7 @@ const ParentDashboard: React.FC = () => {
               {/* Reward and Stars Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (Â£)</label>
                   <input
                     type="number"
                     min="0.01"
@@ -2165,7 +2165,7 @@ const ParentDashboard: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (⭐)</label>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (â­)</label>
                   <input
                     type="number"
                     min="1"
@@ -2176,14 +2176,14 @@ const ParentDashboard: React.FC = () => {
                     placeholder="1"
                   />
                   <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Auto-calculated: {Math.max(1, Math.floor(newChore.baseRewardPence / 10))} stars (1 per £0.10)
+                    Auto-calculated: {Math.max(1, Math.floor(newChore.baseRewardPence / 10))} stars (1 per Â£0.10)
                   </p>
                 </div>
               </div>
 
               {/* Assignment Section */}
               <div className="border-t-2 border-[var(--card-border)] pt-5">
-                <h4 className="font-bold text-[var(--text-primary)] mb-3">👥 Assign to Children</h4>
+                <h4 className="font-bold text-[var(--text-primary)] mb-3">ðŸ‘¥ Assign to Children</h4>
                 {children.length === 0 ? (
                   <p className="text-sm text-[var(--text-secondary)] italic">
                     No children in family yet. Invite children to assign chores!
@@ -2236,7 +2236,7 @@ const ParentDashboard: React.FC = () => {
                       className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
                     />
                     <div>
-                      <div className="font-bold text-[var(--text-primary)]">⚔️ Enable Sibling Rivalry (Underbid)</div>
+                      <div className="font-bold text-[var(--text-primary)]">âš”ï¸ Enable Sibling Rivalry (Underbid)</div>
                       <p className="text-sm text-[var(--text-secondary)] mt-1">
                         Allow siblings to compete for this chore by bidding lower amounts
                       </p>
@@ -2284,7 +2284,7 @@ const ParentDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="cb-card w-full max-w-2xl my-8">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">✏️ Edit Chore</h3>
+              <h3 className="cb-heading-lg text-[var(--primary)]">âœï¸ Edit Chore</h3>
               <button
                 onClick={() => {
                   setShowEditChoreModal(false)
@@ -2293,7 +2293,7 @@ const ParentDashboard: React.FC = () => {
                 }}
                 className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                ✕
+                âœ•
               </button>
             </div>
             <form onSubmit={async (e) => {
@@ -2334,7 +2334,7 @@ const ParentDashboard: React.FC = () => {
                   })
                 }
                 
-                setToast({ message: '✅ Chore updated successfully!', type: 'success' })
+                setToast({ message: 'âœ… Chore updated successfully!', type: 'success' })
                 setShowEditChoreModal(false)
                 setSelectedChore(null)
                 setChoreAssignments({ childIds: [], biddingEnabled: false })
@@ -2402,7 +2402,7 @@ const ParentDashboard: React.FC = () => {
               {/* Reward and Stars Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (Â£)</label>
                   <input
                     type="number"
                     min="0.01"
@@ -2414,7 +2414,7 @@ const ParentDashboard: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (⭐)</label>
+                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (â­)</label>
                   <input
                     type="number"
                     min="1"
@@ -2425,14 +2425,14 @@ const ParentDashboard: React.FC = () => {
                     placeholder="1"
                   />
                   <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Auto-calculated: {Math.max(1, Math.floor(selectedChore.baseRewardPence / 10))} stars (1 per £0.10)
+                    Auto-calculated: {Math.max(1, Math.floor(selectedChore.baseRewardPence / 10))} stars (1 per Â£0.10)
                   </p>
                 </div>
               </div>
 
               {/* Assignment Section */}
               <div className="border-t-2 border-[var(--card-border)] pt-5">
-                <h4 className="font-bold text-[var(--text-primary)] mb-3">👥 Assigned to Children</h4>
+                <h4 className="font-bold text-[var(--text-primary)] mb-3">ðŸ‘¥ Assigned to Children</h4>
                 {children.length === 0 ? (
                   <p className="text-sm text-[var(--text-secondary)] italic">
                     No children in family yet. Invite children to assign chores!
@@ -2485,7 +2485,7 @@ const ParentDashboard: React.FC = () => {
                       className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
                     />
                     <div>
-                      <div className="font-bold text-[var(--text-primary)]">⚔️ Enable Sibling Rivalry (Underbid)</div>
+                      <div className="font-bold text-[var(--text-primary)]">âš”ï¸ Enable Sibling Rivalry (Underbid)</div>
                       <p className="text-sm text-[var(--text-secondary)] mt-1">
                         Allow siblings to compete for this chore by bidding lower amounts
                       </p>
@@ -2504,7 +2504,7 @@ const ParentDashboard: React.FC = () => {
                     className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
                   />
                   <div>
-                    <div className="font-bold text-[var(--text-primary)]">✅ Active</div>
+                    <div className="font-bold text-[var(--text-primary)]">âœ… Active</div>
                     <p className="text-sm text-[var(--text-secondary)] mt-1">
                       Inactive chores won't appear in children's task lists
                     </p>
@@ -2541,7 +2541,7 @@ const ParentDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="cb-card w-full max-w-3xl max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">👤 {selectedChild.nickname}'s Profile</h3>
+              <h3 className="cb-heading-lg text-[var(--primary)]">ðŸ‘¤ {selectedChild.nickname}'s Profile</h3>
               <button
                 onClick={() => {
                   setShowChildProfileModal(false)
@@ -2551,7 +2551,7 @@ const ParentDashboard: React.FC = () => {
                 }}
                 className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -2581,7 +2581,7 @@ const ParentDashboard: React.FC = () => {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📝 Basic Info
+                ðŸ“ Basic Info
               </button>
               <button
                 onClick={() => setChildProfileTab('device')}
@@ -2591,7 +2591,7 @@ const ParentDashboard: React.FC = () => {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📱 Device Access
+                ðŸ“± Device Access
               </button>
               <button
                 onClick={() => setChildProfileTab('stats')}
@@ -2601,7 +2601,7 @@ const ParentDashboard: React.FC = () => {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                📊 Stats
+                ðŸ“Š Stats
               </button>
               <button
                 onClick={() => setChildProfileTab('management')}
@@ -2611,7 +2611,7 @@ const ParentDashboard: React.FC = () => {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                🔧 Management
+                ðŸ”§ Management
               </button>
             </div>
 
@@ -2724,7 +2724,7 @@ const ParentDashboard: React.FC = () => {
                       </select>
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-yellow-500">💡</span>
+                      <span className="text-yellow-500">ðŸ’¡</span>
                       <p className="text-sm text-[var(--text-secondary)]">
                         Birthday List Feature: To enable birthday wish lists and special birthday rewards, please provide at least the month and year.
                       </p>
@@ -2738,7 +2738,7 @@ const ParentDashboard: React.FC = () => {
                 <div className="space-y-6">
                   <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-[var(--radius-lg)] border border-blue-200">
                     <h4 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                      📱 Device Access
+                      ðŸ“± Device Access
                     </h4>
                     <p className="text-[var(--text-secondary)] mb-4">
                       Generate a new join code if your child needs to access ChoreBlimey from another device (tablet, phone, etc.)
@@ -2746,7 +2746,7 @@ const ParentDashboard: React.FC = () => {
                     
                     {newJoinCode ? (
                       <div className="p-4 bg-white rounded-lg border-2 border-green-200">
-                        <p className="font-semibold text-green-800 mb-2">✅ New Join Code Generated!</p>
+                        <p className="font-semibold text-green-800 mb-2">âœ… New Join Code Generated!</p>
                         <div className="bg-gray-100 p-3 rounded font-mono text-lg text-center mb-3">
                           {newJoinCode}
                         </div>
@@ -2765,7 +2765,7 @@ const ParentDashboard: React.FC = () => {
                               gender: selectedChild.gender
                             })
                             setNewJoinCode(response.joinCode.code)
-                            setToast({ message: '✅ New join code generated!', type: 'success' })
+                            setToast({ message: 'âœ… New join code generated!', type: 'success' })
                           } catch (error) {
                             console.error('Failed to generate join code:', error)
                             setToast({ message: 'Failed to generate join code. Please try again.', type: 'error' })
@@ -2783,7 +2783,7 @@ const ParentDashboard: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            🔄 Generate New Join Code
+                            ðŸ”„ Generate New Join Code
                           </>
                         )}
                       </button>
@@ -2799,20 +2799,20 @@ const ParentDashboard: React.FC = () => {
                     <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[var(--radius-lg)] border border-yellow-200 text-center">
                       <div className="text-4xl font-bold text-yellow-600 mb-2 flex items-center justify-center gap-2">
                         {selectedChild.totalStars || 0}
-                        <span className="text-2xl">⭐</span>
+                        <span className="text-2xl">â­</span>
                       </div>
                       <div className="text-sm text-[var(--text-secondary)]">Total Stars</div>
                     </div>
                     <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-[var(--radius-lg)] border border-green-200 text-center">
                       <div className="text-4xl font-bold text-green-600 mb-2">
-                        £{((selectedChild.walletBalance || 0) / 100).toFixed(2)}
+                        Â£{((selectedChild.walletBalance || 0) / 100).toFixed(2)}
                       </div>
                       <div className="text-sm text-[var(--text-secondary)]">Wallet Balance</div>
                     </div>
                   </div>
                   
                   <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-[var(--radius-lg)] border border-purple-200">
-                    <h4 className="font-bold text-[var(--text-primary)] mb-4">📈 Recent Activity</h4>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">ðŸ“ˆ Recent Activity</h4>
                     <div className="space-y-3">
                       {selectedChild.recentCompletions?.slice(0, 5).map((completion: any, index: number) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg">
@@ -2820,7 +2820,7 @@ const ParentDashboard: React.FC = () => {
                             <p className="font-semibold text-sm">{completion.chore?.title}</p>
                             <p className="text-xs text-gray-500">{getTimeAgo(new Date(completion.completedAt))}</p>
                           </div>
-                          <div className="text-green-600 font-bold">+£{(completion.rewardPence / 100).toFixed(2)}</div>
+                          <div className="text-green-600 font-bold">+Â£{(completion.rewardPence / 100).toFixed(2)}</div>
                         </div>
                       )) || (
                         <p className="text-gray-500 text-center py-4">No recent activity</p>
@@ -2834,7 +2834,7 @@ const ParentDashboard: React.FC = () => {
               {childProfileTab === 'management' && (
                 <div className="space-y-6">
                   <div className="p-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-[var(--radius-lg)] border border-red-200">
-                    <h4 className="font-bold text-[var(--text-primary)] mb-4">⚠️ Child Management</h4>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">âš ï¸ Child Management</h4>
                     <p className="text-[var(--text-secondary)] mb-6">
                       Use these options to manage your child's account. These actions cannot be undone.
                     </p>
@@ -2844,22 +2844,22 @@ const ParentDashboard: React.FC = () => {
                         onClick={() => {
                           if (confirm(`Are you sure you want to pause ${selectedChild.nickname}? They won't be able to access their dashboard until you unpause them.`)) {
                             // TODO: Implement pause child functionality
-                            setToast({ message: '⏸️ Child paused successfully!', type: 'success' })
+                            setToast({ message: 'â¸ï¸ Child paused successfully!', type: 'success' })
                           }
                         }}
                         className="px-4 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors text-sm"
                       >
-                        ⏸️ Pause Child
+                        â¸ï¸ Pause Child
                       </button>
                       
                       <button
                         onClick={async () => {
-                          if (confirm(`⚠️ WARNING: This will permanently delete ${selectedChild.nickname} and ALL their data (chores, completions, wallet balance, etc.). This cannot be undone!\n\nType "${selectedChild.nickname}" to confirm:`)) {
+                          if (confirm(`âš ï¸ WARNING: This will permanently delete ${selectedChild.nickname} and ALL their data (chores, completions, wallet balance, etc.). This cannot be undone!\n\nType "${selectedChild.nickname}" to confirm:`)) {
                             const confirmation = prompt(`Type "${selectedChild.nickname}" to confirm deletion:`)
                             if (confirmation === selectedChild.nickname) {
                               try {
                                 await apiClient.removeChild(selectedChild.id)
-                                setToast({ message: '🗑️ Child removed successfully!', type: 'success' })
+                                setToast({ message: 'ðŸ—‘ï¸ Child removed successfully!', type: 'success' })
                                 setShowChildProfileModal(false)
                                 setSelectedChild(null)
                                 await loadDashboard()
@@ -2868,13 +2868,13 @@ const ParentDashboard: React.FC = () => {
                                 setToast({ message: 'Failed to remove child. Please try again.', type: 'error' })
                               }
                             } else {
-                              setToast({ message: '❌ Deletion cancelled - name did not match', type: 'error' })
+                              setToast({ message: 'âŒ Deletion cancelled - name did not match', type: 'error' })
                             }
                           }
                         }}
                         className="px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm"
                       >
-                        🗑️ Remove Child
+                        ðŸ—‘ï¸ Remove Child
                       </button>
                     </div>
                   </div>
@@ -2906,7 +2906,7 @@ const ParentDashboard: React.FC = () => {
                       birthMonth: selectedChild.birthMonth,
                       birthYear: selectedChild.birthYear
                     })
-                    setToast({ message: '✅ Profile updated successfully!', type: 'success' })
+                    setToast({ message: 'âœ… Profile updated successfully!', type: 'success' })
                     setShowChildProfileModal(false)
                     setSelectedChild(null)
                     setNewJoinCode(null)
@@ -2919,7 +2919,7 @@ const ParentDashboard: React.FC = () => {
                 }}
                 className="flex-1 cb-button-primary"
               >
-                💾 Save Changes
+                ðŸ’¾ Save Changes
               </button>
             </div>
           </div>
@@ -2930,295 +2930,7 @@ const ParentDashboard: React.FC = () => {
       {showPayoutModal && payoutChild && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="cb-card w-full max-w-lg">
-            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">💸 Pay Out Pocket Money</h3>
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Age Group</label>
-                    <div className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] bg-gray-50 text-gray-600">
-                      {selectedChild.ageGroup || 'Not set'} 
-                      {selectedChild.birthMonth && selectedChild.birthYear ? 
-                        ' (Auto-calculated from birthday)' : 
-                        ' (Set birthday to auto-calculate)'
-                      }
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">
-                      Age group is automatically calculated from birthday month and year
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Gender</label>
-                    <select
-                      value={selectedChild.gender || 'other'}
-                      onChange={(e) => setSelectedChild({ ...selectedChild, gender: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other/Prefer not to say</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Email Address (Optional)</label>
-                    <input
-                      type="email"
-                      value={selectedChild.email || ''}
-                      onChange={(e) => setSelectedChild({ ...selectedChild, email: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
-                      placeholder="child@example.com (optional)"
-                    />
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">
-                      Optional - can be added later if the child gets an email address
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Birthday (Optional)</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Month</label>
-                        <select
-                          value={selectedChild.birthMonth || ''}
-                          onChange={(e) => setSelectedChild({ ...selectedChild, birthMonth: e.target.value ? parseInt(e.target.value) : null })}
-                          className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
-                        >
-                          <option value="">Select month</option>
-                          <option value="1">January</option>
-                          <option value="2">February</option>
-                          <option value="3">March</option>
-                          <option value="4">April</option>
-                          <option value="5">May</option>
-                          <option value="6">June</option>
-                          <option value="7">July</option>
-                          <option value="8">August</option>
-                          <option value="9">September</option>
-                          <option value="10">October</option>
-                          <option value="11">November</option>
-                          <option value="12">December</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Year</label>
-                        <input
-                          type="number"
-                          placeholder="e.g., 2015"
-                          value={selectedChild.birthYear || ''}
-                          onChange={(e) => setSelectedChild({ ...selectedChild, birthYear: e.target.value ? parseInt(e.target.value) : null })}
-                          className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
-                          min="2000"
-                          max="2025"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-2">
-                      💡 <strong>Birthday List Feature:</strong> To enable birthday wish lists and special birthday rewards, please provide at least the month and year.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Device Access Tab */}
-              {childProfileTab === 'device' && (
-                <div className="space-y-6">
-                  <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-[var(--radius-lg)] border border-blue-200">
-                    <h4 className="font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                      📱 Device Access
-                    </h4>
-                    <p className="text-[var(--text-secondary)] mb-4">
-                      Generate a new join code if your child needs to access ChoreBlimey from another device (tablet, phone, etc.)
-                    </p>
-                    
-                    {newJoinCode ? (
-                      <div className="p-4 bg-white rounded-lg border-2 border-green-200">
-                        <p className="font-semibold text-green-800 mb-2">✅ New Join Code Generated!</p>
-                        <div className="bg-gray-100 p-3 rounded font-mono text-lg text-center mb-3">
-                          {newJoinCode}
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          This code expires in 7 days. Share it with your child to let them access their dashboard.
-                        </p>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          setGeneratingCode(true)
-                          try {
-                            const response = await apiClient.generateChildJoinCode({
-                              nickname: selectedChild.nickname,
-                              ageGroup: selectedChild.ageGroup || '5-8',
-                              gender: selectedChild.gender
-                            })
-                            setNewJoinCode(response.joinCode.code)
-                            setToast({ message: '✅ New join code generated!', type: 'success' })
-                          } catch (error) {
-                            console.error('Failed to generate join code:', error)
-                            setToast({ message: 'Failed to generate join code. Please try again.', type: 'error' })
-                          } finally {
-                            setGeneratingCode(false)
-                          }
-                        }}
-                        disabled={generatingCode}
-                        className="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        {generatingCode ? (
-                          <>
-                            <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            🔄 Generate New Join Code
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Stats Tab */}
-              {childProfileTab === 'stats' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[var(--radius-lg)] border border-yellow-200 text-center">
-                      <div className="text-4xl font-bold text-yellow-600 mb-2 flex items-center justify-center gap-2">
-                        {selectedChild.totalStars || 0}
-                        <span className="text-2xl">⭐</span>
-                      </div>
-                      <div className="text-sm text-[var(--text-secondary)]">Total Stars</div>
-                    </div>
-                    <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-[var(--radius-lg)] border border-green-200 text-center">
-                      <div className="text-4xl font-bold text-green-600 mb-2">
-                        £{((selectedChild.walletBalance || 0) / 100).toFixed(2)}
-                      </div>
-                      <div className="text-sm text-[var(--text-secondary)]">Wallet Balance</div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-[var(--radius-lg)] border border-purple-200">
-                    <h4 className="font-bold text-[var(--text-primary)] mb-4">📈 Recent Activity</h4>
-                    <div className="space-y-3">
-                      {selectedChild.recentCompletions?.slice(0, 5).map((completion: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg">
-                          <div>
-                            <p className="font-semibold text-sm">{completion.chore?.title}</p>
-                            <p className="text-xs text-gray-500">{getTimeAgo(new Date(completion.completedAt))}</p>
-                          </div>
-                          <div className="text-green-600 font-bold">+£{(completion.rewardPence / 100).toFixed(2)}</div>
-                        </div>
-                      )) || (
-                        <p className="text-gray-500 text-center py-4">No recent activity</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Management Tab */}
-              {childProfileTab === 'management' && (
-                <div className="space-y-6">
-                  <div className="p-6 bg-gradient-to-br from-red-50 to-pink-50 rounded-[var(--radius-lg)] border border-red-200">
-                    <h4 className="font-bold text-[var(--text-primary)] mb-4">⚠️ Child Management</h4>
-                    <p className="text-[var(--text-secondary)] mb-6">
-                      Use these options to manage your child's account. These actions cannot be undone.
-                    </p>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to pause ${selectedChild.nickname}? They won't be able to access their dashboard until you unpause them.`)) {
-                            // TODO: Implement pause child functionality
-                            setToast({ message: '⏸️ Child paused successfully!', type: 'success' })
-                          }
-                        }}
-                        className="px-4 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-colors text-sm"
-                      >
-                        ⏸️ Pause Child
-                      </button>
-                      
-                      <button
-                        onClick={async () => {
-                          if (confirm(`⚠️ WARNING: This will permanently delete ${selectedChild.nickname} and ALL their data (chores, completions, wallet balance, etc.). This cannot be undone!\n\nType "${selectedChild.nickname}" to confirm:`)) {
-                            const confirmation = prompt(`Type "${selectedChild.nickname}" to confirm deletion:`)
-                            if (confirmation === selectedChild.nickname) {
-                              try {
-                                await apiClient.removeChild(selectedChild.id)
-                                setToast({ message: '🗑️ Child removed successfully!', type: 'success' })
-                                setShowChildProfileModal(false)
-                                setSelectedChild(null)
-                                await loadDashboard()
-                              } catch (error) {
-                                console.error('Failed to remove child:', error)
-                                setToast({ message: 'Failed to remove child. Please try again.', type: 'error' })
-                              }
-                            } else {
-                              setToast({ message: '❌ Deletion cancelled - name did not match', type: 'error' })
-                            }
-                          }
-                        }}
-                        className="px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm"
-                      >
-                        🗑️ Remove Child
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-4 mt-8 pt-6 border-t-2 border-[var(--card-border)]">
-              <button
-                onClick={() => {
-                  setShowChildProfileModal(false)
-                  setSelectedChild(null)
-                  setNewJoinCode(null)
-                  setChildProfileTab('info')
-                }}
-                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    // Update child info (ageGroup is auto-calculated from birthday)
-                    await apiClient.updateChild(selectedChild.id, {
-                      nickname: selectedChild.nickname,
-                      gender: selectedChild.gender,
-                      email: selectedChild.email,
-                      birthMonth: selectedChild.birthMonth,
-                      birthYear: selectedChild.birthYear
-                    })
-                    setToast({ message: '✅ Profile updated successfully!', type: 'success' })
-                    setShowChildProfileModal(false)
-                    setSelectedChild(null)
-                    setNewJoinCode(null)
-                    setChildProfileTab('info')
-                    await loadDashboard()
-                  } catch (error) {
-                    console.error('Failed to update child profile:', error)
-                    setToast({ message: 'Failed to update profile. Please try again.', type: 'error' })
-                  }
-                }}
-                className="flex-1 cb-button-primary"
-              >
-                💾 Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payout Modal */}
-      {showPayoutModal && payoutChild && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
-            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">💸 Pay Out Pocket Money</h3>
-            
+            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">ðŸ’¸ Pay Out Pocket Money</h3>
             <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-[var(--radius-lg)] border-2 border-green-200">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
@@ -3227,7 +2939,8 @@ const ParentDashboard: React.FC = () => {
                 <div>
                   <h4 className="font-bold text-[var(--text-primary)]">{payoutChild.nickname}</h4>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    {wallets.find((w: any) => w.childId === payoutChild.id)?.stars || 0}⭐ available
+                    {wallets.find((w: any) => w.childId === payoutChild.id)?.stars || 0}â­ available
+
                   </p>
                 </div>
               </div>
@@ -3235,7 +2948,7 @@ const ParentDashboard: React.FC = () => {
 
             <form onSubmit={handleProcessPayout} className="space-y-5">
               <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Amount (£) *</label>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Amount (Â£) *</label>
                 <input
                   type="number"
                   min="0.01"
@@ -3247,70 +2960,14 @@ const ParentDashboard: React.FC = () => {
                   required
                 />
                 <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Max: £{((wallets.find((w: any) => w.childId === payoutChild.id)?.balancePence || 0) / 100).toFixed(2)}
+                  Max: Â£{((wallets.find((w: any) => w.childId === payoutChild.id)?.balancePence || 0) / 100).toFixed(2)}
                 </p>
               </div>
-
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Payment Method *</label>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPayoutMethod('cash')}
-                    className={`px-4 py-3 rounded-[var(--radius-md)] font-semibold transition-all ${
-                      payoutMethod === 'cash'
-                        ? 'bg-[var(--primary)] text-white shadow-lg'
-                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
-                    }`}
-                  >
-                    💵 Cash
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPayoutMethod('bank_transfer')}
-                    className={`px-4 py-3 rounded-[var(--radius-md)] font-semibold transition-all ${
-                      payoutMethod === 'bank_transfer'
-                        ? 'bg-[var(--primary)] text-white shadow-lg'
-                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
-                    }`}
-                  >
-                    🏦 Transfer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPayoutMethod('other')}
-                    className={`px-4 py-3 rounded-[var(--radius-md)] font-semibold transition-all ${
-                      payoutMethod === 'other'
-                        ? 'bg-[var(--primary)] text-white shadow-lg'
-                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
-                    }`}
-                  >
-                    📝 Other
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Note (optional)</label>
-                <textarea
-                  value={payoutNote}
-                  onChange={(e) => setPayoutNote(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all resize-none"
-                  rows={2}
-                  placeholder="e.g., Paid for cinema trip"
-                />
-              </div>
-
+              
               <div className="flex gap-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowPayoutModal(false)
-                    setPayoutAmount('')
-                    setPayoutNote('')
-                    setPayoutMethod('cash')
-                    setPayoutChild(null)
-                  }}
+                  onClick={() => setShowPayoutModal(false)}
                   className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
                 >
                   Cancel
@@ -3320,229 +2977,13 @@ const ParentDashboard: React.FC = () => {
                   disabled={processingPayout}
                   className="flex-1 cb-button-primary disabled:opacity-50"
                 >
-                  {processingPayout ? '⏳ Processing...' : '💸 Confirm Payout'}
+                  {processingPayout ? 'â³ Processing...' : 'ðŸ’¸ Confirm Payout'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* Toast Notifications */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-
-      {/* Delete Account Modal */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">⚠️</span>
-              </div>
-              <h3 className="text-2xl font-bold text-red-600 mb-2">Delete Family Account</h3>
-              <p className="text-gray-600">
-                This action cannot be undone. All family data will be permanently deleted.
-              </p>
-            </div>
-
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <h4 className="font-semibold text-red-800 mb-2">What will be deleted:</h4>
-              <ul className="text-sm text-red-700 space-y-1">
-                <li>• All family information and settings</li>
-                <li>• All child profiles and progress data</li>
-                <li>• All chore history and completion records</li>
-                <li>• All wallet balances and transaction history</li>
-                <li>• All account data permanently deleted within 30 days</li>
-              </ul>
-            </div>
-
-            <div className="mb-6">
-              <label className="block font-semibold text-gray-700 mb-2">
-                Type "DELETE" to confirm:
-              </label>
-              <input
-                type="text"
-                value={deleteConfirmation}
-                onChange={(e) => setDeleteConfirmation(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
-                placeholder="Type DELETE here"
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setShowDeleteAccountModal(false)
-                  setDeleteConfirmation('')
-                }}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (deleteConfirmation !== 'DELETE') {
-                    setToast({ message: 'Please type DELETE to confirm', type: 'error' })
-                    return
-                  }
-                  
-                  try {
-                    // TODO: Implement account deletion API call
-                    setToast({ message: 'Account deletion initiated. You will be logged out.', type: 'success' })
-                    setShowDeleteAccountModal(false)
-                    setDeleteConfirmation('')
-                    // Logout user after deletion
-                    setTimeout(() => {
-                      logout()
-                    }, 2000)
-                  } catch (error) {
-                    console.error('Failed to delete account:', error)
-                    setToast({ message: 'Failed to delete account. Please try again.', type: 'error' })
-                  }
-                }}
-                disabled={deleteConfirmation !== 'DELETE'}
-                className="flex-1 px-6 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Delete Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Suspend Account Modal */}
-      {showSuspendAccountModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">⏸️</span>
-              </div>
-              <h3 className="text-2xl font-bold text-yellow-600 mb-2">Suspend Family Account</h3>
-              <p className="text-gray-600">
-                Suspend your account to prevent automatic deletion for 12 months.
-              </p>
-            </div>
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <h4 className="font-semibold text-yellow-800 mb-2">What happens when suspended:</h4>
-              <ul className="text-sm text-yellow-700 space-y-1">
-                <li>• Account will not be automatically deleted for 12 months</li>
-                <li>• You can reactivate by logging in anytime</li>
-                <li>• All data is preserved during suspension</li>
-                <li>• You'll receive email reminders before final deletion</li>
-              </ul>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => setShowSuspendAccountModal(false)}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    // TODO: Implement account suspension API call
-                    setToast({ message: 'Account suspended successfully. You can reactivate by logging in.', type: 'success' })
-                    setShowSuspendAccountModal(false)
-                    setAccountSuspended(true)
-                    // Logout user after suspension
-                    setTimeout(() => {
-                      logout()
-                    }, 2000)
-                  } catch (error) {
-                    console.error('Failed to suspend account:', error)
-                    setToast({ message: 'Failed to suspend account. Please try again.', type: 'error' })
-                  }
-                }}
-                className="flex-1 px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-all"
-              >
-                Suspend Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email Change Modal */}
-      {showEmailChangeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📧</span>
-              </div>
-              <h3 className="text-2xl font-bold text-blue-600 mb-2">Change Email Address</h3>
-              <p className="text-gray-600">
-                Update your email address for smart login authentication
-              </p>
-            </div>
-
-            <div className="mb-6">
-              <label className="block font-semibold text-gray-700 mb-2">
-                New Email Address:
-              </label>
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                placeholder="new@example.com"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                You'll receive a verification email at the new address
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setShowEmailChangeModal(false)
-                  setNewEmail('')
-                }}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!newEmail || !newEmail.includes('@')) {
-                    setToast({ message: 'Please enter a valid email address', type: 'error' })
-                    return
-                  }
-                  
-                  try {
-                    // TODO: Implement email change API call
-                    setToast({ message: 'Email change initiated. Check your new email for verification.', type: 'success' })
-                    setShowEmailChangeModal(false)
-                    setNewEmail('')
-                  } catch (error) {
-                    console.error('Failed to change email:', error)
-                    setToast({ message: 'Failed to change email. Please try again.', type: 'error' })
-                  }
-                }}
-                disabled={!newEmail || !newEmail.includes('@')}
-                className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Change Email
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confetti Celebration */}
-      <Confetti active={showConfetti} />
     </div>
   )
 }
-
-export default ParentDashboard
