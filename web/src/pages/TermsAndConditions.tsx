@@ -100,8 +100,8 @@ const TermsAndConditions: React.FC = () => {
                     <li>• <strong>Parent email</strong> - For secure login (no passwords needed!)</li>
                     <li>• <strong>Child nickname</strong> - Just what they want to be called</li>
                     <li>• <strong>Real name</strong> - Optional, encrypted for family records</li>
-                    <li>• <strong>Age group</strong> - Like "5-8 years" or "9-11 years" for safety</li>
-                    <li>• <strong>Birth month & year</strong> - Optional, for birthday bonuses and age-appropriate rewards</li>
+                    <li>• <strong>Birth year</strong> - Required for age-appropriate experience and safety</li>
+                    <li>• <strong>Birth month</strong> - Optional, for birthday bonuses and precise age calculation</li>
                     <li>• <strong>Chore progress</strong> - What chores are done and when</li>
                     <li>• <strong>Text notes</strong> - Optional messages about completed chores</li>
                   </ul>
@@ -111,7 +111,7 @@ const TermsAndConditions: React.FC = () => {
                   <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">❌ What We DON'T Collect:</h4>
                   <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
                     <li>• <strong>No photos</strong> - We don't collect or store any photos</li>
-                    <li>• <strong>No exact birth dates</strong> - Just month and year for birthday features</li>
+                    <li>• <strong>No exact birth dates</strong> - Only year (required) and month (optional)</li>
                     <li>• <strong>No location data</strong> - We don't track where you are</li>
                     <li>• <strong>No personal details</strong> - No addresses, phone numbers, etc.</li>
                   </ul>
@@ -122,6 +122,20 @@ const TermsAndConditions: React.FC = () => {
                   other families or companies without your permission. Check out our 
                   <a href="/privacy" className="text-primary hover:underline"> Privacy Policy</a> to learn more!
                 </p>
+                
+                <div className="bg-purple-50 dark:bg-purple-900/10 rounded-lg p-4 mb-4 border-l-4 border-purple-500">
+                  <h4 className="font-semibold text-purple-800 dark:text-purple-200 mb-2">🎂 Why We Need Birth Year:</h4>
+                  <p className="text-sm text-purple-700 dark:text-purple-300 mb-2">
+                    We require your child's birth year to provide the best possible experience:
+                  </p>
+                  <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
+                    <li>• <strong>Age-appropriate rewards</strong> - Suggest gifts and activities suitable for their age</li>
+                    <li>• <strong>Safe content</strong> - Ensure all features and content are appropriate for their developmental stage</li>
+                    <li>• <strong>Tailored experience</strong> - Customize the app interface and difficulty level</li>
+                    <li>• <strong>Birthday celebrations</strong> - Provide special birthday month bonuses and features</li>
+                    <li>• <strong>Educational value</strong> - Deliver age-appropriate lessons about money and responsibility</li>
+                  </ul>
+                </div>
               </section>
 
               <section className="mb-8">

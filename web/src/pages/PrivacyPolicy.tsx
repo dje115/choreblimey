@@ -45,7 +45,7 @@ const PrivacyPolicy: React.FC = () => {
             <ul className="list-disc pl-6 text-gray-600 mb-6 space-y-2">
               <li><strong>Account Information:</strong> Email address and encrypted password</li>
               <li><strong>Family Data:</strong> Family name (encrypted) and basic settings</li>
-              <li><strong>Child Profiles:</strong> Nickname, age group (5-8, 9-11, 12-15), and theme preferences</li>
+              <li><strong>Child Profiles:</strong> Nickname, birth year (required), birth month (optional), age group (auto-calculated), and theme preferences</li>
               <li><strong>Chore Data:</strong> Chore titles, descriptions, and reward amounts</li>
               <li><strong>Progress Data:</strong> Completed chores, earned stars, and wallet balances</li>
             </ul>
@@ -60,7 +60,7 @@ const PrivacyPolicy: React.FC = () => {
               <ul className="text-sm text-blue-700 space-y-1">
                 <li>• Parent email address (for smart login authentication)</li>
                 <li>• Family name (encrypted)</li>
-                <li>• Child nickname and age group (auto-calculated from birthday)</li>
+                <li>• Child nickname and birth year (required for age-appropriate experience)</li>
                 <li>• Chore information and progress data</li>
               </ul>
             </div>
@@ -70,7 +70,7 @@ const PrivacyPolicy: React.FC = () => {
               <ul className="text-sm text-green-700 space-y-1">
                 <li>• <strong>Child email address</strong> - Optional, can be added later by parent</li>
                 <li>• <strong>Gender</strong> - Male, Female, or Other/Prefer not to say (for gift suggestions)</li>
-                <li>• <strong>Birth month and year</strong> - For birthday reminders and age-appropriate rewards</li>
+                <li>• <strong>Birth month</strong> - Optional, for more precise age calculation and birthday reminders</li>
                 <li>• <strong>Child interests</strong> - For personalized gift suggestions</li>
                 <li>• <strong>Theme preferences</strong> - For customized app appearance</li>
               </ul>
@@ -79,7 +79,7 @@ const PrivacyPolicy: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <h4 className="font-semibold text-red-800 mb-2">🚫 What We DON'T Collect:</h4>
               <ul className="text-sm text-red-700 space-y-1">
-                <li>• <strong>No exact birthdays</strong> - only month and year if you choose to provide them</li>
+                <li>• <strong>No exact birth dates</strong> - only year (required) and month (optional)</li>
                 <li>• <strong>No location data</strong> - we don't track where you are</li>
                 <li>• <strong>No browsing history</strong> - we don't track your internet activity</li>
                 <li>• <strong>No personal photos</strong> - we don't store or process images</li>
@@ -91,6 +91,20 @@ const PrivacyPolicy: React.FC = () => {
             <p className="text-gray-600 mb-4">
               Your data is used only to provide the ChoreBlimey! service:
             </p>
+            
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+              <h4 className="font-semibold text-purple-800 mb-2">🎂 Why We Collect Birth Year:</h4>
+              <p className="text-sm text-purple-700 mb-2">
+                We require your child's birth year to provide age-appropriate experiences and ensure their safety:
+              </p>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>• <strong>Age-appropriate rewards</strong> - Suggest gifts suitable for their age group</li>
+                <li>• <strong>Tailored experience</strong> - Customize the app interface and features for their developmental stage</li>
+                <li>• <strong>Safety compliance</strong> - Ensure content and features are appropriate for their age</li>
+                <li>• <strong>Birthday bonuses</strong> - Provide special birthday month rewards and celebrations</li>
+                <li>• <strong>Educational content</strong> - Deliver age-appropriate learning materials about money and responsibility</li>
+              </ul>
+            </div>
             
             <div className="grid md:grid-cols-2 gap-4 mb-6">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
