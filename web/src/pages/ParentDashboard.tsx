@@ -388,7 +388,7 @@ const ParentDashboard: React.FC = () => {
 
     // Validate required fields
     if (!inviteData.realName.trim()) {
-      setInviteMessage('❌ Real name is required')
+      setInviteMessage('❌ Name is required')
       setInviteLoading(false)
       return
     }
@@ -1972,7 +1972,7 @@ const ParentDashboard: React.FC = () => {
                 </p>
               </div>
             <div>
-              <label className="block font-semibold text-[var(--text-primary)] mb-2">Real Name <span className="text-red-500">*</span></label>
+              <label className="block font-semibold text-[var(--text-primary)] mb-2">Name <span className="text-red-500">*</span></label>
               <input
                 name="realName"
                 required
