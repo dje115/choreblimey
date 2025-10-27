@@ -9,16 +9,18 @@ import { cache } from '../utils/cache.js'
  * @param birthYear e.g., 2015
  * @returns age group string
  */
-function calculateAgeGroup(birthMonth: number, birthYear: number): string {
+function calculateAgeGroup(birthMonth: number | null, birthYear: number): string {
   const now = new Date()
   const currentYear = now.getFullYear()
-  const currentMonth = now.getMonth() + 1 // getMonth() returns 0-11
   
   let age = currentYear - birthYear
   
-  // Adjust age if birthday hasn't occurred this year
-  if (currentMonth < birthMonth) {
-    age--
+  // If month is provided, adjust age if birthday hasn't occurred this year
+  if (birthMonth !== null && birthMonth !== undefined) {
+    const currentMonth = now.getMonth() + 1 // getMonth() returns 0-11
+    if (currentMonth < birthMonth) {
+      age--
+    }
   }
   
   if (age <= 8) return '5-8'
@@ -107,9 +109,9 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
       return reply.status(404).send({ error: 'Child not found' })
     }
 
-    // Auto-calculate age group if birthday is provided
+    // Auto-calculate age group if birth year is provided (month is optional)
     let calculatedAgeGroup = ageGroup
-    if (birthMonth !== undefined && birthYear !== undefined) {
+    if (birthYear !== undefined && birthYear !== null) {
       calculatedAgeGroup = calculateAgeGroup(birthMonth, birthYear)
     }
 
@@ -194,9 +196,11 @@ export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, re
       include: {
         assignments: true,
         completions: true,
-        wallet: true,
-        transactions: true,
-        streaks: true
+        wallets: true,
+        streaks: true,
+        bids: true,
+        redemptions: true,
+        payouts: true
       }
     })
 
@@ -206,12 +210,22 @@ export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, re
 
     console.log(`🗑️ Removing child ${existingChild.nickname} (ID: ${id}) and all related data...`)
 
+    // Get wallet IDs for this child
+    const walletIds = existingChild.wallets.map(wallet => wallet.id)
+
     // Delete in correct order to avoid foreign key constraints
-    await prisma.transaction.deleteMany({
+    // Delete transactions by walletId
+    if (walletIds.length > 0) {
+      await prisma.transaction.deleteMany({
+        where: { walletId: { in: walletIds } }
+      })
+    }
+
+    await prisma.completion.deleteMany({
       where: { childId: id }
     })
 
-    await prisma.completion.deleteMany({
+    await prisma.bid.deleteMany({
       where: { childId: id }
     })
 
@@ -220,6 +234,14 @@ export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, re
     })
 
     await prisma.streak.deleteMany({
+      where: { childId: id }
+    })
+
+    await prisma.payout.deleteMany({
+      where: { childId: id }
+    })
+
+    await prisma.redemption.deleteMany({
       where: { childId: id }
     })
 

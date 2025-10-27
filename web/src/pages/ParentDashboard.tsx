@@ -2710,13 +2710,15 @@ const ParentDashboard: React.FC = () => {
                     <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Age Group</label>
                     <div className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] bg-gray-50 text-gray-600">
                       {selectedChild.ageGroup || 'Not set'} 
-                      {selectedChild.birthMonth && selectedChild.birthYear ? 
-                        ' (Auto-calculated from birthday)' : 
-                        ' (Set birthday to auto-calculate)'
+                      {selectedChild.birthYear ? 
+                        (selectedChild.birthMonth ? 
+                          ' (Auto-calculated from birthday)' : 
+                          ' (Auto-calculated from birth year)') : 
+                        ' (Set birth year to auto-calculate)'
                       }
                     </div>
                     <p className="text-xs text-[var(--text-secondary)] mt-1">
-                      Age group is automatically calculated from birthday month and year
+                      Age group is automatically calculated from birth year (month optional for precision)
                     </p>
                   </div>
 
@@ -2748,10 +2750,12 @@ const ParentDashboard: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Birthday (Optional)</label>
+                    <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                      Birthday <span className="text-red-500">*</span>
+                    </label>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Month</label>
+                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Month (Optional)</label>
                         <select
                           value={selectedChild.birthMonth || ''}
                           onChange={(e) => setSelectedChild({ ...selectedChild, birthMonth: e.target.value ? parseInt(e.target.value) : null })}
@@ -2773,7 +2777,7 @@ const ParentDashboard: React.FC = () => {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Year</label>
+                        <label className="block text-xs text-[var(--text-secondary)] mb-1">Year <span className="text-red-500">*</span></label>
                         <input
                           type="number"
                           placeholder="e.g., 2015"
@@ -2782,11 +2786,12 @@ const ParentDashboard: React.FC = () => {
                           className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
                           min="2000"
                           max="2025"
+                          required
                         />
                       </div>
                     </div>
                     <p className="text-xs text-[var(--text-secondary)] mt-2">
-                      💡 <strong>Birthday List Feature:</strong> To enable birthday wish lists and special birthday rewards, please provide at least the month and year.
+                      Year is required to calculate age group. Month is optional for more precise age calculation.
                     </p>
                   </div>
                 </div>
@@ -3009,6 +3014,12 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
+                    // Validate required fields
+                    if (!selectedChild.birthYear) {
+                      setToast({ message: '❌ Birth year is required to calculate age group', type: 'error' })
+                      return
+                    }
+
                     // Update child info (ageGroup is auto-calculated from birthday)
                     await apiClient.updateChild(selectedChild.id, {
                       nickname: selectedChild.nickname,
