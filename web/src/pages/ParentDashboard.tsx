@@ -111,6 +111,7 @@ const ParentDashboard: React.FC = () => {
   
   // Forms
   const [inviteData, setInviteData] = useState({ email: '', realName: '', nickname: '', birthYear: null as number | null, birthMonth: null as number | null })
+  const [nicknameManuallyEdited, setNicknameManuallyEdited] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
   
@@ -371,14 +372,20 @@ const ParentDashboard: React.FC = () => {
     setInviteData(prev => {
       const newData = { ...prev, realName }
       
-      // Auto-fill nickname with first name if nickname is empty
-      if (!prev.nickname.trim() && realName.trim()) {
+      // Auto-fill nickname with first name if we have a name and user hasn't manually edited nickname
+      if (realName.trim() && !nicknameManuallyEdited) {
         const firstName = realName.trim().split(' ')[0]
         newData.nickname = firstName
       }
       
       return newData
     })
+  }
+
+  // Handle nickname change and track manual edits
+  const handleNicknameChange = (nickname: string) => {
+    setInviteData(prev => ({ ...prev, nickname }))
+    setNicknameManuallyEdited(true)
   }
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -436,6 +443,7 @@ const ParentDashboard: React.FC = () => {
         setShowInviteModal(false)
         setInviteMessage('')
         setInviteData({ email: '', realName: '', nickname: '', birthYear: null, birthMonth: null })
+        setNicknameManuallyEdited(false)
         loadDashboard()
       }, 3000)
     } catch (error: any) {
@@ -1990,7 +1998,7 @@ const ParentDashboard: React.FC = () => {
               <input
                 name="nickname"
                 value={inviteData.nickname}
-                onChange={(e) => setInviteData(prev => ({ ...prev, nickname: e.target.value }))}
+                onChange={(e) => handleNicknameChange(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
                 placeholder="e.g., Super Ellie"
               />
