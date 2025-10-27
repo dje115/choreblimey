@@ -111,6 +111,9 @@ model Child {
   // Interests for personalized rewards (JSON array of tags)
   interestsJson  Json?    // e.g., ["pets","reading","music","sports"]
   
+  // Account management
+  paused         Boolean  @default(false) // Whether the child's account is temporarily paused
+  
   createdAt      DateTime @default(now())
 
   family       Family      @relation(fields: [familyId], references: [id])

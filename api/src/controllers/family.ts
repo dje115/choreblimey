@@ -383,6 +383,7 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
         ageGroup: true,
         gender: true,
         theme: true,
+        paused: true,
         createdAt: true
       },
       orderBy: { createdAt: 'asc' }

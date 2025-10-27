@@ -148,6 +148,41 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
   }
 }
 
+export const togglePause = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+
+    // Verify child belongs to family
+    const existingChild = await prisma.child.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!existingChild) {
+      return reply.status(404).send({ error: 'Child not found' })
+    }
+
+    // Toggle the pause status
+    const updatedChild = await prisma.child.update({
+      where: { id },
+      data: { paused: !existingChild.paused }
+    })
+
+    console.log(`⏸️ Child ${existingChild.nickname} ${updatedChild.paused ? 'paused' : 'unpaused'} successfully`)
+
+    // Invalidate family cache so changes are reflected immediately
+    await cache.invalidateFamily(familyId)
+
+    return { 
+      message: `Child ${updatedChild.paused ? 'paused' : 'unpaused'} successfully`,
+      paused: updatedChild.paused
+    }
+  } catch (error) {
+    console.error('Failed to toggle pause status:', error)
+    reply.status(500).send({ error: 'Failed to toggle pause status' })
+  }
+}
+
 export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
@@ -190,6 +225,12 @@ export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, re
 
     await prisma.wallet.deleteMany({
       where: { childId: id }
+    })
+
+    // Clear any join codes that reference this child
+    await prisma.childJoinCode.updateMany({
+      where: { usedByChildId: id },
+      data: { usedByChildId: null }
     })
 
     // Finally delete the child

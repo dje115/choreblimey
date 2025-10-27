@@ -143,6 +143,10 @@ class ApiClient {
     return this.delete(`/children/${childId}`)
   }
 
+  async toggleChildPause(childId: string) {
+    return this.patch(`/children/${childId}/pause`)
+  }
+
   async generateChildJoinCode(data: { nickname: string; ageGroup: string; gender?: string }) {
     return this.post('/auth/generate-join-code', data)
   }

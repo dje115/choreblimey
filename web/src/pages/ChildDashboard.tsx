@@ -103,6 +103,7 @@ const ChildDashboard: React.FC = () => {
   // Toast & Confetti
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   
   // Completion modal state
   const [showCompletionModal, setShowCompletionModal] = useState(false)
@@ -245,10 +246,11 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, walletStatsRes, familyRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.getWalletStats(childId),
         apiClient.getFamily(),
+        apiClient.getFamilyMembers(),
         apiClient.listAssignments(childId),
         apiClient.listCompletions(), // Get all completions to filter out submitted chores
         apiClient.getRewards(childId),
@@ -265,6 +267,16 @@ const ChildDashboard: React.FC = () => {
       }
       if (familyRes.status === 'fulfilled') {
         setFamilySettings(familyRes.value.family)
+      }
+      if (familyMembersRes.status === 'fulfilled') {
+        const members = familyMembersRes.value.members || []
+        const children = familyMembersRes.value.children || []
+        
+        // Look for child in the children array, not members array
+        const currentChild = children.find((child: any) => child.id === childId)
+        if (currentChild) {
+          setIsPaused(currentChild.paused || false)
+        }
       }
       if (assignmentsRes.status === 'fulfilled') {
         const assignmentsList = assignmentsRes.value.assignments || []
@@ -451,6 +463,34 @@ const ChildDashboard: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[var(--primary)] border-t-transparent mx-auto mb-4"></div>
           <p className="cb-body">Loading your chores...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show paused message if child is paused
+  if (isPaused) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center">
+          <div className="bg-white rounded-2xl shadow-xl p-8 border-4 border-yellow-200">
+            <div className="text-8xl mb-6">⏸️</div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">Oh Blimey!</h1>
+            <h2 className="text-xl font-semibold text-yellow-600 mb-6">Chores are on pause!</h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              Your account has been temporarily paused. This means you can't complete chores or earn rewards right now.
+            </p>
+            <div className="bg-yellow-100 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-800">
+                <strong>Don't worry!</strong> Your parent can unpause your account anytime. 
+                All your progress and stars are safe! 🌟
+              </p>
+            </div>
+            <div className="text-4xl mb-4">😴</div>
+            <p className="text-gray-500 text-sm">
+              Check back later or ask your parent to unpause your account!
+            </p>
+          </div>
         </div>
       </div>
     )
