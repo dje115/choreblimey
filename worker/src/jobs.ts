@@ -15,6 +15,7 @@ import { updatePopularity } from './jobs/updatePopularity.js'
 import { birthdayBonus } from './jobs/birthdayBonus.js'
 import { refreshPriceCache } from './jobs/refreshPriceCache.js'
 import { accountCleanup } from './jobs/accountCleanup.js'
+import { choreGeneration } from './jobs/choreGeneration.js'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:1507'
 
@@ -29,7 +30,8 @@ const QUEUE_NAMES = {
   POPULARITY_UPDATE: 'popularity-update',
   BIRTHDAY_BONUS: 'birthday-bonus',
   PRICE_CACHE: 'price-cache',
-  ACCOUNT_CLEANUP: 'account-cleanup'
+  ACCOUNT_CLEANUP: 'account-cleanup',
+  CHORE_GENERATION: 'chore-generation'
 }
 
 // Create queues (BullMQ v5+ handles scheduling automatically, no need for QueueScheduler)
@@ -38,6 +40,7 @@ const popularityUpdateQueue = new Queue(QUEUE_NAMES.POPULARITY_UPDATE, { connect
 const birthdayBonusQueue = new Queue(QUEUE_NAMES.BIRTHDAY_BONUS, { connection })
 const priceCacheQueue = new Queue(QUEUE_NAMES.PRICE_CACHE, { connection })
 const accountCleanupQueue = new Queue(QUEUE_NAMES.ACCOUNT_CLEANUP, { connection })
+const choreGenerationQueue = new Queue(QUEUE_NAMES.CHORE_GENERATION, { connection })
 
 // Create workers
 const rewardsSyncWorker = new Worker(
@@ -70,13 +73,20 @@ const accountCleanupWorker = new Worker(
   { connection }
 )
 
+const choreGenerationWorker = new Worker(
+  QUEUE_NAMES.CHORE_GENERATION,
+  async (job) => await choreGeneration(job),
+  { connection }
+)
+
 // Worker event handlers
 const workers = [
   { name: 'Rewards Sync', worker: rewardsSyncWorker },
   { name: 'Popularity Update', worker: popularityUpdateWorker },
   { name: 'Birthday Bonus', worker: birthdayBonusWorker },
   { name: 'Price Cache', worker: priceCacheWorker },
-  { name: 'Account Cleanup', worker: accountCleanupWorker }
+  { name: 'Account Cleanup', worker: accountCleanupWorker },
+  { name: 'Chore Generation', worker: choreGenerationWorker }
 ]
 
 workers.forEach(({ name, worker }) => {
@@ -157,6 +167,18 @@ async function scheduleJobs() {
   )
   console.log('⏰ Scheduled: Monthly account cleanup (1st of month at 2:00 AM)')
   
+  // 6. Daily chore generation at 5:00 AM
+  await choreGenerationQueue.add(
+    'daily-chore-generation',
+    {},
+    {
+      repeat: {
+        pattern: '0 5 * * *' // 5:00 AM daily
+      }
+    }
+  )
+  console.log('⏰ Scheduled: Daily chore generation (5:00 AM)')
+  
   // Optional: Run jobs immediately on startup for testing
   if (process.env.RUN_JOBS_ON_STARTUP === 'true') {
     console.log('🚀 Running jobs immediately on startup...')
@@ -164,6 +186,7 @@ async function scheduleJobs() {
     await popularityUpdateQueue.add('startup-popularity', {})
     await birthdayBonusQueue.add('startup-birthday', {})
     await priceCacheQueue.add('startup-price-cache', {})
+    await choreGenerationQueue.add('startup-chore-generation', { dryRun: true })
     // Skip reward sync on startup (takes longer, only needed once daily)
   }
 }
@@ -177,7 +200,8 @@ async function shutdown() {
     popularityUpdateWorker.close(),
     birthdayBonusWorker.close(),
     priceCacheWorker.close(),
-    accountCleanupWorker.close()
+    accountCleanupWorker.close(),
+    choreGenerationWorker.close()
   ])
   
   await Promise.all([
@@ -185,7 +209,8 @@ async function shutdown() {
     popularityUpdateQueue.close(),
     birthdayBonusQueue.close(),
     priceCacheQueue.close(),
-    accountCleanupQueue.close()
+    accountCleanupQueue.close(),
+    choreGenerationQueue.close()
   ])
   
   await connection.quit()
@@ -210,6 +235,8 @@ async function start() {
     console.log('  - Popularity Update (hourly)')
     console.log('  - Birthday Bonus (daily at 6:00 AM)')
     console.log('  - Price Cache Refresh (every 6 hours)')
+    console.log('  - Account Cleanup (monthly on 1st at 2:00 AM)')
+    console.log('  - Chore Generation (daily at 5:00 AM)')
   } catch (error) {
     console.error('💥 Failed to start worker service:', error)
     process.exit(1)
@@ -223,5 +250,7 @@ export {
   rewardsSyncQueue,
   popularityUpdateQueue,
   birthdayBonusQueue,
-  priceCacheQueue
+  priceCacheQueue,
+  accountCleanupQueue,
+  choreGenerationQueue
 }

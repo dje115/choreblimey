@@ -96,10 +96,16 @@ docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build
 # - MailHog: http://localhost:1506
 ```
 
-#### Secure Admin Portal Stack
+#### Secure Admin Portal Stack (RECOMMENDED)
 ```bash
 # Start secure stack with isolated admin portal
-docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build
+docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d
+
+# Run database migrations
+docker exec choreblimey-secure-api-1 npx prisma migrate dev --name init
+
+# Seed demo data
+docker exec choreblimey-secure-api-1 npm run seed
 
 # Access services
 # - User Web: http://localhost:1500
@@ -109,16 +115,21 @@ docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.
 # - MailHog: http://localhost:1506
 ```
 
+### 📖 Docker Development Guide
+For detailed Docker setup, troubleshooting, and development workflow, see [DOCKER_DEVELOPMENT.md](./DOCKER_DEVELOPMENT.md).
+
+**⚠️ Important**: Always use the `choreblimey-secure` stack for development. The legacy `choreblimey` stack is deprecated.
+
 ### First Time Setup
 ```bash
-# Run database migrations
-docker compose exec api npx prisma migrate dev
+# Run database migrations (SECURE STACK)
+docker exec choreblimey-secure-api-1 npx prisma migrate dev --name init
 
 # Seed demo data
-docker compose exec api npm run seed
+docker exec choreblimey-secure-api-1 npm run seed
 
 # Create test user
-docker compose exec api npx tsx src/create-test-user.ts
+docker exec choreblimey-secure-api-1 npx tsx src/create-test-user.ts
 ```
 
 ## 📱 User Interfaces

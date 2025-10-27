@@ -31,6 +31,11 @@ model Family {
   // Login tracking for auto-delete
   lastLoginAt   DateTime?       // When ANY family member last logged in
   suspendedAt   DateTime?       // When account was suspended (for 12-month deletion)
+  
+  // Holiday mode
+  holidayMode   Boolean         @default(false) // Whether family is in holiday mode
+  holidayStartDate DateTime?    // When holiday mode started
+  holidayEndDate   DateTime?    // When holiday mode ends
 
   // Back-relations
   members       FamilyMember[]
@@ -113,6 +118,11 @@ model Child {
   
   // Account management
   paused         Boolean  @default(false) // Whether the child's account is temporarily paused
+  
+  // Holiday mode (child-specific)
+  holidayMode    Boolean  @default(false) // Whether child is in holiday mode
+  holidayStartDate DateTime? // When child's holiday mode started
+  holidayEndDate   DateTime? // When child's holiday mode ends
   
   createdAt      DateTime @default(now())
 
