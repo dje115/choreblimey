@@ -19,6 +19,8 @@ A gamified family chore management app where children earn stars for completing 
 
 | File | Purpose | Read This When... |
 |------|---------|-------------------|
+| **[DOCKER_DEVELOPMENT.md](./DOCKER_DEVELOPMENT.md)** | **🐳 Docker setup, troubleshooting, and development workflow** | **Setting up development environment, fixing Docker issues** |
+| **[AI_DEVELOPMENT_QUICK_REFERENCE.md](./AI_DEVELOPMENT_QUICK_REFERENCE.md)** | **🤖 Quick reference for AI assistants** | **Need immediate Docker commands and troubleshooting** |
 | **[README.md](README.md)** | Project overview & quick start | Setting up for the first time |
 | **[TECHNICAL_SPEC.md](TECHNICAL_SPEC.md)** | Full system architecture | Understanding how everything works |
 | **[PERFORMANCE.md](PERFORMANCE.md)** | Redis caching & scaling | Optimizing or debugging performance |
@@ -35,13 +37,17 @@ Frontend (React + Vite)  →  API (Fastify)  →  PostgreSQL + Redis
                            Worker (BullMQ)
 ```
 
-**6 Docker Containers**:
-1. `web` - React frontend (Port 1500)
-2. `api` - Fastify API (Port 1501)
-3. `worker` - Background jobs
-4. `postgres` - Database (Port 1502)
-5. `redis` - Cache/Queue (Port 1507)
-6. `mailhog` - Email testing (Port 1506)
+**Secure Stack Docker Containers** (CURRENT DEVELOPMENT):
+1. `choreblimey-secure-web-1` - React frontend (Port 1500)
+2. `choreblimey-secure-api-1` - Main API (Port 1501)
+3. `choreblimey-secure-admin-api-1` - Admin API (Port 1502)
+4. `choreblimey-secure-admin-web-1` - Admin portal (Port 1503)
+5. `choreblimey-secure-worker-1` - Background jobs
+6. `choreblimey-secure-postgres-1` - Database (Port 1504)
+7. `choreblimey-secure-redis-1` - Cache/Queue (Port 1505)
+8. `choreblimey-secure-mailhog-1` - Email testing (Port 1506)
+
+**⚠️ Important**: Always use the `choreblimey-secure` stack. The legacy `choreblimey` stack is deprecated.
 
 ---
 
