@@ -110,7 +110,7 @@ const ParentDashboard: React.FC = () => {
   const [newEmail, setNewEmail] = useState('')
   
   // Forms
-  const [inviteData, setInviteData] = useState({ email: '', nickname: '', ageGroup: '5-8' })
+  const [inviteData, setInviteData] = useState({ email: '', nickname: '', birthYear: null as number | null, birthMonth: null as number | null })
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
   
@@ -371,21 +371,47 @@ const ParentDashboard: React.FC = () => {
     setInviteLoading(true)
     setInviteMessage('')
 
+    // Validate required fields
+    if (!inviteData.birthYear) {
+      setInviteMessage('❌ Birth year is required to calculate age group')
+      setInviteLoading(false)
+      return
+    }
+
     try {
+      // Calculate age group from birth year
+      const currentYear = new Date().getFullYear()
+      let age = currentYear - inviteData.birthYear
+      
+      // Adjust age if month is provided and birthday hasn't occurred this year
+      if (inviteData.birthMonth !== null) {
+        const currentMonth = new Date().getMonth() + 1
+        if (currentMonth < inviteData.birthMonth) {
+          age--
+        }
+      }
+      
+      let ageGroup = '5-8'
+      if (age <= 8) ageGroup = '5-8'
+      else if (age <= 11) ageGroup = '9-11'
+      else if (age <= 15) ageGroup = '12-15'
+      else ageGroup = '12-15' // Default to oldest group
+
       const result = await apiClient.inviteToFamily({
-        email: inviteData.email,
+        email: inviteData.email || undefined, // Make email optional
         role: 'child_player',
         nameCipher: family?.nameCipher || 'Family',
         nickname: inviteData.nickname,
-        ageGroup: inviteData.ageGroup,
-        sendEmail: true
+        ageGroup: ageGroup,
+        sendEmail: !!inviteData.email // Only send email if provided
       })
 
-      setInviteMessage(`✅ Join code: ${result.joinCode} – Sent to ${inviteData.email}`)
+      const emailMessage = inviteData.email ? ` – Sent to ${inviteData.email}` : ' – No email provided'
+      setInviteMessage(`✅ Join code: ${result.joinCode}${emailMessage}`)
       setTimeout(() => {
         setShowInviteModal(false)
         setInviteMessage('')
-        setInviteData({ email: '', nickname: '', ageGroup: '5-8' })
+        setInviteData({ email: '', nickname: '', birthYear: null, birthMonth: null })
         loadDashboard()
       }, 3000)
     } catch (error: any) {
@@ -1908,16 +1934,18 @@ const ParentDashboard: React.FC = () => {
             <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">➕ Invite to Family</h3>
             <form onSubmit={handleInvite} className="space-y-5">
               <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Email *</label>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">Email (Optional)</label>
                 <input
                   name="email"
                   type="email"
-                  required
                   value={inviteData.email}
                   onChange={(e) => setInviteData(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  placeholder="child@example.com"
+                  placeholder="child@example.com (optional)"
                 />
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Some children don't have email addresses - that's okay!
+                </p>
               </div>
               <div>
                 <label className="block font-semibold text-[var(--text-primary)] mb-2">Nickname *</label>
@@ -1931,17 +1959,49 @@ const ParentDashboard: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Age group</label>
-                <select
-                  name="ageGroup"
-                  value={inviteData.ageGroup}
-                  onChange={(e) => setInviteData(prev => ({ ...prev, ageGroup: e.target.value }))}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                >
-                  <option value="5-8">5-8 years</option>
-                  <option value="9-11">9-11 years</option>
-                  <option value="12-15">12-15 years</option>
-                </select>
+                <label className="block font-semibold text-[var(--text-primary)] mb-2">
+                  Birthday <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">Month (Optional)</label>
+                    <select
+                      value={inviteData.birthMonth || ''}
+                      onChange={(e) => setInviteData(prev => ({ ...prev, birthMonth: e.target.value ? parseInt(e.target.value) : null }))}
+                      className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                    >
+                      <option value="">Select month</option>
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--text-secondary)] mb-1">Year <span className="text-red-500">*</span></label>
+                    <input
+                      type="number"
+                      placeholder="e.g., 2015"
+                      value={inviteData.birthYear || ''}
+                      onChange={(e) => setInviteData(prev => ({ ...prev, birthYear: e.target.value ? parseInt(e.target.value) : null }))}
+                      className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                      min="2000"
+                      max="2025"
+                      required
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] mt-2">
+                  Year is required to calculate age group. Month is optional for more precise age calculation.
+                </p>
               </div>
 
               {inviteMessage && (
