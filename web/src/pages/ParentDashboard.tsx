@@ -110,7 +110,7 @@ const ParentDashboard: React.FC = () => {
   const [newEmail, setNewEmail] = useState('')
   
   // Forms
-  const [inviteData, setInviteData] = useState({ email: '', nickname: '', birthYear: null as number | null, birthMonth: null as number | null })
+  const [inviteData, setInviteData] = useState({ email: '', realName: '', nickname: '', birthYear: null as number | null, birthMonth: null as number | null })
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteMessage, setInviteMessage] = useState('')
   
@@ -366,12 +366,33 @@ const ParentDashboard: React.FC = () => {
     }
   }
 
+  // Handle real name change and autofill nickname
+  const handleRealNameChange = (realName: string) => {
+    setInviteData(prev => {
+      const newData = { ...prev, realName }
+      
+      // Auto-fill nickname with first name if nickname is empty
+      if (!prev.nickname.trim() && realName.trim()) {
+        const firstName = realName.trim().split(' ')[0]
+        newData.nickname = firstName
+      }
+      
+      return newData
+    })
+  }
+
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     setInviteLoading(true)
     setInviteMessage('')
 
     // Validate required fields
+    if (!inviteData.realName.trim()) {
+      setInviteMessage('❌ Real name is required')
+      setInviteLoading(false)
+      return
+    }
+
     if (!inviteData.birthYear) {
       setInviteMessage('❌ Birth year is required to calculate age group')
       setInviteLoading(false)
@@ -397,11 +418,14 @@ const ParentDashboard: React.FC = () => {
       else if (age <= 15) ageGroup = '12-15'
       else ageGroup = '12-15' // Default to oldest group
 
+      // Use nickname if provided, otherwise use first name from real name
+      const nickname = inviteData.nickname.trim() || inviteData.realName.trim().split(' ')[0]
+
       const result = await apiClient.inviteToFamily({
         email: inviteData.email || undefined, // Make email optional
         role: 'child_player',
         nameCipher: family?.nameCipher || 'Family',
-        nickname: inviteData.nickname,
+        nickname: nickname,
         ageGroup: ageGroup,
         sendEmail: !!inviteData.email // Only send email if provided
       })
@@ -411,7 +435,7 @@ const ParentDashboard: React.FC = () => {
       setTimeout(() => {
         setShowInviteModal(false)
         setInviteMessage('')
-        setInviteData({ email: '', nickname: '', birthYear: null, birthMonth: null })
+        setInviteData({ email: '', realName: '', nickname: '', birthYear: null, birthMonth: null })
         loadDashboard()
       }, 3000)
     } catch (error: any) {
@@ -1947,17 +1971,33 @@ const ParentDashboard: React.FC = () => {
                   Some children don't have email addresses - that's okay!
                 </p>
               </div>
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Nickname *</label>
-                <input
-                  name="nickname"
-                  required
-                  value={inviteData.nickname}
-                  onChange={(e) => setInviteData(prev => ({ ...prev, nickname: e.target.value }))}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  placeholder="Super Ellie"
-                />
-              </div>
+            <div>
+              <label className="block font-semibold text-[var(--text-primary)] mb-2">Real Name <span className="text-red-500">*</span></label>
+              <input
+                name="realName"
+                required
+                value={inviteData.realName}
+                onChange={(e) => handleRealNameChange(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                placeholder="e.g., Ellie Johnson"
+              />
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                This is the child's full name for family records
+              </p>
+            </div>
+            <div>
+              <label className="block font-semibold text-[var(--text-primary)] mb-2">Nickname (Optional)</label>
+              <input
+                name="nickname"
+                value={inviteData.nickname}
+                onChange={(e) => setInviteData(prev => ({ ...prev, nickname: e.target.value }))}
+                className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                placeholder="e.g., Super Ellie"
+              />
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Auto-filled from first name, but you can customize it
+              </p>
+            </div>
               <div>
                 <label className="block font-semibold text-[var(--text-primary)] mb-2">
                   Birthday <span className="text-red-500">*</span>
