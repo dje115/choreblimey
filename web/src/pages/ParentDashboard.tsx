@@ -1675,8 +1675,43 @@ const ParentDashboard: React.FC = () => {
           <div className="cb-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">⚙️ Family Settings</h3>
             
+            {/* Tab Navigation */}
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+              <button
+                onClick={() => setSettingsTab('rivalry')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  settingsTab === 'rivalry'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                ⚔️ Rivalry
+              </button>
+              <button
+                onClick={() => setSettingsTab('budget')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  settingsTab === 'budget'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                💰 Budget
+              </button>
+              <button
+                onClick={() => setSettingsTab('account')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  settingsTab === 'account'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                🔧 Account
+              </button>
+            </div>
+
             <div className="space-y-6">
-              {/* Sibling Rivalry Section */}
+              {/* Rivalry Tab */}
+              {settingsTab === 'rivalry' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
                   <div>
@@ -1725,8 +1760,10 @@ const ParentDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Budget Management Section */}
+              {/* Budget Tab */}
+              {settingsTab === 'budget' && (
               <div className="space-y-4">
                 <div className="p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
                   <h4 className="font-bold text-[var(--text-primary)] mb-3">💰 Budget Management</h4>
@@ -1915,9 +1952,11 @@ const ParentDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
+              )}
 
-              {/* Account Actions Section */}
-              <div className="pt-6 border-t-2 border-[var(--card-border)]">
+              {/* Account Tab */}
+              {settingsTab === 'account' && (
+              <div className="pt-6">
                 <h4 className="font-bold text-[var(--text-primary)] mb-4">🔧 Account Actions</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -1940,6 +1979,7 @@ const ParentDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
+              )}
             </div>
 
             <div className="flex gap-4 mt-8">
