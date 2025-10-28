@@ -225,6 +225,14 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
             nickname: true,
             ageGroup: true,
             gender: true,
+            email: true,
+            birthYear: true,
+            birthMonth: true,
+            paused: true,
+            theme: true,
+            holidayMode: true,
+            holidayStartDate: true,
+            holidayEndDate: true,
             createdAt: true
           },
           orderBy: { createdAt: 'asc' }
