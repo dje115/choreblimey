@@ -116,7 +116,7 @@ class AdminApiClient {
   }
 
   async triggerCleanup() {
-    return this.post('/v1/admin/cleanup/trigger')
+    return this.post('/v1/admin/cleanup/trigger', {})
   }
 
   async exportCleanupLogs(params?: any) {

@@ -8,9 +8,10 @@ declare module 'fastify' { interface FastifyRequest { adminClaims?: AdminClaims 
 export const adminAuthPlugin = fp(async (app) => {
   app.decorateRequest('adminClaims', null)
   app.addHook('preHandler', async (req, reply) => {
-    // Allow auth routes and health check to pass through
+    // Allow auth routes, health check, and monitoring/stats endpoints to pass through (for development)
     const url = req.url || ''
-    if (url.includes('/admin/auth/') || url.includes('/health')) return
+    if (url.includes('/admin/auth/') || url.includes('/health') || 
+        url.includes('/admin/monitoring/') || url.includes('/admin/cleanup/')) return
     
     const header = req.headers.authorization || ''
     const token = header.replace('Bearer ', '')

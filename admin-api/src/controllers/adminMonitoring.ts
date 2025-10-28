@@ -1,4 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { prisma } from '../db/prisma.js'
 
 /**
  * GET /admin/monitoring/overview
@@ -6,16 +7,24 @@ import { FastifyRequest, FastifyReply } from 'fastify'
  */
 export const getSystemOverview = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
+    // Get real stats from database
+    const [families, children, chores, completions] = await Promise.all([
+      prisma.family.count(),
+      prisma.child.count(),
+      prisma.chore.count(),
+      prisma.completion.count()
+    ])
+
     return {
       success: true,
-      overview: {
-        totalUsers: 0,
-        activeUsers: 0,
-        systemHealth: 'healthy',
-        uptime: process.uptime(),
-        memoryUsage: process.memoryUsage(),
-        timestamp: new Date()
-      }
+      families,
+      children,
+      chores,
+      completions,
+      systemHealth: 'healthy',
+      uptime: process.uptime(),
+      memoryUsage: process.memoryUsage(),
+      timestamp: new Date()
     }
   } catch (error) {
     console.error('Error fetching system overview:', error)

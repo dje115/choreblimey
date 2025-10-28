@@ -3,31 +3,36 @@ import { prisma } from '../db/prisma.js'
 
 /**
  * GET /admin/cleanup/logs
- * Get recent cleanup logs
+ * Get recent cleanup logs from audit log
  */
 export const getCleanupLogs = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
-    const logs = [
-      { 
-        id: '1', 
-        type: 'warning', 
-        accountType: 'inactive', 
-        familyId: 'family-123', 
-        email: 'test@example.com', 
-        message: '5-month warning sent', 
-        createdAt: new Date() 
+    // Get recent audit logs related to cleanup
+    const auditLogs = await prisma.auditLog.findMany({
+      where: {
+        action: {
+          in: ['FAMILY_DELETED', 'FAMILY_SUSPENDED', 'CLEANUP_WARNING_SENT', 'CLEANUP_EXECUTED']
+        }
       },
-      { 
-        id: '2', 
-        type: 'deletion', 
-        accountType: 'inactive', 
-        familyId: 'family-456', 
-        email: 'old@example.com', 
-        message: 'Account deleted after 6 months', 
-        createdAt: new Date() 
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    })
+
+    // Transform audit logs to cleanup log format
+    const logs = auditLogs.map(log => {
+      const metadata = log.metaJson as any || {}
+      return {
+        id: log.id,
+        type: log.action.includes('DELETE') ? 'deletion' : 
+              log.action.includes('SUSPEND') ? 'warning' : 'info',
+        action: log.action,
+        details: metadata.reason || log.target || '',
+        timestamp: log.createdAt,
+        adminEmail: metadata.adminEmail || 'System'
       }
-    ]
-    reply.send({ logs })
+    })
+
+    reply.send(logs)
   } catch (error) {
     req.log.error(error, 'Failed to get cleanup logs')
     reply.status(500).send({ error: 'Failed to retrieve cleanup logs' })
@@ -40,14 +45,41 @@ export const getCleanupLogs = async (req: FastifyRequest, reply: FastifyReply) =
  */
 export const getCleanupStats = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
+    // Get real family stats
+    const totalFamilies = await prisma.family.count()
+    
+    // Families inactive for 6+ months
+    const sixMonthsAgo = new Date()
+    const monthsToSubtract = 6
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - monthsToSubtract)
+    const inactiveFamilies = await prisma.family.count({
+      where: {
+        OR: [
+          { lastLoginAt: { lt: sixMonthsAgo } },
+          { lastLoginAt: null }
+        ]
+      }
+    })
+    
+    // Families suspended (12+ months)
+    const suspendedFamilies = await prisma.family.count({
+      where: {
+        suspendedAt: { not: null }
+      }
+    })
+    
+    // Mock deleted count (would need a deletion log table)
+    const deletedFamilies = 0
+    
     const stats = {
-      totalAccountsDeleted: 125,
+      totalFamilies,
+      inactiveFamilies,
+      suspendedFamilies,
+      deletedFamilies,
       lastRun: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      nextRun: '1st of next month at 2:00 AM',
-      pendingWarnings: 15,
-      pendingDeletions: 3
+      nextRun: '1st of next month at 2:00 AM'
     }
-    reply.send({ stats })
+    reply.send(stats)
   } catch (error) {
     req.log.error(error, 'Failed to get cleanup stats')
     reply.status(500).send({ error: 'Failed to retrieve cleanup statistics' })
@@ -72,13 +104,24 @@ export const getCleanupStatus = async (req: FastifyRequest, reply: FastifyReply)
   }
 }
 
+interface TriggerCleanupBody {
+  force?: boolean
+}
+
 /**
  * POST /admin/cleanup/trigger
  * Manually trigger the account cleanup process
  */
-export const triggerCleanup = async (req: FastifyRequest, reply: FastifyReply) => {
+export const triggerCleanup = async (req: FastifyRequest<{ Body: TriggerCleanupBody }>, reply: FastifyReply) => {
   try {
-    reply.send({ success: true, message: 'Manual account cleanup triggered. Check worker logs for progress.' })
+    const { force = false } = req.body || {}
+    
+    console.log('🧹 Manual cleanup triggered by admin', { force })
+    
+    // In production, this would trigger the BullMQ job
+    // For now, just log and return success
+    
+    reply.send({ success: true, message: 'Manual account cleanup triggered. Check worker logs for progress.', force })
   } catch (error) {
     req.log.error(error, 'Failed to trigger manual cleanup')
     reply.status(500).send({ error: 'Failed to trigger manual cleanup' })

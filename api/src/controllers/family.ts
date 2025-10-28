@@ -10,8 +10,8 @@ interface FamilyCreateBody {
 }
 
 interface FamilyInviteBody {
-  email: string
-  role: 'parent_admin' | 'parent_viewer' | 'relative_contributor'
+  email?: string
+  role: 'parent_admin' | 'parent_viewer' | 'relative_contributor' | 'child_player'
   nameCipher: string
   nickname: string
   ageGroup?: string
@@ -65,8 +65,8 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
 
     console.log('Family invite request - userId:', userId, 'familyId from claims:', familyId)
 
-    if (!email || !nameCipher || !nickname) {
-      return reply.status(400).send({ error: 'Email, family name, and child nickname are required' })
+    if (!nameCipher || !nickname) {
+      return reply.status(400).send({ error: 'Family name and child nickname are required' })
     }
 
     // First, let's find the user's family membership to get the correct familyId
@@ -137,7 +137,7 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
       result.joinCode = joinCode
       result.expiresAt = expiresAt
 
-      if (sendEmail) {
+      if (sendEmail && email) {
         // Send email with QR code and text code
         const { sendChildInvite } = await import('../utils/email.js')
         await sendChildInvite(email, joinCode, nameCipher)
@@ -145,6 +145,9 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
       }
     } else {
       // Generate magic link for parent/relative invite
+      if (!email) {
+        return reply.status(400).send({ error: 'Email is required for this invite type' })
+      }
       const token = generateToken()
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
@@ -158,7 +161,7 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
         }
       })
 
-      if (sendEmail) {
+      if (sendEmail && email) {
         await sendMagicLink(email, token)
         result.emailSent = true
       }

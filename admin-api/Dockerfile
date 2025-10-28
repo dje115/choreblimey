@@ -11,18 +11,15 @@ RUN apk update && apk upgrade && \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY admin-api/package*.json ./admin-api/
 RUN cd admin-api && npm install && npm cache clean --force
 
-# Copy source code
+# Copy all source code
 COPY admin-api ./admin-api
 
-# Build TypeScript
-RUN cd admin-api && npm run build
-
-# Skip Prisma client generation - will use runtime connection
-# RUN cd admin-api && npx prisma generate
+# Generate Prisma client and build
+RUN cd admin-api && npx prisma generate && npm run build
 
 # Set ownership to admin user
 RUN chown -R admin:admin /app

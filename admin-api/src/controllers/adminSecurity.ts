@@ -1,15 +1,37 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { prisma } from '../db/prisma.js'
 
 /**
  * GET /admin/security/logs
- * Get security logs
+ * Get security logs (login attempts, failed auth, etc.)
  */
 export const getSecurityLogs = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        action: {
+          in: ['LOGIN_FAILED', 'LOGIN_SUCCESS', 'ADMIN_LOGIN_FAILED', 'ADMIN_LOGIN_SUCCESS', 'LOGOUT']
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    })
+
     return {
       success: true,
-      logs: [],
-      total: 0
+      logs: logs.map(log => {
+        const metadata = log.metaJson as any || {}
+        return {
+          id: log.id,
+          action: log.action,
+          details: log.target || '',
+          ipAddress: metadata.ipAddress || 'Unknown',
+          userAgent: metadata.userAgent || 'Unknown',
+          timestamp: log.createdAt,
+          adminEmail: metadata.adminEmail || 'System'
+        }
+      }),
+      total: logs.length
     }
   } catch (error) {
     console.error('Error fetching security logs:', error)
@@ -19,13 +41,30 @@ export const getSecurityLogs = async (req: FastifyRequest, reply: FastifyReply) 
 
 /**
  * GET /admin/security/sessions
- * Get active sessions
+ * Get active sessions (unexpired tokens)
  */
 export const getActiveSessions = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
+    // Get active auth tokens (not expired, not used)
+    const tokens = await prisma.authToken.findMany({
+      where: {
+        expiresAt: { gt: new Date() },
+        usedAt: null
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    })
+
     return {
       success: true,
-      sessions: []
+      sessions: tokens.map(token => ({
+        id: token.id,
+        userEmail: token.email,
+        userRole: token.type,
+        createdAt: token.createdAt,
+        expiresAt: token.expiresAt,
+        ipAddress: 'N/A'
+      }))
     }
   } catch (error) {
     console.error('Error fetching active sessions:', error)
@@ -35,10 +74,16 @@ export const getActiveSessions = async (req: FastifyRequest, reply: FastifyReply
 
 /**
  * POST /admin/security/revoke-session
- * Revoke a session
+ * Revoke a session by deleting the token
  */
 export const revokeSession = async (req: FastifyRequest<{ Body: { sessionId: string } }>, reply: FastifyReply) => {
   try {
+    const { sessionId } = req.body
+
+    await prisma.authToken.delete({
+      where: { id: sessionId }
+    })
+
     return {
       success: true,
       message: 'Session revoked successfully'
@@ -55,10 +100,25 @@ export const revokeSession = async (req: FastifyRequest<{ Body: { sessionId: str
  */
 export const getAuditLogs = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    })
+
     return {
       success: true,
-      logs: [],
-      total: 0
+      logs: logs.map(log => {
+        const metadata = log.metaJson as any || {}
+        return {
+          id: log.id,
+          action: log.action,
+          details: log.target || '',
+          metadata: log.metaJson,
+          timestamp: log.createdAt,
+          adminEmail: metadata.adminEmail || 'System'
+        }
+      }),
+      total: logs.length
     }
   } catch (error) {
     console.error('Error fetching audit logs:', error)

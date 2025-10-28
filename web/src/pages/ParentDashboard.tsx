@@ -252,7 +252,7 @@ const ParentDashboard: React.FC = () => {
       try {
         console.log('🔍 Checking for new children who joined via join codes...')
         const response = await apiClient.getFamilyMembers()
-        const currentChildCount = response.members?.filter((m: any) => m.role === 'child_player').length || 0
+        const currentChildCount = response.children?.length || 0
         const previousChildCount = previousChildCountRef.current
         
         console.log(`🔍 Child count: previous=${previousChildCount}, current=${currentChildCount}`)

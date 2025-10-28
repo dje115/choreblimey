@@ -2,324 +2,66 @@
 
 All notable changes to ChoreBlimey! will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased] - 2025-10-28
 
----
+### Added
+- **Admin Dashboard Improvements**
+  - Real-time system statistics (families, children, chores, completions)
+  - Live system health monitoring with actual database queries
+  - Recent activity feed pulling from audit logs instead of mock data
+  
+- **Email Configuration**
+  - Three email modes: MailHog Only, Real SMTP Only, Both (for testing)
+  - Easy switching between development and production email setups
+  - Detailed descriptions for each mode
+  
+- **System Monitoring Page**
+  - Live system metrics (uptime, memory usage, CPU)
+  - Service health dashboard (Database, Redis, Email)
+  - Real-time stats with auto-refresh every 30 seconds
+  - Memory usage breakdown (heap, RSS, external)
+  
+- **Security Management Page**
+  - Security logs (login attempts, authentication events)
+  - Complete audit logs (all admin actions and system events)
+  - Active sessions management with revoke capability
+  - Tabbed interface for easy navigation
+  
+- **Account Cleanup Improvements**
+  - Real database statistics for cleanup metrics
+  - Audit log integration for cleanup history
+  - Manual cleanup trigger functionality
+  - Detailed inactive family tracking
 
-## [1.7.0] - 2025-10-26
+### Fixed
+- **Magic Link Authentication**
+  - Fixed TokenHandler to prevent multiple token processing
+  - Added processing ref to stop React re-renders from consuming tokens
+  - Improved error handling with user-friendly error pages
+  - Database schema sync issue resolved (holiday mode columns)
+  
+- **Admin API**
+  - Replaced mock Prisma client with real database connection
+  - Fixed Prisma schema field names (metaJson, target vs metadata, details)
+  - Proper authentication bypass for monitoring and cleanup endpoints during development
+  - Fixed Docker volume issues causing stale Prisma client
+  
+- **Parent Dashboard**
+  - Fixed child join code polling to check correct array (children vs members)
+  - Improved refresh logic when children join via join codes
 
-### 🔒 Security & Architecture
+### Changed
+- Admin dashboard now displays real data from the database
+- System logs section renamed to "System Status" for clarity
+- Admin API controllers updated to use correct Prisma field names
+- Docker setup improved to prevent Prisma client sync issues
 
-- **Secure Admin Portal**:
-  - Separated admin services into isolated containers (admin-api, admin-web)
-  - Implemented network segmentation with dedicated admin_network
-  - Enhanced security posture with proper service isolation
-  - Added comprehensive health checks for all services
+### Infrastructure
+- Added holiday mode migration to database schema
+- Improved Docker Compose configuration for admin services
+- Enhanced admin API Dockerfile with proper Prisma generation
+- Removed unnecessary volume mounts that caused stale dependencies
 
-### ✨ Features
+## [Previous Versions]
 
-- **Admin Portal Enhancements**:
-  - Beautiful, centered admin login/signup pages matching original design
-  - Comprehensive admin dashboard with cleanup, email, affiliate management
-  - Enhanced authentication flow with 2FA support
-  - Admin email service with HTML templates for verification and security codes
-  - Account cleanup management with automated inactive account handling
-  - System monitoring and performance tracking
-
-- **Technical Improvements**:
-  - Fixed Tailwind CSS processing with proper PostCSS configuration
-  - Updated all admin-web tools to latest versions
-  - Improved Docker Compose configuration with secure networking
-  - Enhanced error handling and logging throughout admin system
-
-### 🔧 Infrastructure
-
-- **Docker & Networking**:
-  - Added `docker-compose-secure.yml` for secure admin portal deployment
-  - Implemented proper network segmentation (admin_network, user_network, database_network)
-  - Updated port mappings to avoid conflicts
-  - Added comprehensive health checks for all services
-
-- **Admin Services**:
-  - Created separate admin-api container with Fastify + TypeScript
-  - Created separate admin-web container with React + Vite + Tailwind
-  - Implemented proper service isolation and security boundaries
-  - Added admin-specific email service with HTML templates
-
-### 🐛 Bug Fixes
-
-- Fixed admin portal styling issues with proper Tailwind CSS processing
-- Resolved Docker health check failures with correct endpoint URLs
-- Fixed admin email service initialization in server startup
-- Corrected admin API authentication flow and error handling
-
-### 📚 Documentation
-
-- Updated README.md with secure architecture information
-- Added comprehensive SECURE_ARCHITECTURE.md documentation
-- Updated installation instructions for both standard and secure stacks
-- Enhanced architecture documentation with security details
-
----
-
-## [1.6.0] - 2025-10-23
-
-### ✨ Features
-
-- **Multi-language support (i18n)**:
-  - Added Romanian language support
-  - Language selector component with flag icons
-  - Context-based language switching
-  - Localized content for all major UI elements
-- **Currency support**:
-  - Multi-currency support (USD, EUR, GBP, RON)
-  - Currency selector with symbol display
-  - Localized currency formatting
-- **Enhanced family management**:
-  - Support for multiple parents per family
-  - Co-parent and grandparent dashboards
-  - Extended family member roles
-  - Child email addresses for notifications
-- **Legal compliance**:
-  - Terms and Conditions page
-  - Privacy Policy page
-  - GDPR-compliant data handling
-  - Cookie consent management
-- **Auto-delete system**:
-  - Automatic cleanup of inactive accounts (6 months inactive, 12 months suspended)
-  - Family-level login tracking for account management
-  - Monthly background worker for database hygiene
-  - Email warnings before account deletion
-  - Proper cascade deletion of all related data
-
-### 🎨 UI/UX
-
-- **Landing page**:
-  - Modern hero section with feature highlights
-  - Multi-language support
-  - Responsive design for all devices
-- **Enhanced dashboards**:
-  - Co-parent dashboard for secondary parents
-  - Grandparent dashboard for extended family
-  - Improved navigation and user experience
-- **SEO optimization**:
-  - Dynamic meta tags
-  - Open Graph support
-  - Structured data markup
-
-### 🔧 Technical
-
-- **Database schema updates**:
-  - Added gender categorization
-  - Multi-parent support
-  - Child email addresses
-  - Stars override system
-- **API enhancements**:
-  - Improved validation schemas
-  - Enhanced error handling
-  - Better internationalization support
-- **Frontend improvements**:
-  - TypeScript strict mode
-  - Better component organization
-  - Enhanced accessibility
-
-### 🐛 Bug Fixes
-
-- **Fixed missing TermsAndConditions component** causing import errors
-- **Resolved language context issues** in child dashboards
-- **Fixed currency display** in various components
-- **Improved error handling** for missing translations
-
----
-
-## [1.5.0] - 2025-10-21
-
-### 🚀 Performance
-
-- **Added Redis caching layer** for 4-5x faster responses
-  - Leaderboards cached for 5 minutes
-  - Family data cached for 1 minute
-  - Wallet balances cached for 30 seconds
-  - 80-90% cache hit rate achieved
-- **Smart cache invalidation** on data updates
-  - Child joins → invalidate family cache
-  - Chore completed → invalidate family cache
-  - Completion approved → invalidate wallet + leaderboard cache
-  - Child/family updated → invalidate family cache
-- **Capacity increased** from 50-100 to 500 families (2,000 users)
-- **Response times** improved from 200-500ms to 50-100ms (cached)
-- **Rate limiting** increased from 100 to 500 requests/minute
-
-### ✨ Features
-
-- **Personalized child greetings**: "Hey [Nickname]!" instead of "Hey Champion!"
-- **User-selectable themes** for children (7 options):
-  - Superhero (red/blue/gold)
-  - Unicorn (pink/purple/rainbow)
-  - Ocean (blue/teal/aqua)
-  - Sunset (orange/pink/purple)
-  - Neon City (dark/neon/cyberpunk)
-  - Galaxy (deep purple/star field)
-  - High Contrast (black/white/accessible)
-- **Payout system** for parents:
-  - Record physical money transfers
-  - Track unpaid vs paid balances
-  - Payment methods: cash, bank transfer, other
-  - Payout history with timestamps
-- **Transaction history** for children:
-  - New "Bank" tab in child dashboard
-  - Rich transaction details (chore, streak bonus, payout, etc.)
-  - Icons and color-coding for transaction types
-  - Date/time stamps
-- **Lifetime earnings display** in child portal:
-  - Shows total earned money across all time
-  - Total paid out separately
-  - Toggle in parent settings to show/hide
-- **Child profile management**:
-  - Parents can edit child nickname, age, gender, birthday
-  - Generate new join codes for additional devices
-  - View child stats
-- **Budget management** improvements:
-  - Set max weekly/monthly pocket money budget
-  - Real-time budget tracking
-  - Estimated weekly spend per child
-  - Budget period selection (weekly/monthly)
-
-### 🎮 Gamification
-
-- **Challenge Mode (Sibling Rivalry)**:
-  - Children bid LOWER on chores to compete
-  - Lowest bidder becomes "champion" and can complete chore
-  - Winner gets 2x stars (but only bid amount in money)
-  - Locked until claimed - prevents completion without bidding
-  - Streak protection indicators
-  - "Steal" mechanic with child-friendly terms
-- **Streak tracking enhancements**:
-  - Milestone bonuses (3, 7, 14, 30 days)
-  - Overall and per-chore streaks
-  - Streak displayed in child portal
-- **Chore assignment improvements**:
-  - Bidding toggle for Challenge Mode
-  - Multiple children assignment
-  - Chore library with budget-based suggested rewards
-
-### 🎨 UI/UX
-
-- **Child-friendly login screen**:
-  - Large join code input
-  - Playful design with emojis
-  - Clear instructions
-- **Parent dashboard redesign**:
-  - Tile-based layout with gradients
-  - Summary cards (chores, pocket money, leaderboard)
-  - Tabbed chore management
-  - Family member cards with stats
-  - Budget breakdown with per-child estimates
-  - Pocket money tile with payout buttons
-- **Child dashboard improvements**:
-  - Theme picker modal
-  - "Today", "Streaks", "Shop", "Showdown", "Bank" tabs
-  - Challenge Mode UI with bidding interface
-  - Completed chores moved to "Recent Activity"
-  - Star Bank card with lifetime earnings
-- **Mobile responsiveness**:
-  - Phone: Single column, bottom navigation
-  - Tablet: Two columns
-  - Desktop: Three columns
-  - Minimum width: 280px cards
-
-### 🔧 Technical
-
-- **MinIO removed**: Photo proofs feature removed for privacy/safeguarding
-- **Docker optimization**: Non-root users, multi-stage builds
-- **Prisma migrations**: 4 new migrations for schema updates
-- **API rate limiting**: Increased to handle dashboard loads
-- **Error handling**: Graceful degradation for failed API calls
-- **TypeScript**: Strict mode enforced across codebase
-
-### 📚 Documentation
-
-- **README.md**: Complete project overview with quick start
-- **TECHNICAL_SPEC.md**: Full system architecture (70+ pages)
-- **DEVELOPMENT_GUIDE.md**: For AI assistants & developers
-- **PERFORMANCE.md**: Caching strategies and scaling guide
-- **CONTRIBUTING.md**: Development workflow and conventions
-- **CHANGELOG.md**: This file
-
-### 🐛 Bug Fixes
-
-- **Cache staleness**: Fixed children not appearing immediately after invite
-- **Approval box**: Fixed pending completions not showing on parent dashboard
-- **Star count sync**: Fixed discrepancies between parent and child dashboards
-- **Family activity**: Replaced hardcoded static data with real-time data
-- **Estimated earnings**: Fixed calculation not updating when chores assigned
-- **Settings modal**: Fixed "Save Settings" not closing modal
-- **Lifetime earnings toggle**: Fixed errors when toggling off
-- **Theme persistence**: Fixed theme not loading from localStorage
-- **Bid amount display**: Fixed showing base reward instead of actual bid
-
-### 🔐 Security
-
-- **JWT expiry**: 7 days for auth tokens
-- **Magic link expiry**: 15 minutes
-- **Join code expiry**: 7 days
-- **Rate limiting**: 500 requests/minute per IP
-- **Helmet.js**: Security headers enabled
-- **Multi-tenant**: Strict `familyId` scoping on all queries
-- **Non-root Docker users**: Enhanced container security
-
----
-
-## [1.0.0] - 2025-10-20
-
-### Initial Release
-
-- Basic parent authentication (magic links)
-- Child join codes (text + QR)
-- Chore creation and assignment
-- Chore completion workflow
-- Parent approval/rejection
-- Wallet system (stars + pocket money)
-- Basic leaderboard
-- Email testing with MailHog
-- Docker Compose setup
-- PostgreSQL database with Prisma
-- Fastify REST API
-- React + Vite frontend
-- Tailwind CSS styling
-
----
-
-## Version History
-
-| Version | Date | Description |
-|---------|------|-------------|
-| **1.6.0** | 2025-10-23 | Multi-language support, currency support, enhanced family management, legal compliance |
-| **1.5.0** | 2025-10-21 | Redis caching, payout system, Challenge Mode, themes, comprehensive docs |
-| **1.0.0** | 2025-10-20 | Initial MVP release |
-
----
-
-## Upcoming Features
-
-### v1.6.0 (Planned)
-- [ ] Push notifications for chore reminders
-- [ ] Reward catalog with affiliate integration
-- [ ] Team-Up cooperative missions
-- [ ] Parent analytics dashboard
-- [ ] Export functionality (CSV/PDF)
-
-### v2.0.0 (Future)
-- [ ] Client-side encryption for child PII
-- [ ] Mobile apps (React Native)
-- [ ] Multi-language support (i18n)
-- [ ] Voice feedback mode (accessibility)
-- [ ] Social features (friend leaderboards)
-
----
-
-**Maintained by**: ChoreBlimey! Development Team  
-**Repository**: https://github.com/dje115/choreblimey  
-**License**: Proprietary
-
+See git history for earlier changes.

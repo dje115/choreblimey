@@ -5,6 +5,7 @@ import { adminApiClient } from '../lib/api'
 const AdminDashboard: React.FC = () => {
   const { adminLogout } = useAdminAuth()
   const [stats, setStats] = useState<any>(null)
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -14,13 +15,15 @@ const AdminDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true)
-      // Load system overview, cleanup stats, etc.
-      const [overview, cleanupStats] = await Promise.all([
+      // Load system overview, cleanup stats, and recent audit logs
+      const [overview, cleanupStats, auditLogs] = await Promise.all([
         adminApiClient.getSystemOverview().catch(() => ({ families: 0, children: 0, chores: 0, completions: 0 })),
-        adminApiClient.getCleanupStats().catch(() => ({ totalFamilies: 0, inactiveFamilies: 0, deletedFamilies: 0 }))
+        adminApiClient.getCleanupStats().catch(() => ({ totalFamilies: 0, inactiveFamilies: 0, suspendedFamilies: 0, deletedFamilies: 0 })),
+        adminApiClient.getAuditLogs({ limit: 5 }).catch(() => ({ logs: [] }))
       ])
       
-      setStats({ overview, cleanupStats })
+      setStats({ ...overview, cleanupStats })
+      setRecentActivity(auditLogs.logs || [])
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
     } finally {
@@ -94,7 +97,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Total Families</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats?.overview?.families || 0}</dd>
+                    <dd className="text-lg font-medium text-gray-900">{stats?.families || 0}</dd>
                   </dl>
                 </div>
               </div>
@@ -112,7 +115,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Total Children</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats?.overview?.children || 0}</dd>
+                    <dd className="text-lg font-medium text-gray-900">{stats?.children || 0}</dd>
                   </dl>
                 </div>
               </div>
@@ -130,7 +133,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Total Chores</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats?.overview?.chores || 0}</dd>
+                    <dd className="text-lg font-medium text-gray-900">{stats?.chores || 0}</dd>
                   </dl>
                 </div>
               </div>
@@ -148,7 +151,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Completions</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats?.overview?.completions || 0}</dd>
+                    <dd className="text-lg font-medium text-gray-900">{stats?.completions || 0}</dd>
                   </dl>
                 </div>
               </div>
@@ -331,10 +334,10 @@ const AdminDashboard: React.FC = () => {
 
         {/* System Logs & Monitoring */}
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* System Logs */}
+          {/* System Status */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">System Logs</h3>
+              <h3 className="text-lg font-medium text-gray-900">System Status</h3>
             </div>
             <div className="p-6">
               <div className="space-y-4">
@@ -343,7 +346,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
                     <span className="text-sm font-medium text-gray-900">API Health</span>
                   </div>
-                  <span className="text-sm text-green-600">Healthy</span>
+                  <span className="text-sm text-green-600">{stats?.systemHealth || 'Healthy'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -369,10 +372,10 @@ const AdminDashboard: React.FC = () => {
               </div>
               <div className="mt-4">
                 <a
-                  href="/admin/logs"
+                  href="/admin/monitoring"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
                 >
-                  View All Logs
+                  View System Monitoring
                 </a>
               </div>
             </div>
@@ -420,74 +423,61 @@ const AdminDashboard: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
           </div>
           <div className="p-6">
-            <div className="flow-root">
-              <ul className="-mb-8">
-                <li>
-                  <div className="relative pb-8">
-                    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-                    <div className="relative flex space-x-3">
-                      <div>
-                        <span className="h-8 w-8 rounded-full bg-green-500 flex items-center justify-center ring-8 ring-white">
-                          <span className="text-white text-xs">✅</span>
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                        <div>
-                          <p className="text-sm text-gray-500">
-                            <span className="font-medium text-gray-900">System</span> completed monthly cleanup
-                          </p>
-                        </div>
-                        <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                          <time>2 hours ago</time>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-                <li>
-                  <div className="relative pb-8">
-                    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
-                    <div className="relative flex space-x-3">
-                      <div>
-                        <span className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center ring-8 ring-white">
-                          <span className="text-white text-xs">📧</span>
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                        <div>
-                          <p className="text-sm text-gray-500">
-                            <span className="font-medium text-gray-900">Email Service</span> sent warning emails
-                          </p>
-                        </div>
-                        <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                          <time>1 day ago</time>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-                <li>
-                  <div className="relative">
-                    <div className="relative flex space-x-3">
-                      <div>
-                        <span className="h-8 w-8 rounded-full bg-yellow-500 flex items-center justify-center ring-8 ring-white">
-                          <span className="text-white text-xs">🔄</span>
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
-                        <div>
-                          <p className="text-sm text-gray-500">
-                            <span className="font-medium text-gray-900">Affiliate Sync</span> updated product catalog
-                          </p>
-                        </div>
-                        <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                          <time>3 days ago</time>
+            {recentActivity.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No recent activity</p>
+              </div>
+            ) : (
+              <div className="flow-root">
+                <ul className="-mb-8">
+                  {recentActivity.map((activity, index) => (
+                    <li key={activity.id}>
+                      <div className={`relative ${index < recentActivity.length - 1 ? 'pb-8' : ''}`}>
+                        {index < recentActivity.length - 1 && (
+                          <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
+                        )}
+                        <div className="relative flex space-x-3">
+                          <div>
+                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                              activity.action.includes('DELETE') ? 'bg-red-500' :
+                              activity.action.includes('FAILED') ? 'bg-red-500' :
+                              activity.action.includes('WARNING') ? 'bg-yellow-500' :
+                              activity.action.includes('SUCCESS') ? 'bg-green-500' :
+                              'bg-blue-500'
+                            }`}>
+                              <span className="text-white text-xs">
+                                {activity.action.includes('DELETE') ? '🗑️' :
+                                 activity.action.includes('LOGIN') ? '🔐' :
+                                 activity.action.includes('EMAIL') ? '📧' :
+                                 '📝'}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                            <div>
+                              <p className="text-sm text-gray-500">
+                                <span className="font-medium text-gray-900">{activity.action}</span>
+                                {activity.details && <span className="ml-1">- {activity.details}</span>}
+                              </p>
+                            </div>
+                            <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                              <time>{new Date(activity.timestamp).toLocaleString()}</time>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </li>
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-4">
+              <a
+                href="/admin/security"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
+              >
+                View All Security Logs
+              </a>
             </div>
           </div>
         </div>

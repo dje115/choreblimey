@@ -191,7 +191,8 @@ services:
     env_file:
       - ./dev-secure.env
     environment:
-      - ADMIN_DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey-secure-2024}@postgres:5432/${POSTGRES_DB:-choreblimey}
+      - ADMIN_DATABASE_URL=postgresql://${POSTGRES_USER:-choreblimey}:${POSTGRES_PASSWORD:-choreblimey-secure-2024}@postgres:5432/${POSTGRES_DB:-choreblimey}
       - ADMIN_REDIS_URL=redis://redis:6379
       - ADMIN_API_PORT=1502
       - ADMIN_API_HOST=0.0.0.0

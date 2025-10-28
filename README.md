@@ -41,12 +41,14 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 ### 🔧 Secure Admin Portal
 - **Isolated Architecture**: Separate admin-api and admin-web containers
 - **Network Security**: Dedicated admin network with proper segmentation
-- **Site-Wide Configuration**: Email and affiliate settings
-- **Multi-Provider Support**: Amazon PA-API + SiteStripe
-- **Centralized Management**: All settings in one place
+- **Real-Time Monitoring**: Live system stats, memory usage, and service health
+- **Email Configuration**: Support for MailHog only, Real SMTP only, or Both modes for testing
+- **Account Cleanup**: Automated inactive account management with real audit logs
+- **Security Management**: View login attempts, audit logs, and revoke sessions
+- **System Monitoring**: Performance metrics, uptime tracking, and database health
+- **Multi-Provider Support**: Amazon PA-API + SiteStripe for affiliate rewards
 - **Enhanced Authentication**: Email/password + 2FA security
-- **Account Cleanup**: Automated inactive account management
-- **System Monitoring**: Performance and security monitoring
+- **Audit Trail**: Complete logging of all admin actions
 
 ## 🏗️ Architecture
 

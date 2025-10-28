@@ -113,29 +113,43 @@ const AdminEmail: React.FC = () => {
             <form className="space-y-6">
               {/* Email Provider */}
               <div>
-                <label className="text-sm font-medium text-gray-700">Email Provider</label>
+                <label className="text-sm font-medium text-gray-700">Email Provider Mode</label>
                 <div className="mt-2 space-y-2">
                   <label className="flex items-center">
                     <input
                       type="radio"
                       name="provider"
                       value="mailhog"
-                      checked={config?.useMailHog}
+                      checked={config?.useMailHog && !config?.useRealSMTP}
                       onChange={() => setConfig({...config, useMailHog: true, useRealSMTP: false})}
                       className="mr-2"
                     />
-                    <span className="text-sm text-gray-700">MailHog (Development)</span>
+                    <span className="text-sm text-gray-700">MailHog Only (Development)</span>
+                    <span className="ml-2 text-xs text-gray-500">- All emails caught locally for testing</span>
                   </label>
                   <label className="flex items-center">
                     <input
                       type="radio"
                       name="provider"
                       value="smtp"
-                      checked={config?.useRealSMTP}
+                      checked={!config?.useMailHog && config?.useRealSMTP}
                       onChange={() => setConfig({...config, useMailHog: false, useRealSMTP: true})}
                       className="mr-2"
                     />
-                    <span className="text-sm text-gray-700">Real SMTP (Production)</span>
+                    <span className="text-sm text-gray-700">Real SMTP Only (Production)</span>
+                    <span className="ml-2 text-xs text-gray-500">- Emails sent to real recipients</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="provider"
+                      value="both"
+                      checked={config?.useMailHog && config?.useRealSMTP}
+                      onChange={() => setConfig({...config, useMailHog: true, useRealSMTP: true})}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Both (Testing Mode)</span>
+                    <span className="ml-2 text-xs text-gray-500">- Real emails sent AND caught in MailHog for verification</span>
                   </label>
                 </div>
               </div>
