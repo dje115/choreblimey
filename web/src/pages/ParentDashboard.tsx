@@ -79,6 +79,7 @@ const ParentDashboard: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showStreakSettingsModal, setShowStreakSettingsModal] = useState(false)
   const [showCreateChoreModal, setShowCreateChoreModal] = useState(false)
   const [showChoreLibraryModal, setShowChoreLibraryModal] = useState(false)
   const [showEditChoreModal, setShowEditChoreModal] = useState(false)
@@ -98,6 +99,33 @@ const ParentDashboard: React.FC = () => {
   const [payoutAmount, setPayoutAmount] = useState('')
   const [payoutMethod, setPayoutMethod] = useState<'cash' | 'bank_transfer' | 'other'>('cash')
   const [payoutNote, setPayoutNote] = useState('')
+  
+  // Streak Settings
+  const [streakSettings, setStreakSettings] = useState({
+    // Protection
+    protectionDays: 1, // Grace period before penalties start
+    
+    // Bonuses (for consecutive completions)
+    bonusEnabled: true,
+    bonusDays: 7, // Days in a row to earn bonus
+    bonusMoneyPence: 50, // 50p bonus
+    bonusStars: 5,
+    bonusType: 'both' as 'money' | 'stars' | 'both',
+    
+    // Penalties (escalating for repeated misses)
+    penaltyEnabled: true,
+    firstMissPence: 10, // 10p for first miss
+    firstMissStars: 1,
+    secondMissPence: 25, // 25p for second miss
+    secondMissStars: 3,
+    thirdMissPence: 50, // 50p for third miss
+    thirdMissStars: 5,
+    penaltyType: 'both' as 'money' | 'stars' | 'both',
+    
+    // Protection limits
+    maxLossPerDayPence: 100, // Max 100p loss per day
+    maxLossPerDayStars: 10 // Max 10 stars loss per day
+  })
   const [payouts, setPayouts] = useState<any[]>([])
   const [processingPayout, setProcessingPayout] = useState(false)
   
@@ -759,6 +787,9 @@ const ParentDashboard: React.FC = () => {
               {/* Debug button for testing real-time updates */}
             </div>
             <div className="flex flex-wrap gap-2">
+              <button onClick={() => setShowStreakSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all flex items-center gap-2">
+                🔥 Streaks
+              </button>
               <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
                 ⚙️ Settings
               </button>
@@ -1935,6 +1966,496 @@ const ParentDashboard: React.FC = () => {
                 className="flex-1 cb-button-primary"
               >
                 Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Streak Settings Modal */}
+      {showStreakSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <h3 className="cb-heading-xl text-[var(--primary)] mb-2">🔥 Streak Settings</h3>
+              <p className="text-[var(--text-secondary)]">Set up rewards and penalties to keep the momentum going!</p>
+            </div>
+
+            <div className="space-y-8">
+              {/* Streak Protection */}
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-[var(--radius-lg)] border-2 border-blue-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-2xl">
+                    🛡️
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg text-blue-900">Streak Protection</h4>
+                    <p className="text-sm text-blue-700">Grace period before penalties kick in</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block font-semibold text-blue-900 mb-3">
+                    Protection Days: <span className="text-blue-600 text-2xl">{streakSettings.protectionDays}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="7"
+                    value={streakSettings.protectionDays}
+                    onChange={(e) => setStreakSettings(prev => ({ ...prev, protectionDays: parseInt(e.target.value) }))}
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <div className="flex justify-between text-xs text-blue-600 mt-1">
+                    <span>None</span>
+                    <span>1 week</span>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-3">
+                    💡 Children get <strong>{streakSettings.protectionDays} {streakSettings.protectionDays === 1 ? 'day' : 'days'}</strong> to miss a chore before penalties apply.
+                    {streakSettings.protectionDays === 0 && ' Penalties start immediately!'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Streak Bonuses */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-[var(--radius-lg)] border-2 border-green-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-2xl">
+                      🎁
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg text-green-900">Streak Bonuses</h4>
+                      <p className="text-sm text-green-700">Reward consecutive completions!</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={streakSettings.bonusEnabled}
+                      onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusEnabled: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                  </label>
+                </div>
+
+                {streakSettings.bonusEnabled && (
+                  <div className="space-y-4 pl-6 border-l-4 border-green-500">
+                    <div>
+                      <label className="block font-semibold text-green-900 mb-3">
+                        Bonus after: <span className="text-green-600 text-2xl">{streakSettings.bonusDays}</span> days in a row
+                      </label>
+                      <input
+                        type="range"
+                        min="3"
+                        max="30"
+                        value={streakSettings.bonusDays}
+                        onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusDays: parseInt(e.target.value) }))}
+                        className="w-full h-3 bg-green-200 rounded-lg appearance-none cursor-pointer accent-green-500"
+                      />
+                      <div className="flex justify-between text-xs text-green-600 mt-1">
+                        <span>3 days</span>
+                        <span>30 days</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-green-900 mb-2">Bonus Type</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setStreakSettings(prev => ({ ...prev, bonusType: 'money' }))}
+                          className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                            streakSettings.bonusType === 'money' 
+                              ? 'bg-yellow-500 border-yellow-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-400'
+                          }`}
+                        >
+                          💰 Money
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStreakSettings(prev => ({ ...prev, bonusType: 'stars' }))}
+                          className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                            streakSettings.bonusType === 'stars' 
+                              ? 'bg-purple-500 border-purple-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
+                          }`}
+                        >
+                          ⭐ Stars
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStreakSettings(prev => ({ ...prev, bonusType: 'both' }))}
+                          className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                            streakSettings.bonusType === 'both' 
+                              ? 'bg-gradient-to-r from-yellow-500 to-purple-500 border-purple-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-green-400'
+                          }`}
+                        >
+                          💎 Both!
+                        </button>
+                      </div>
+                    </div>
+
+                    {(streakSettings.bonusType === 'money' || streakSettings.bonusType === 'both') && (
+                      <div>
+                        <label className="block font-semibold text-green-900 mb-2">
+                          Money Bonus: £{(streakSettings.bonusMoneyPence / 100).toFixed(2)}
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="500"
+                          value={streakSettings.bonusMoneyPence}
+                          onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusMoneyPence: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none"
+                          placeholder="Bonus in pence"
+                        />
+                      </div>
+                    )}
+
+                    {(streakSettings.bonusType === 'stars' || streakSettings.bonusType === 'both') && (
+                      <div>
+                        <label className="block font-semibold text-green-900 mb-2">
+                          Star Bonus: {streakSettings.bonusStars} ⭐
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={streakSettings.bonusStars}
+                          onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusStars: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none"
+                          placeholder="Bonus stars"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Streak Penalties */}
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-[var(--radius-lg)] border-2 border-orange-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-2xl">
+                      ⚠️
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg text-orange-900">Streak Penalties</h4>
+                      <p className="text-sm text-orange-700">Escalating consequences for missed chores</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={streakSettings.penaltyEnabled}
+                      onChange={(e) => setStreakSettings(prev => ({ ...prev, penaltyEnabled: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                  </label>
+                </div>
+
+                {streakSettings.penaltyEnabled && (
+                  <div className="space-y-6 pl-6 border-l-4 border-orange-500">
+                    <div>
+                      <label className="block font-semibold text-orange-900 mb-2">Penalty Type</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setStreakSettings(prev => ({ ...prev, penaltyType: 'money' }))}
+                          className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                            streakSettings.penaltyType === 'money' 
+                              ? 'bg-yellow-500 border-yellow-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-400'
+                          }`}
+                        >
+                          💰 Money
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStreakSettings(prev => ({ ...prev, penaltyType: 'stars' }))}
+                          className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                            streakSettings.penaltyType === 'stars' 
+                              ? 'bg-purple-500 border-purple-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
+                          }`}
+                        >
+                          ⭐ Stars
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStreakSettings(prev => ({ ...prev, penaltyType: 'both' }))}
+                          className={`p-3 rounded-lg border-2 font-semibold transition-all ${
+                            streakSettings.penaltyType === 'both' 
+                              ? 'bg-gradient-to-r from-yellow-500 to-purple-500 border-purple-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-700 hover:border-orange-400'
+                          }`}
+                        >
+                          💎 Both!
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* First Miss */}
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                      <h5 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
+                        <span className="text-xl">1️⃣</span> First Miss (Gentle Warning)
+                      </h5>
+                      <div className="grid grid-cols-2 gap-3">
+                        {(streakSettings.penaltyType === 'money' || streakSettings.penaltyType === 'both') && (
+                          <div>
+                            <label className="block text-sm font-semibold text-yellow-800 mb-1">
+                              Money: £{(streakSettings.firstMissPence / 100).toFixed(2)}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={streakSettings.firstMissPence}
+                              onChange={(e) => setStreakSettings(prev => ({ ...prev, firstMissPence: parseInt(e.target.value) || 0 }))}
+                              className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:border-yellow-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                        {(streakSettings.penaltyType === 'stars' || streakSettings.penaltyType === 'both') && (
+                          <div>
+                            <label className="block text-sm font-semibold text-yellow-800 mb-1">
+                              Stars: {streakSettings.firstMissStars} ⭐
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="10"
+                              value={streakSettings.firstMissStars}
+                              onChange={(e) => setStreakSettings(prev => ({ ...prev, firstMissStars: parseInt(e.target.value) || 0 }))}
+                              className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:border-yellow-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Second Miss */}
+                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-300">
+                      <h5 className="font-bold text-orange-900 mb-3 flex items-center gap-2">
+                        <span className="text-xl">2️⃣</span> Second Miss (Getting Serious)
+                      </h5>
+                      <div className="grid grid-cols-2 gap-3">
+                        {(streakSettings.penaltyType === 'money' || streakSettings.penaltyType === 'both') && (
+                          <div>
+                            <label className="block text-sm font-semibold text-orange-800 mb-1">
+                              Money: £{(streakSettings.secondMissPence / 100).toFixed(2)}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="200"
+                              value={streakSettings.secondMissPence}
+                              onChange={(e) => setStreakSettings(prev => ({ ...prev, secondMissPence: parseInt(e.target.value) || 0 }))}
+                              className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                        {(streakSettings.penaltyType === 'stars' || streakSettings.penaltyType === 'both') && (
+                          <div>
+                            <label className="block text-sm font-semibold text-orange-800 mb-1">
+                              Stars: {streakSettings.secondMissStars} ⭐
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="20"
+                              value={streakSettings.secondMissStars}
+                              onChange={(e) => setStreakSettings(prev => ({ ...prev, secondMissStars: parseInt(e.target.value) || 0 }))}
+                              className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:border-orange-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Third Miss */}
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-300">
+                      <h5 className="font-bold text-red-900 mb-3 flex items-center gap-2">
+                        <span className="text-xl">3️⃣</span> Third Miss (Maximum Penalty)
+                      </h5>
+                      <div className="grid grid-cols-2 gap-3">
+                        {(streakSettings.penaltyType === 'money' || streakSettings.penaltyType === 'both') && (
+                          <div>
+                            <label className="block text-sm font-semibold text-red-800 mb-1">
+                              Money: £{(streakSettings.thirdMissPence / 100).toFixed(2)}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="500"
+                              value={streakSettings.thirdMissPence}
+                              onChange={(e) => setStreakSettings(prev => ({ ...prev, thirdMissPence: parseInt(e.target.value) || 0 }))}
+                              className="w-full px-3 py-2 border-2 border-red-300 rounded-lg focus:border-red-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                        {(streakSettings.penaltyType === 'stars' || streakSettings.penaltyType === 'both') && (
+                          <div>
+                            <label className="block text-sm font-semibold text-red-800 mb-1">
+                              Stars: {streakSettings.thirdMissStars} ⭐
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="50"
+                              value={streakSettings.thirdMissStars}
+                              onChange={(e) => setStreakSettings(prev => ({ ...prev, thirdMissStars: parseInt(e.target.value) || 0 }))}
+                              className="w-full px-3 py-2 border-2 border-red-300 rounded-lg focus:border-red-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Max Loss Protection */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-[var(--radius-lg)] border-2 border-purple-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-2xl">
+                    🎯
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg text-purple-900">Maximum Loss Protection</h4>
+                    <p className="text-sm text-purple-700">Cap total penalties per day</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block font-semibold text-purple-900 mb-3">
+                      Max Money Loss Per Day: £{(streakSettings.maxLossPerDayPence / 100).toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="500"
+                      step="10"
+                      value={streakSettings.maxLossPerDayPence}
+                      onChange={(e) => setStreakSettings(prev => ({ ...prev, maxLossPerDayPence: parseInt(e.target.value) }))}
+                      className="w-full h-3 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                    <div className="flex justify-between text-xs text-purple-600 mt-1">
+                      <span>£0 (No cap)</span>
+                      <span>£5.00</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-purple-900 mb-3">
+                      Max Stars Loss Per Day: {streakSettings.maxLossPerDayStars} ⭐
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      value={streakSettings.maxLossPerDayStars}
+                      onChange={(e) => setStreakSettings(prev => ({ ...prev, maxLossPerDayStars: parseInt(e.target.value) }))}
+                      className="w-full h-3 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                    <div className="flex justify-between text-xs text-purple-600 mt-1">
+                      <span>0 (No cap)</span>
+                      <span>50 stars</span>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-purple-700 bg-purple-100 p-3 rounded-lg">
+                    💡 <strong>Protection Tip:</strong> Even with multiple missed chores, kids won't lose more than these amounts in a single day.
+                    {streakSettings.maxLossPerDayPence === 0 && streakSettings.maxLossPerDayStars === 0 && ' Currently no limits set!'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview Summary */}
+              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-[var(--radius-lg)] border-2 border-indigo-200">
+                <h4 className="font-bold text-lg text-indigo-900 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">📊</span> Your Streak System Summary
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-500">🛡️</span>
+                    <p className="text-indigo-800">
+                      <strong>{streakSettings.protectionDays} {streakSettings.protectionDays === 1 ? 'day' : 'days'}</strong> grace period before penalties
+                    </p>
+                  </div>
+                  {streakSettings.bonusEnabled && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-500">🎁</span>
+                      <p className="text-indigo-800">
+                        <strong>Bonus after {streakSettings.bonusDays} days:</strong> {' '}
+                        {streakSettings.bonusType === 'money' && `£${(streakSettings.bonusMoneyPence / 100).toFixed(2)}`}
+                        {streakSettings.bonusType === 'stars' && `${streakSettings.bonusStars} ⭐`}
+                        {streakSettings.bonusType === 'both' && `£${(streakSettings.bonusMoneyPence / 100).toFixed(2)} + ${streakSettings.bonusStars} ⭐`}
+                      </p>
+                    </div>
+                  )}
+                  {streakSettings.penaltyEnabled && (
+                    <>
+                      <div className="flex items-start gap-2">
+                        <span className="text-yellow-500">1️⃣</span>
+                        <p className="text-indigo-800">
+                          <strong>1st miss:</strong> {' '}
+                          {streakSettings.penaltyType === 'money' && `£${(streakSettings.firstMissPence / 100).toFixed(2)}`}
+                          {streakSettings.penaltyType === 'stars' && `${streakSettings.firstMissStars} ⭐`}
+                          {streakSettings.penaltyType === 'both' && `£${(streakSettings.firstMissPence / 100).toFixed(2)} + ${streakSettings.firstMissStars} ⭐`}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-orange-500">2️⃣</span>
+                        <p className="text-indigo-800">
+                          <strong>2nd miss:</strong> {' '}
+                          {streakSettings.penaltyType === 'money' && `£${(streakSettings.secondMissPence / 100).toFixed(2)}`}
+                          {streakSettings.penaltyType === 'stars' && `${streakSettings.secondMissStars} ⭐`}
+                          {streakSettings.penaltyType === 'both' && `£${(streakSettings.secondMissPence / 100).toFixed(2)} + ${streakSettings.secondMissStars} ⭐`}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500">3️⃣</span>
+                        <p className="text-indigo-800">
+                          <strong>3rd+ miss:</strong> {' '}
+                          {streakSettings.penaltyType === 'money' && `£${(streakSettings.thirdMissPence / 100).toFixed(2)}`}
+                          {streakSettings.penaltyType === 'stars' && `${streakSettings.thirdMissStars} ⭐`}
+                          {streakSettings.penaltyType === 'both' && `£${(streakSettings.thirdMissPence / 100).toFixed(2)} + ${streakSettings.thirdMissStars} ⭐`}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <span className="text-purple-500">🎯</span>
+                    <p className="text-indigo-800">
+                      <strong>Max daily loss:</strong> £{(streakSettings.maxLossPerDayPence / 100).toFixed(2)} + {streakSettings.maxLossPerDayStars} ⭐
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => setShowStreakSettingsModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Save streak settings to backend
+                  setToast({ message: '🔥 Streak settings saved successfully!', type: 'success' })
+                  setShowStreakSettingsModal(false)
+                }}
+                className="flex-1 cb-button-primary flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">🔥</span>
+                Save Streak Settings
               </button>
             </div>
           </div>
