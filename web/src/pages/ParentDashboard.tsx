@@ -1846,28 +1846,8 @@ const ParentDashboard: React.FC = () => {
                       </label>
                     </div>
                   </div>
-                </div>
               </div>
-
-              {/* Age Mode Info */}
-              <div>
-                <h4 className="font-bold text-[var(--text-primary)] mb-3">🎚️ Age Mode Profiles</h4>
-                <div className="grid gap-3">
-                  {[
-                    { mode: 'Kid Mode (≤10)', desc: 'Bright colors, friendly mascots', emoji: '🌟', color: 'var(--primary)' },
-                    { mode: 'Tween Mode (11-13)', desc: 'Gradients, achievement badges', emoji: '🎯', color: 'var(--secondary)' },
-                    { mode: 'Teen Mode (14-16)', desc: 'Dark theme, neon accents', emoji: '🌙', color: 'var(--text-primary)' }
-                  ].map((item) => (
-                    <div key={item.mode} className="flex items-center gap-3 p-4 bg-[var(--background)] rounded-[var(--radius-md)]">
-                      <div className="text-3xl">{item.emoji}</div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-[var(--text-primary)]">{item.mode}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            </div>
             </div>
 
             {/* Parent Email Management Section */}
