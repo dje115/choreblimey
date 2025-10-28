@@ -792,12 +792,6 @@ const ParentDashboard: React.FC = () => {
               <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
                 ⚙️ Settings
               </button>
-              <button onClick={() => setShowFamilyModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
-                ✏️ Edit Family
-              </button>
-              <button onClick={logout} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
-                👋 Logout
-              </button>
             </div>
           </div>
         </div>
@@ -1916,6 +1910,31 @@ const ParentDashboard: React.FC = () => {
                     className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold"
                   >
                     Delete
+                  </button>
+                </div>
+              </div>
+
+              {/* Account Actions Section */}
+              <div className="pt-6 border-t-2 border-[var(--card-border)]">
+                <h4 className="font-bold text-[var(--text-primary)] mb-4">🔧 Account Actions</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      setShowSettingsModal(false)
+                      setShowFamilyModal(true)
+                    }}
+                    className="px-4 py-3 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 hover:border-blue-400 rounded-[var(--radius-lg)] font-semibold text-blue-900 transition-all flex items-center justify-center gap-2"
+                  >
+                    ✏️ Edit Family
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSettingsModal(false)
+                      logout()
+                    }}
+                    className="px-4 py-3 bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 hover:border-orange-400 rounded-[var(--radius-lg)] font-semibold text-orange-900 transition-all flex items-center justify-center gap-2"
+                  >
+                    👋 Logout
                   </button>
                 </div>
               </div>
