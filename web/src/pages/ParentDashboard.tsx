@@ -122,9 +122,9 @@ const ParentDashboard: React.FC = () => {
     thirdMissStars: 5,
     penaltyType: 'both' as 'money' | 'stars' | 'both',
     
-    // Protection limits
-    maxLossPerDayPence: 100, // Max 100p loss per day
-    maxLossPerDayStars: 10 // Max 10 stars loss per day
+    // Minimum balance protection (kids always keep at least this much)
+    minBalancePence: 100, // Always keep at least 100p (£1)
+    minBalanceStars: 10 // Always keep at least 10 stars
   })
   const [payouts, setPayouts] = useState<any[]>([])
   const [processingPayout, setProcessingPayout] = useState(false)
@@ -150,7 +150,6 @@ const ParentDashboard: React.FC = () => {
   const [rivalrySettings, setRivalrySettings] = useState({
     enabled: true,
     minUnderbidDifference: 5,
-    streakProtectionDays: 3,
     friendlyMode: true
   })
   
@@ -1715,20 +1714,6 @@ const ParentDashboard: React.FC = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block font-semibold text-[var(--text-primary)] mb-2">
-                        Streak protection: {rivalrySettings.streakProtectionDays} days
-                      </label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="7"
-                        value={rivalrySettings.streakProtectionDays}
-                        onChange={(e) => setRivalrySettings(prev => ({ ...prev, streakProtectionDays: parseInt(e.target.value) }))}
-                        className="w-full accent-[var(--primary)]"
-                      />
-                    </div>
-
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
@@ -2319,58 +2304,59 @@ const ParentDashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Max Loss Protection */}
+              {/* Minimum Balance Protection */}
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-[var(--radius-lg)] border-2 border-purple-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-2xl">
-                    🎯
+                    🛡️
                   </div>
                   <div>
-                    <h4 className="font-bold text-lg text-purple-900">Maximum Loss Protection</h4>
-                    <p className="text-sm text-purple-700">Cap total penalties per day</p>
+                    <h4 className="font-bold text-lg text-purple-900">Minimum Balance Protection</h4>
+                    <p className="text-sm text-purple-700">Kids always keep at least this much</p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <label className="block font-semibold text-purple-900 mb-3">
-                      Max Money Loss Per Day: £{(streakSettings.maxLossPerDayPence / 100).toFixed(2)}
+                      Minimum Money Balance: £{(streakSettings.minBalancePence / 100).toFixed(2)}
                     </label>
                     <input
                       type="range"
                       min="0"
                       max="500"
                       step="10"
-                      value={streakSettings.maxLossPerDayPence}
-                      onChange={(e) => setStreakSettings(prev => ({ ...prev, maxLossPerDayPence: parseInt(e.target.value) }))}
+                      value={streakSettings.minBalancePence}
+                      onChange={(e) => setStreakSettings(prev => ({ ...prev, minBalancePence: parseInt(e.target.value) }))}
                       className="w-full h-3 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
                     />
                     <div className="flex justify-between text-xs text-purple-600 mt-1">
-                      <span>£0 (No cap)</span>
+                      <span>£0 (No protection)</span>
                       <span>£5.00</span>
                     </div>
                   </div>
 
                   <div>
                     <label className="block font-semibold text-purple-900 mb-3">
-                      Max Stars Loss Per Day: {streakSettings.maxLossPerDayStars} ⭐
+                      Minimum Stars Balance: {streakSettings.minBalanceStars} ⭐
                     </label>
                     <input
                       type="range"
                       min="0"
                       max="50"
-                      value={streakSettings.maxLossPerDayStars}
-                      onChange={(e) => setStreakSettings(prev => ({ ...prev, maxLossPerDayStars: parseInt(e.target.value) }))}
+                      value={streakSettings.minBalanceStars}
+                      onChange={(e) => setStreakSettings(prev => ({ ...prev, minBalanceStars: parseInt(e.target.value) }))}
                       className="w-full h-3 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
                     />
                     <div className="flex justify-between text-xs text-purple-600 mt-1">
-                      <span>0 (No cap)</span>
+                      <span>0 (No protection)</span>
                       <span>50 stars</span>
                     </div>
                   </div>
 
                   <p className="text-sm text-purple-700 bg-purple-100 p-3 rounded-lg">
-                    💡 <strong>Protection Tip:</strong> Even with multiple missed chores, kids won't lose more than these amounts in a single day.
-                    {streakSettings.maxLossPerDayPence === 0 && streakSettings.maxLossPerDayStars === 0 && ' Currently no limits set!'}
+                    💡 <strong>Protection Tip:</strong> Even with penalties, children will NEVER drop below these amounts. Set to £0/0⭐ if you want no minimum balance protection.
+                    {streakSettings.minBalancePence > 0 && <><br/>💰 They'll always have at least £{(streakSettings.minBalancePence / 100).toFixed(2)} pocket money!</>}
+                    {streakSettings.minBalanceStars > 0 && <><br/>⭐ They'll always have at least {streakSettings.minBalanceStars} stars!</>}
                   </p>
                 </div>
               </div>
@@ -2430,9 +2416,9 @@ const ParentDashboard: React.FC = () => {
                     </>
                   )}
                   <div className="flex items-start gap-2">
-                    <span className="text-purple-500">🎯</span>
+                    <span className="text-purple-500">🛡️</span>
                     <p className="text-indigo-800">
-                      <strong>Max daily loss:</strong> £{(streakSettings.maxLossPerDayPence / 100).toFixed(2)} + {streakSettings.maxLossPerDayStars} ⭐
+                      <strong>Minimum balance:</strong> £{(streakSettings.minBalancePence / 100).toFixed(2)} + {streakSettings.minBalanceStars} ⭐
                     </p>
                   </div>
                 </div>
