@@ -349,18 +349,23 @@ const ParentDashboard: React.FC = () => {
       if (membersRes.status === 'fulfilled') {
         setMembers(membersRes.value.members || [])
         const childrenList = membersRes.value.children || []
-        setChildren(childrenList)
+        
+        // De-duplicate children by ID to prevent React key warnings
+        const uniqueChildren = Array.from(
+          new Map(childrenList.map((child: any) => [child.id, child])).values()
+        )
+        setChildren(uniqueChildren)
         
         // Update ref for polling
-        previousChildCountRef.current = childrenList.length
+        previousChildCountRef.current = uniqueChildren.length
         
         // Fetch wallets for all children
-        const walletPromises = childrenList.map((child: any) => 
+        const walletPromises = uniqueChildren.map((child: any) => 
           apiClient.getWallet(child.id).catch(() => ({ wallet: { balancePence: 0 } }))
         )
         const walletResults = await Promise.all(walletPromises)
         const walletsData = walletResults.map((result, index) => ({
-          childId: childrenList[index].id,
+          childId: uniqueChildren[index].id,
           balancePence: result.wallet?.balancePence || 0,
           stars: result.wallet?.stars || 0
         }))
@@ -1956,27 +1961,83 @@ const ParentDashboard: React.FC = () => {
 
               {/* Account Tab */}
               {settingsTab === 'account' && (
-              <div className="pt-6">
-                <h4 className="font-bold text-[var(--text-primary)] mb-4">🔧 Account Actions</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      setShowSettingsModal(false)
-                      setShowFamilyModal(true)
-                    }}
-                    className="px-4 py-3 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 hover:border-blue-400 rounded-[var(--radius-lg)] font-semibold text-blue-900 transition-all flex items-center justify-center gap-2"
-                  >
-                    ✏️ Edit Family
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSettingsModal(false)
-                      logout()
-                    }}
-                    className="px-4 py-3 bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 hover:border-orange-400 rounded-[var(--radius-lg)] font-semibold text-orange-900 transition-all flex items-center justify-center gap-2"
-                  >
-                    👋 Logout
-                  </button>
+              <div className="space-y-6">
+                {/* Parent Email Management Section */}
+                <div className="border-t-2 border-blue-200 pt-6">
+                  <h4 className="font-bold text-blue-600 mb-4">📧 Email Management</h4>
+                  
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-[var(--radius-md)]">
+                      <h5 className="font-semibold text-blue-800 mb-2">Current Email Address</h5>
+                      <p className="text-sm text-blue-700 mb-3">{user?.email}</p>
+                      <button
+                        onClick={() => setShowEmailChangeModal(true)}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold text-sm"
+                      >
+                        Change Email
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Management Section */}
+                <div className="border-t-2 border-red-200 pt-6">
+                  <h4 className="font-bold text-red-600 mb-4">⚠️ Account Management</h4>
+                  
+                  <div className="space-y-4">
+                    {/* Suspend Account */}
+                    <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-[var(--radius-md)]">
+                      <div>
+                        <h5 className="font-semibold text-yellow-800 mb-1">⏸️ Suspend Account</h5>
+                        <p className="text-sm text-yellow-700">Prevent automatic deletion for 12 months</p>
+                      </div>
+                      <button
+                        onClick={() => setShowSuspendAccountModal(true)}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-semibold"
+                      >
+                        Suspend
+                      </button>
+                    </div>
+
+                    {/* Delete Account */}
+                    <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-[var(--radius-md)]">
+                      <div>
+                        <h5 className="font-semibold text-red-800 mb-1">🗑️ Delete Account</h5>
+                        <p className="text-sm text-red-700">Permanently delete all family data</p>
+                      </div>
+                      <button
+                        onClick={() => setShowDeleteAccountModal(true)}
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Account Actions Section */}
+                  <div className="pt-6 border-t-2 border-[var(--card-border)]">
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">🔧 Account Actions</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => {
+                          setShowSettingsModal(false)
+                          setShowFamilyModal(true)
+                        }}
+                        className="px-4 py-3 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 hover:border-blue-400 rounded-[var(--radius-lg)] font-semibold text-blue-900 transition-all flex items-center justify-center gap-2"
+                      >
+                        ✏️ Edit Family
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowSettingsModal(false)
+                          logout()
+                        }}
+                        className="px-4 py-3 bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 hover:border-orange-400 rounded-[var(--radius-lg)] font-semibold text-orange-900 transition-all flex items-center justify-center gap-2"
+                      >
+                        👋 Logout
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
               )}
