@@ -38,10 +38,22 @@ export async function choreGeneration(job: Job<ChoreGenerationJobData>) {
     // Get all active families (or specific family)
     const families = await prisma.family.findMany({
       where: familyId ? { id: familyId } : {},
-      include: {
+      select: {
+        id: true,
+        nameCipher: true,
+        holidayMode: true,
+        holidayStartDate: true,
+        holidayEndDate: true,
         children: {
           where: { paused: false }, // Only active children
-          include: {
+          select: {
+            id: true,
+            nickname: true,
+            familyId: true,
+            paused: true,
+            holidayMode: true,
+            holidayStartDate: true,
+            holidayEndDate: true,
             wallets: true,
             streaks: true
           }
@@ -431,18 +443,42 @@ async function applyStreakPenalty(child: any, chore: any, reason: string) {
  * Check if family is in holiday mode
  */
 function isFamilyInHolidayMode(family: any): boolean {
-  // TODO: Implement family-level holiday mode
-  // This would check a holidayMode field in the Family model
-  return false
+  if (!family.holidayMode) return false
+  
+  const now = new Date()
+  
+  // Check if holiday has started
+  if (family.holidayStartDate && now < new Date(family.holidayStartDate)) {
+    return false
+  }
+  
+  // Check if holiday has ended
+  if (family.holidayEndDate && now > new Date(family.holidayEndDate)) {
+    return false
+  }
+  
+  return true
 }
 
 /**
  * Check if child is in holiday mode
  */
 function isChildInHolidayMode(child: any): boolean {
-  // TODO: Implement child-level holiday mode
-  // This would check a holidayMode field in the Child model
-  return false
+  if (!child.holidayMode) return false
+  
+  const now = new Date()
+  
+  // Check if holiday has started
+  if (child.holidayStartDate && now < new Date(child.holidayStartDate)) {
+    return false
+  }
+  
+  // Check if holiday has ended
+  if (child.holidayEndDate && now > new Date(child.holidayEndDate)) {
+    return false
+  }
+  
+  return true
 }
 
 /**
