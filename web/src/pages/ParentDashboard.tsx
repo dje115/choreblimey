@@ -80,6 +80,7 @@ const ParentDashboard: React.FC = () => {
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showStreakSettingsModal, setShowStreakSettingsModal] = useState(false)
+  const [streakSettingsTab, setStreakSettingsTab] = useState<'overview' | 'bonuses' | 'penalties' | 'protection'>('overview')
   const [showCreateChoreModal, setShowCreateChoreModal] = useState(false)
   const [showChoreLibraryModal, setShowChoreLibraryModal] = useState(false)
   const [showEditChoreModal, setShowEditChoreModal] = useState(false)
@@ -1985,9 +1986,119 @@ const ParentDashboard: React.FC = () => {
               <p className="text-[var(--text-secondary)]">Set up rewards and penalties to keep the momentum going!</p>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+              <button
+                onClick={() => setStreakSettingsTab('overview')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  streakSettingsTab === 'overview'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                📊 Overview
+              </button>
+              <button
+                onClick={() => setStreakSettingsTab('bonuses')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  streakSettingsTab === 'bonuses'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                🎁 Bonuses
+              </button>
+              <button
+                onClick={() => setStreakSettingsTab('penalties')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  streakSettingsTab === 'penalties'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                ⚠️ Penalties
+              </button>
+              <button
+                onClick={() => setStreakSettingsTab('protection')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  streakSettingsTab === 'protection'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                🛡️ Protection
+              </button>
+            </div>
+
             <div className="space-y-8">
-              {/* Streak Protection */}
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-[var(--radius-lg)] border-2 border-blue-200">
+              {/* Overview Tab */}
+              {streakSettingsTab === 'overview' && (
+                <>
+                  {/* Streak Summary */}
+                  <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-[var(--radius-lg)] border-2 border-indigo-200">
+                    <h4 className="font-bold text-lg text-indigo-900 mb-4 flex items-center gap-2">
+                      <span className="text-2xl">📊</span> Your Streak System Summary
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-500">🛡️</span>
+                        <p className="text-indigo-800">
+                          <strong>{streakSettings.protectionDays} {streakSettings.protectionDays === 1 ? 'day' : 'days'}</strong> grace period before penalties
+                        </p>
+                      </div>
+                      {streakSettings.bonusEnabled && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-500">🎁</span>
+                          <p className="text-indigo-800">
+                            <strong>Bonus after {streakSettings.bonusDays} days:</strong> {' '}
+                            {streakSettings.bonusType === 'money' && `£${(streakSettings.bonusMoneyPence / 100).toFixed(2)}`}
+                            {streakSettings.bonusType === 'stars' && `${streakSettings.bonusStars} ⭐`}
+                            {streakSettings.bonusType === 'both' && `£${(streakSettings.bonusMoneyPence / 100).toFixed(2)} + ${streakSettings.bonusStars} ⭐`}
+                          </p>
+                        </div>
+                      )}
+                      {streakSettings.penaltyEnabled && (
+                        <>
+                          <div className="flex items-start gap-2">
+                            <span className="text-yellow-500">1️⃣</span>
+                            <p className="text-indigo-800">
+                              <strong>1st miss:</strong> {' '}
+                              {streakSettings.penaltyType === 'money' && `£${(streakSettings.firstMissPence / 100).toFixed(2)}`}
+                              {streakSettings.penaltyType === 'stars' && `${streakSettings.firstMissStars} ⭐`}
+                              {streakSettings.penaltyType === 'both' && `£${(streakSettings.firstMissPence / 100).toFixed(2)} + ${streakSettings.firstMissStars} ⭐`}
+                            </p>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-orange-500">2️⃣</span>
+                            <p className="text-indigo-800">
+                              <strong>2nd miss:</strong> {' '}
+                              {streakSettings.penaltyType === 'money' && `£${(streakSettings.secondMissPence / 100).toFixed(2)}`}
+                              {streakSettings.penaltyType === 'stars' && `${streakSettings.secondMissStars} ⭐`}
+                              {streakSettings.penaltyType === 'both' && `£${(streakSettings.secondMissPence / 100).toFixed(2)} + ${streakSettings.secondMissStars} ⭐`}
+                            </p>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-red-500">3️⃣</span>
+                            <p className="text-indigo-800">
+                              <strong>3rd+ miss:</strong> {' '}
+                              {streakSettings.penaltyType === 'money' && `£${(streakSettings.thirdMissPence / 100).toFixed(2)}`}
+                              {streakSettings.penaltyType === 'stars' && `${streakSettings.thirdMissStars} ⭐`}
+                              {streakSettings.penaltyType === 'both' && `£${(streakSettings.thirdMissPence / 100).toFixed(2)} + ${streakSettings.thirdMissStars} ⭐`}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <span className="text-purple-500">🛡️</span>
+                        <p className="text-indigo-800">
+                          <strong>Minimum balance:</strong> £{(streakSettings.minBalancePence / 100).toFixed(2)} + {streakSettings.minBalanceStars} ⭐
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Streak Protection */}
+                  <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-[var(--radius-lg)] border-2 border-blue-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-2xl">
                     🛡️
@@ -2019,8 +2130,11 @@ const ParentDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
+                </>
+              )}
 
-              {/* Streak Bonuses */}
+              {/* Bonuses Tab */}
+              {streakSettingsTab === 'bonuses' && (
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-[var(--radius-lg)] border-2 border-green-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -2138,8 +2252,10 @@ const ParentDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Streak Penalties */}
+              {/* Penalties Tab */}
+              {streakSettingsTab === 'penalties' && (
               <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-[var(--radius-lg)] border-2 border-orange-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -2322,8 +2438,10 @@ const ParentDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+              )}
 
-              {/* Minimum Balance Protection */}
+              {/* Protection Tab */}
+              {streakSettingsTab === 'protection' && (
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-[var(--radius-lg)] border-2 border-purple-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-2xl">
@@ -2379,69 +2497,7 @@ const ParentDashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-
-              {/* Preview Summary */}
-              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-[var(--radius-lg)] border-2 border-indigo-200">
-                <h4 className="font-bold text-lg text-indigo-900 mb-4 flex items-center gap-2">
-                  <span className="text-2xl">📊</span> Your Streak System Summary
-                </h4>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-500">🛡️</span>
-                    <p className="text-indigo-800">
-                      <strong>{streakSettings.protectionDays} {streakSettings.protectionDays === 1 ? 'day' : 'days'}</strong> grace period before penalties
-                    </p>
-                  </div>
-                  {streakSettings.bonusEnabled && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-green-500">🎁</span>
-                      <p className="text-indigo-800">
-                        <strong>Bonus after {streakSettings.bonusDays} days:</strong> {' '}
-                        {streakSettings.bonusType === 'money' && `£${(streakSettings.bonusMoneyPence / 100).toFixed(2)}`}
-                        {streakSettings.bonusType === 'stars' && `${streakSettings.bonusStars} ⭐`}
-                        {streakSettings.bonusType === 'both' && `£${(streakSettings.bonusMoneyPence / 100).toFixed(2)} + ${streakSettings.bonusStars} ⭐`}
-                      </p>
-                    </div>
-                  )}
-                  {streakSettings.penaltyEnabled && (
-                    <>
-                      <div className="flex items-start gap-2">
-                        <span className="text-yellow-500">1️⃣</span>
-                        <p className="text-indigo-800">
-                          <strong>1st miss:</strong> {' '}
-                          {streakSettings.penaltyType === 'money' && `£${(streakSettings.firstMissPence / 100).toFixed(2)}`}
-                          {streakSettings.penaltyType === 'stars' && `${streakSettings.firstMissStars} ⭐`}
-                          {streakSettings.penaltyType === 'both' && `£${(streakSettings.firstMissPence / 100).toFixed(2)} + ${streakSettings.firstMissStars} ⭐`}
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-orange-500">2️⃣</span>
-                        <p className="text-indigo-800">
-                          <strong>2nd miss:</strong> {' '}
-                          {streakSettings.penaltyType === 'money' && `£${(streakSettings.secondMissPence / 100).toFixed(2)}`}
-                          {streakSettings.penaltyType === 'stars' && `${streakSettings.secondMissStars} ⭐`}
-                          {streakSettings.penaltyType === 'both' && `£${(streakSettings.secondMissPence / 100).toFixed(2)} + ${streakSettings.secondMissStars} ⭐`}
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="text-red-500">3️⃣</span>
-                        <p className="text-indigo-800">
-                          <strong>3rd+ miss:</strong> {' '}
-                          {streakSettings.penaltyType === 'money' && `£${(streakSettings.thirdMissPence / 100).toFixed(2)}`}
-                          {streakSettings.penaltyType === 'stars' && `${streakSettings.thirdMissStars} ⭐`}
-                          {streakSettings.penaltyType === 'both' && `£${(streakSettings.thirdMissPence / 100).toFixed(2)} + ${streakSettings.thirdMissStars} ⭐`}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex items-start gap-2">
-                    <span className="text-purple-500">🛡️</span>
-                    <p className="text-indigo-800">
-                      <strong>Minimum balance:</strong> £{(streakSettings.minBalancePence / 100).toFixed(2)} + {streakSettings.minBalanceStars} ⭐
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="flex gap-4 mt-8">
