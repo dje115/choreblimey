@@ -197,7 +197,7 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
 
   for (const chore of dailyChores) {
     try {
-      // Check if chore already exists for today
+      // Check if there's an UNCOMPLETED chore for today
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       
@@ -209,12 +209,25 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
           createdAt: {
             gte: today
           }
+        },
+        include: {
+          completions: true
         }
       })
 
-      if (existingAssignment) {
-        console.log(`✅ Daily chore "${chore.title}" already exists for ${child.nickname}`)
+      // If assignment exists and is NOT completed, skip it
+      const hasApprovedCompletion = existingAssignment?.completions?.some(
+        (c: any) => c.status === 'approved'
+      )
+      
+      if (existingAssignment && !hasApprovedCompletion) {
+        console.log(`✅ Daily chore "${chore.title}" already exists for ${child.nickname} (not completed yet)`)
         continue
+      }
+      
+      // If assignment exists and IS completed, we'll create a new one below
+      if (existingAssignment && hasApprovedCompletion) {
+        console.log(`✅ Daily chore "${chore.title}" was completed by ${child.nickname} - regenerating for next day`)
       }
 
       // Check if child completed this chore yesterday
@@ -299,7 +312,7 @@ async function processWeeklyChores(family: any, child: any, dryRun: boolean) {
 
   for (const chore of weeklyChores) {
     try {
-      // Check if chore already exists for this week
+      // Check if there's an UNCOMPLETED chore for this week
       const startOfWeek = getStartOfWeek()
       
       const existingAssignment = await prisma.assignment.findFirst({
@@ -310,12 +323,25 @@ async function processWeeklyChores(family: any, child: any, dryRun: boolean) {
           createdAt: {
             gte: startOfWeek
           }
+        },
+        include: {
+          completions: true
         }
       })
 
-      if (existingAssignment) {
-        console.log(`✅ Weekly chore "${chore.title}" already exists for ${child.nickname}`)
+      // If assignment exists and is NOT completed, skip it
+      const hasApprovedCompletion = existingAssignment?.completions?.some(
+        (c: any) => c.status === 'approved'
+      )
+      
+      if (existingAssignment && !hasApprovedCompletion) {
+        console.log(`✅ Weekly chore "${chore.title}" already exists for ${child.nickname} (not completed yet)`)
         continue
+      }
+      
+      // If assignment exists and IS completed, we'll create a new one below
+      if (existingAssignment && hasApprovedCompletion) {
+        console.log(`✅ Weekly chore "${chore.title}" was completed by ${child.nickname} - regenerating for next week`)
       }
 
       // Check if child completed this chore last week
