@@ -79,6 +79,7 @@ const ParentDashboard: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<'rivalry' | 'budget' | 'account'>('rivalry')
   const [showStreakSettingsModal, setShowStreakSettingsModal] = useState(false)
   const [streakSettingsTab, setStreakSettingsTab] = useState<'overview' | 'bonuses' | 'penalties' | 'protection'>('overview')
   const [showCreateChoreModal, setShowCreateChoreModal] = useState(false)

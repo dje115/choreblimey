@@ -10,9 +10,10 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 
 ### 🎮 Gamification
 - **Star System**: Earn stars for completing chores (10p = 1⭐)
-- **Streaks**: Daily completion bonuses with milestone rewards
+- **Streaks**: Configurable streak protection, bonuses, and penalties (UI complete, backend pending)
 - **Leaderboards**: Weekly family competitions
 - **Challenge Mode**: Bidding system for chores (Showdown tab)
+- **Automated Chore Generation**: Daily and weekly chores regenerate automatically
 
 ### 👨‍👩‍👧‍👦 Family Management
 - **Multi-Tenant**: Each family is completely isolated
