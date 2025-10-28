@@ -266,16 +266,33 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       // Child already exists - re-authenticate them
       console.log('Re-authenticating existing child:', child.id, 'nickname:', child.nickname)
     } else {
-      // Create new child with default values (parent will set age/gender later)
+      // Retrieve cached child info (if available)
+      let childInfo: any = { ageGroup: '5-8', birthYear: null, birthMonth: null }
+      try {
+        const cachedInfo = await cache.get(`child_info:${joinCode}`)
+        if (cachedInfo) {
+          childInfo = JSON.parse(cachedInfo)
+          console.log('Retrieved cached child info:', childInfo)
+        }
+      } catch (error) {
+        console.log('No cached child info found, using defaults')
+      }
+
+      // Create new child with birth year/month from cached info
       console.log('Creating new child for nickname:', nickname)
       child = await prisma.child.create({
         data: {
           familyId,
           nickname: nickname.trim(),
-          ageGroup: '5-8', // Default to youngest group - parent will update
+          ageGroup: childInfo.ageGroup || '5-8',
+          birthYear: childInfo.birthYear || null,
+          birthMonth: childInfo.birthMonth || null,
           gender: null // Parent will set this in parent portal
         }
       })
+      
+      // Clean up cached info after use
+      await cache.del(`child_info:${joinCode}`)
     }
 
     // Mark join code as used (only if not already used)

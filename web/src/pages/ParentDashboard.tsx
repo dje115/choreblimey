@@ -434,6 +434,8 @@ const ParentDashboard: React.FC = () => {
         nameCipher: family?.nameCipher || 'Family',
         nickname: nickname,
         ageGroup: ageGroup,
+        birthYear: inviteData.birthYear || undefined,
+        birthMonth: inviteData.birthMonth || undefined,
         sendEmail: !!inviteData.email // Only send email if provided
       })
 

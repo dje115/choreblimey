@@ -15,6 +15,8 @@ interface FamilyInviteBody {
   nameCipher: string
   nickname: string
   ageGroup?: string
+  birthYear?: number
+  birthMonth?: number
   sendEmail?: boolean
 }
 
@@ -61,7 +63,7 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
   try {
     console.log('=== FAMILY INVITE ENDPOINT CALLED ===')
     const { sub: userId, familyId } = req.claims!
-    const { email, role, nameCipher, nickname, ageGroup, sendEmail = true } = req.body
+    const { email, role, nameCipher, nickname, ageGroup, birthYear, birthMonth, sendEmail = true } = req.body
 
     console.log('Family invite request - userId:', userId, 'familyId from claims:', familyId)
 
@@ -133,6 +135,18 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
           expiresAt
         }
       })
+
+      // Store child info in cache for 7 days (to be used when child joins)
+      await cache.set(
+        `child_info:${joinCode}`,
+        JSON.stringify({
+          nickname,
+          ageGroup,
+          birthYear: birthYear || null,
+          birthMonth: birthMonth || null
+        }),
+        604800 // 7 days in seconds
+      )
 
       result.joinCode = joinCode
       result.expiresAt = expiresAt
