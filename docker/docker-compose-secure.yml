@@ -115,6 +115,7 @@ services:
       - database_network  # Database access only
       - shared_network    # Email access
     volumes:
+      - ../api:/app/api
       - api_node_modules:/app/api/node_modules
     depends_on:
       postgres:

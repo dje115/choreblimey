@@ -79,11 +79,8 @@ export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, re
 
 export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, reply: FastifyReply) => {
   try {
-    console.log('=== FAMILY INVITE ENDPOINT CALLED ===')
     const { sub: userId, familyId } = req.claims!
     const { email, role, nameCipher, nickname, ageGroup, birthYear, birthMonth, sendEmail = true } = req.body
-
-    console.log('Family invite request - userId:', userId, 'familyId from claims:', familyId)
 
     if (!nameCipher || !nickname) {
       return reply.status(400).send({ error: 'Family name and child nickname are required' })
@@ -95,14 +92,12 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
       include: { family: true }
     })
 
-    console.log('Family membership lookup:', familyMembership ? 'found' : 'not found')
-
     let actualFamilyId: string
     let family: any
 
     if (!familyMembership || !familyMembership.family) {
       // User doesn't have a family - create one automatically
-      console.log('User has no family, creating one automatically for userId:', userId)
+      reply.log.info('User has no family, creating one automatically', { userId })
       
       const user = await prisma.user.findUnique({
         where: { id: userId }
@@ -129,14 +124,13 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
         }
       })
       
-      console.log('Created family:', newFamily.id, 'for user:', userId)
+      reply.log.info('Created family for user', { familyId: newFamily.id, userId })
       
       actualFamilyId = newFamily.id
       family = newFamily
     } else {
       actualFamilyId = familyMembership.familyId
       family = familyMembership.family
-      console.log('Using existing familyId:', actualFamilyId)
     }
 
     let result: any = {}
@@ -224,9 +218,35 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
 
     const family = await prisma.family.findUnique({
       where: { id: familyId },
-      include: {
+      select: {
+        id: true,
+        nameCipher: true,
+        region: true,
+        maxBudgetPence: true,
+        budgetPeriod: true,
+        showLifetimeEarnings: true,
+        // Streak settings
+        streakProtectionDays: true,
+        bonusEnabled: true,
+        bonusDays: true,
+        bonusMoneyPence: true,
+        bonusStars: true,
+        bonusType: true,
+        penaltyEnabled: true,
+        firstMissPence: true,
+        firstMissStars: true,
+        secondMissPence: true,
+        secondMissStars: true,
+        thirdMissPence: true,
+        thirdMissStars: true,
+        penaltyType: true,
+        minBalancePence: true,
+        minBalanceStars: true,
         members: {
-          include: {
+          select: {
+            id: true,
+            role: true,
+            createdAt: true,
             user: {
               select: {
                 id: true,
@@ -289,7 +309,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
       streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
       penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
       minBalancePence, minBalanceStars
-    } = req.body
+    } = req.body || {}
 
     // Try to get familyId from JWT or find it from user's membership
     let familyId = jwtFamilyId
@@ -326,7 +346,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
           }
         })
         
-        console.log('Auto-created family for user:', userId, 'familyId:', newFamily.id)
+        reply.log.info('Auto-created family for user', { userId, familyId: newFamily.id })
       }
       
       familyId = membership.familyId
@@ -379,10 +399,41 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
 
     const updatedFamily = await prisma.family.update({
       where: { id: familyId },
-      data: updateData,
-      include: {
+      data: updateData
+    })
+
+    // Then fetch with all fields we need
+    const familyWithRelations = await prisma.family.findUnique({
+      where: { id: familyId },
+      select: {
+        id: true,
+        nameCipher: true,
+        region: true,
+        maxBudgetPence: true,
+        budgetPeriod: true,
+        showLifetimeEarnings: true,
+        // Streak settings
+        streakProtectionDays: true,
+        bonusEnabled: true,
+        bonusDays: true,
+        bonusMoneyPence: true,
+        bonusStars: true,
+        bonusType: true,
+        penaltyEnabled: true,
+        firstMissPence: true,
+        firstMissStars: true,
+        secondMissPence: true,
+        secondMissStars: true,
+        thirdMissPence: true,
+        thirdMissStars: true,
+        penaltyType: true,
+        minBalancePence: true,
+        minBalanceStars: true,
         members: {
-          include: {
+          select: {
+            id: true,
+            role: true,
+            createdAt: true,
             user: {
               select: {
                 id: true,
@@ -407,9 +458,9 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     // Invalidate family cache
     await cache.invalidateFamily(familyId)
 
-    return { family: updatedFamily }
+    return { family: familyWithRelations }
   } catch (error) {
-    console.error('Failed to update family:', error)
+    reply.log.error('Failed to update family:', error)
     reply.status(500).send({ error: 'Failed to update family' })
   }
 }
