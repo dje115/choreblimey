@@ -44,6 +44,18 @@ export async function choreGeneration(job: Job<ChoreGenerationJobData>) {
         holidayMode: true,
         holidayStartDate: true,
         holidayEndDate: true,
+        // Streak settings
+        streakProtectionDays: true,
+        penaltyEnabled: true,
+        firstMissPence: true,
+        firstMissStars: true,
+        secondMissPence: true,
+        secondMissStars: true,
+        thirdMissPence: true,
+        thirdMissStars: true,
+        penaltyType: true,
+        minBalancePence: true,
+        minBalanceStars: true,
         children: {
           where: { paused: false }, // Only active children
           select: {
@@ -231,7 +243,8 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
         console.log(`✅ Daily chore "${chore.title}" was completed by ${child.nickname} today - regenerating for next day`)
       }
 
-      // Check if child completed this chore yesterday
+      // Check if child completed this chore yesterday (submitted - pending or approved)
+      // Streaks are based on submission, not approval, so we check both statuses
       const yesterday = new Date(today)
       yesterday.setDate(yesterday.getDate() - 1)
       
@@ -252,18 +265,51 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
             }).then(assignments => assignments.map(a => a.id))
           },
           childId: child.id,
-          status: 'approved'
+          // Check for both pending and approved - children shouldn't lose streaks due to delayed approvals
+          status: {
+            in: ['pending', 'approved']
+          },
+          timestamp: {
+            gte: yesterday,
+            lt: today
+          }
         }
       })
 
       if (!yesterdayCompletion) {
-        // Child didn't complete yesterday's chore - apply streak penalty
-        console.log(`⚠️  ${child.nickname} missed "${chore.title}" yesterday - applying streak penalty`)
+        // Child didn't complete yesterday's chore - check if penalty should be applied
+        // Calculate consecutive missed days for this chore
+        const consecutiveMissedDays = await calculateConsecutiveMissedDays(
+          family.id,
+          child.id,
+          chore.id,
+          today
+        )
         
-        if (!dryRun) {
-          await applyStreakPenalty(child, chore, 'missed_daily_chore')
+        // Check protection days - if within grace period, skip penalty AND protect streak
+        const protectionDays = family.streakProtectionDays || 0
+        const daysAfterProtection = consecutiveMissedDays - protectionDays
+        
+        if (daysAfterProtection > 0 && family.penaltyEnabled) {
+          console.log(`⚠️  ${child.nickname} missed "${chore.title}" ${consecutiveMissedDays} day(s) in a row (${daysAfterProtection} after protection) - applying streak penalty`)
+          
+          if (!dryRun) {
+            await applyStreakPenalty(family, child, chore, consecutiveMissedDays, 'missed_daily_chore')
+          }
+          result.penaltiesApplied++
+        } else if (daysAfterProtection <= 0) {
+          console.log(`🛡️  ${child.nickname} missed "${chore.title}" but is within ${protectionDays} day protection period - no penalty, streak protected`)
+          
+          // Protect the streak - update lastIncrementDate to yesterday (the missed day)
+          // This ensures the streak continues when they complete the next chore
+          if (!dryRun) {
+            const yesterday = new Date(today)
+            yesterday.setDate(yesterday.getDate() - 1)
+            await protectStreak(family.id, child.id, chore.id, yesterday)
+          }
+        } else {
+          console.log(`⚙️  Penalties disabled for family - skipping penalty`)
         }
-        result.penaltiesApplied++
       }
 
       // Generate new daily chore assignment
@@ -345,7 +391,8 @@ async function processWeeklyChores(family: any, child: any, dryRun: boolean) {
         console.log(`✅ Weekly chore "${chore.title}" was completed by ${child.nickname} - regenerating for next week`)
       }
 
-      // Check if child completed this chore last week
+      // Check if child completed this chore last week (submitted - pending or approved)
+      // Streaks are based on submission, not approval, so we check both statuses
       const lastWeekStart = new Date(startOfWeek)
       lastWeekStart.setDate(lastWeekStart.getDate() - 7)
       const lastWeekEnd = new Date(startOfWeek)
@@ -367,18 +414,43 @@ async function processWeeklyChores(family: any, child: any, dryRun: boolean) {
             }).then(assignments => assignments.map(a => a.id))
           },
           childId: child.id,
-          status: 'approved'
+          // Check for both pending and approved - children shouldn't lose streaks due to delayed approvals
+          status: {
+            in: ['pending', 'approved']
+          },
+          timestamp: {
+            gte: lastWeekStart,
+            lt: lastWeekEnd
+          }
         }
       })
 
       if (!lastWeekCompletion) {
-        // Child didn't complete last week's chore - apply streak penalty
-        console.log(`⚠️  ${child.nickname} missed "${chore.title}" last week - applying streak penalty`)
+        // Child didn't complete last week's chore - check if penalty should be applied
+        // For weekly chores, we treat each missed week as a separate miss
+        // (protection days still apply - if protectionDays = 1, first miss is free)
+        const consecutiveMissedWeeks = 1 // For weekly, we're checking one week at a time
         
-        if (!dryRun) {
-          await applyStreakPenalty(child, chore, 'missed_weekly_chore')
+        const daysAfterProtection = consecutiveMissedWeeks - (family.streakProtectionDays || 0)
+        
+        if (daysAfterProtection > 0 && family.penaltyEnabled) {
+          console.log(`⚠️  ${child.nickname} missed "${chore.title}" last week (${daysAfterProtection} after protection) - applying streak penalty`)
+          
+          if (!dryRun) {
+            // For weekly chores, we'll use the first miss penalty (since it's treated as a single event)
+            await applyStreakPenalty(family, child, chore, consecutiveMissedWeeks, 'missed_weekly_chore')
+          }
+          result.penaltiesApplied++
+        } else if (daysAfterProtection <= 0) {
+          console.log(`🛡️  ${child.nickname} missed "${chore.title}" but is within ${family.streakProtectionDays || 0} week protection period - no penalty, streak protected`)
+          
+          // Protect the streak for weekly chores too
+          if (!dryRun) {
+            await protectStreak(family.id, child.id, chore.id, new Date())
+          }
+        } else {
+          console.log(`⚙️  Penalties disabled for family - skipping penalty`)
         }
-        result.penaltiesApplied++
       }
 
       // Generate new weekly chore assignment
@@ -406,9 +478,116 @@ async function processWeeklyChores(family: any, child: any, dryRun: boolean) {
 }
 
 /**
- * Apply streak penalty for missed chores
+ * Protect streak during protection period
+ * Updates lastIncrementDate to prevent streak from breaking when child completes next chore
  */
-async function applyStreakPenalty(child: any, chore: any, reason: string) {
+async function protectStreak(
+  familyId: string,
+  childId: string,
+  choreId: string,
+  protectionDate: Date
+) {
+  try {
+    const streak = await prisma.streak.findFirst({
+      where: { familyId, childId, choreId }
+    })
+
+    if (!streak) {
+      // No streak exists yet - nothing to protect
+      return
+    }
+
+    // Update lastIncrementDate to the protection date
+    // This makes it appear as if they completed on this day, so their next completion
+    // will be treated as consecutive
+    await prisma.streak.update({
+      where: { id: streak.id },
+      data: {
+        lastIncrementDate: protectionDate,
+        isDisrupted: false // Keep streak active
+      }
+    })
+
+    console.log(`🛡️  Streak protected for ${choreId} - streak continues at ${streak.current} days`)
+  } catch (error) {
+    console.error(`❌ Failed to protect streak:`, error)
+  }
+}
+
+/**
+ * Calculate consecutive missed days for a specific chore
+ */
+async function calculateConsecutiveMissedDays(
+  familyId: string,
+  childId: string,
+  choreId: string,
+  today: Date
+): Promise<number> {
+  let consecutiveMissed = 0
+  const checkDate = new Date(today)
+  checkDate.setDate(checkDate.getDate() - 1) // Start with yesterday
+  
+  // Check backwards day by day until we find a day with a completion
+  for (let i = 0; i < 30; i++) { // Check up to 30 days back
+    const dayStart = new Date(checkDate)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(checkDate)
+    dayEnd.setHours(23, 59, 59, 999)
+    
+    // Check if there was a completion on this day
+    const completion = await prisma.completion.findFirst({
+      where: {
+        familyId,
+        childId,
+        assignmentId: {
+          in: await prisma.assignment.findMany({
+            where: {
+              choreId,
+              familyId,
+              childId,
+              createdAt: {
+                gte: dayStart,
+                lte: dayEnd
+              }
+            },
+            select: { id: true }
+          }).then(assignments => assignments.map(a => a.id))
+        },
+        status: {
+          in: ['pending', 'approved']
+        },
+        timestamp: {
+          gte: dayStart,
+          lte: dayEnd
+        }
+      }
+    })
+    
+    if (completion) {
+      // Found a completion - stop counting
+      break
+    }
+    
+    // No completion found - increment missed days
+    consecutiveMissed++
+    
+    // Move to previous day
+    checkDate.setDate(checkDate.getDate() - 1)
+  }
+  
+  return consecutiveMissed
+}
+
+/**
+ * Apply streak penalty for missed chores using family settings
+ */
+async function applyStreakPenalty(
+  family: any,
+  child: any,
+  chore: any,
+  consecutiveMissedDays: number,
+  reason: string
+) {
   try {
     // Find child's wallet
     const wallet = child.wallets?.[0]
@@ -417,48 +596,135 @@ async function applyStreakPenalty(child: any, chore: any, reason: string) {
       return
     }
 
-    // Calculate penalty (e.g., 10% of chore reward)
-    const penaltyAmount = Math.floor(chore.baseRewardPence * 0.1) // 10% penalty
+    // Calculate which penalty tier to apply (based on days after protection period)
+    const protectionDays = family.streakProtectionDays || 0
+    const daysAfterProtection = consecutiveMissedDays - protectionDays
     
-    if (penaltyAmount <= 0) {
-      console.log(`⚠️  Penalty amount too small for ${child.nickname}`)
+    if (daysAfterProtection <= 0) {
+      console.log(`🛡️  ${child.nickname} is still within protection period - no penalty`)
       return
     }
-
-    // Apply penalty if wallet has sufficient balance
-    if (wallet.balancePence >= penaltyAmount) {
-      console.log(`💸 Applying ${penaltyAmount} pence penalty to ${child.nickname}`)
+    
+    // Determine penalty tier (1st, 2nd, or 3rd+ miss)
+    let penaltyPence = 0
+    let penaltyStars = 0
+    
+    if (daysAfterProtection === 1) {
+      // First miss after protection
+      penaltyPence = family.firstMissPence || 0
+      penaltyStars = family.firstMissStars || 0
+    } else if (daysAfterProtection === 2) {
+      // Second miss
+      penaltyPence = family.secondMissPence || 0
+      penaltyStars = family.secondMissStars || 0
+    } else {
+      // Third or more miss
+      penaltyPence = family.thirdMissPence || 0
+      penaltyStars = family.thirdMissStars || 0
+    }
+    
+    // Apply penalty based on type
+    const penaltyType = family.penaltyType || 'both'
+    let actualPenaltyPence = 0
+    let actualPenaltyStars = 0
+    
+    if (penaltyType === 'money' || penaltyType === 'both') {
+      actualPenaltyPence = penaltyPence
+    }
+    
+    if (penaltyType === 'stars' || penaltyType === 'both') {
+      actualPenaltyStars = penaltyStars
+    }
+    
+    // Convert stars to pence for balance check (1 star = 10 pence)
+    const starsAsPence = actualPenaltyStars * 10
+    const totalPenaltyPence = actualPenaltyPence + starsAsPence
+    
+    if (totalPenaltyPence <= 0 && actualPenaltyStars <= 0) {
+      console.log(`⚠️  No penalty configured for ${child.nickname}`)
+      return
+    }
+    
+    // Check minimum balance protection
+    const minBalancePence = family.minBalancePence || 0
+    const minBalanceStars = family.minBalanceStars || 0
+    
+    // Calculate what balance would be after penalty
+    const newBalancePence = wallet.balancePence - actualPenaltyPence
+    const newBalanceStars = (wallet.stars || 0) - actualPenaltyStars
+    
+    // Check if penalty would violate minimum balance protection
+    if (newBalancePence < minBalancePence) {
+      const allowedPenaltyPence = Math.max(0, wallet.balancePence - minBalancePence)
+      if (allowedPenaltyPence === 0) {
+        console.log(`🛡️  ${child.nickname} has minimum balance protection (£${(minBalancePence/100).toFixed(2)}) - cannot apply money penalty`)
+        actualPenaltyPence = 0
+      } else {
+        actualPenaltyPence = allowedPenaltyPence
+        console.log(`🛡️  ${child.nickname} penalty reduced to respect minimum balance protection`)
+      }
+    }
+    
+    if (newBalanceStars < minBalanceStars) {
+      const allowedPenaltyStars = Math.max(0, (wallet.stars || 0) - minBalanceStars)
+      if (allowedPenaltyStars === 0) {
+        console.log(`🛡️  ${child.nickname} has minimum balance protection (${minBalanceStars} stars) - cannot apply star penalty`)
+        actualPenaltyStars = 0
+      } else {
+        actualPenaltyStars = allowedPenaltyStars
+        console.log(`🛡️  ${child.nickname} star penalty reduced to respect minimum balance protection`)
+      }
+    }
+    
+    // If no penalty can be applied, skip
+    if (actualPenaltyPence === 0 && actualPenaltyStars === 0) {
+      console.log(`🛡️  ${child.nickname} protected by minimum balance - no penalty applied`)
+      return
+    }
+    
+    // Apply penalty
+    const updateData: any = {}
+    if (actualPenaltyPence > 0) {
+      updateData.balancePence = { decrement: actualPenaltyPence }
+    }
+    if (actualPenaltyStars > 0) {
+      updateData.stars = { decrement: actualPenaltyStars }
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      console.log(`💸 Applying penalty to ${child.nickname}: ${actualPenaltyPence > 0 ? `£${(actualPenaltyPence/100).toFixed(2)}` : ''} ${actualPenaltyStars > 0 ? `${actualPenaltyStars} stars` : ''} (${daysAfterProtection === 1 ? '1st' : daysAfterProtection === 2 ? '2nd' : '3rd+' } miss)`)
       
-      // Create penalty transaction
-      await prisma.transaction.create({
-        data: {
-          walletId: wallet.id,
-          familyId: child.familyId,
-          type: 'debit',
-          amountPence: penaltyAmount,
-          source: 'system',
-          metaJson: {
-            reason: 'streak_penalty',
-            choreId: chore.id,
-            choreTitle: chore.title,
-            penaltyReason: reason
-          }
-        }
-      })
-
-      // Update wallet balance
       await prisma.wallet.update({
         where: { id: wallet.id },
-        data: {
-          balancePence: wallet.balancePence - penaltyAmount
-        }
+        data: updateData
       })
+
+      // Create penalty transaction(s)
+      if (actualPenaltyPence > 0) {
+        await prisma.transaction.create({
+          data: {
+            walletId: wallet.id,
+            familyId: family.id,
+            type: 'debit',
+            amountPence: actualPenaltyPence,
+            source: 'system',
+            metaJson: {
+              type: 'streak_penalty',
+              choreId: chore.id,
+              choreTitle: chore.title,
+              penaltyReason: reason,
+              consecutiveMissedDays,
+              daysAfterProtection,
+              penaltyTier: daysAfterProtection === 1 ? 'first' : daysAfterProtection === 2 ? 'second' : 'third_plus',
+              penaltyPence: actualPenaltyPence,
+              penaltyStars: actualPenaltyStars
+            }
+          }
+        })
+      }
 
       // Invalidate wallet cache
       await cache.invalidateWallet(child.id)
-
-    } else {
-      console.log(`⚠️  Insufficient balance for penalty: ${wallet.balancePence} < ${penaltyAmount}`)
     }
 
   } catch (error) {

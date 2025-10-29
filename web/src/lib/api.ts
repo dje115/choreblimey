@@ -99,7 +99,30 @@ class ApiClient {
     return this.get('/family')
   }
 
-  async updateFamily(data: { nameCipher?: string; region?: string; maxBudgetPence?: number; budgetPeriod?: 'weekly' | 'monthly' }) {
+  async updateFamily(data: { 
+    nameCipher?: string
+    region?: string
+    maxBudgetPence?: number
+    budgetPeriod?: 'weekly' | 'monthly'
+    showLifetimeEarnings?: boolean
+    // Streak Settings
+    streakProtectionDays?: number
+    bonusEnabled?: boolean
+    bonusDays?: number
+    bonusMoneyPence?: number
+    bonusStars?: number
+    bonusType?: 'money' | 'stars' | 'both'
+    penaltyEnabled?: boolean
+    firstMissPence?: number
+    firstMissStars?: number
+    secondMissPence?: number
+    secondMissStars?: number
+    thirdMissPence?: number
+    thirdMissStars?: number
+    penaltyType?: 'money' | 'stars' | 'both'
+    minBalancePence?: number
+    minBalanceStars?: number
+  }) {
     return this.patch('/family', data)
   }
 

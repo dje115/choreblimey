@@ -105,12 +105,16 @@ export async function getChildStreakStats(familyId: string, childId: string): Pr
   totalCompletedDays: number
   streakBonus: number
 }> {
-  // Get all approved completions for this child
+  // Get ALL completions (pending + approved) - streaks are based on submission, not approval
+  // This ensures children don't lose streaks due to delayed parent approvals
   const completions = await prisma.completion.findMany({
     where: {
       familyId,
       childId,
-      status: 'approved'
+      // Include both pending and approved - streaks count when child submits, not when parent approves
+      status: {
+        in: ['pending', 'approved']
+      }
     },
     orderBy: {
       timestamp: 'desc'
@@ -194,15 +198,105 @@ export async function getChildStreakStats(familyId: string, childId: string): Pr
 }
 
 /**
- * Calculate bonus stars to award based on streak milestone
+ * Calculate bonus to award based on streak milestone and family settings
+ * Awards bonus every N days (e.g., every 3 days: day 3, 6, 9, 12, etc.)
+ */
+export async function calculateStreakBonus(
+  familyId: string, 
+  childId: string, 
+  currentStreakLength: number
+): Promise<{
+  bonusMoneyPence: number
+  bonusStars: number
+  shouldAward: boolean
+}> {
+  // Get family streak settings
+  const family = await prisma.family.findUnique({
+    where: { id: familyId },
+    select: {
+      bonusEnabled: true,
+      bonusDays: true,
+      bonusMoneyPence: true,
+      bonusStars: true,
+      bonusType: true
+    }
+  })
+
+  if (!family || !family.bonusEnabled || currentStreakLength < family.bonusDays) {
+    return { bonusMoneyPence: 0, bonusStars: 0, shouldAward: false }
+  }
+
+  // Check if current streak is a multiple of bonusDays (e.g., 3, 6, 9, 12...)
+  const isBonusDay = currentStreakLength % family.bonusDays === 0
+
+  if (!isBonusDay) {
+    return { bonusMoneyPence: 0, bonusStars: 0, shouldAward: false }
+  }
+
+  // Calculate bonus based on type
+  let bonusMoneyPence = 0
+  let bonusStars = 0
+
+  if (family.bonusType === 'money' || family.bonusType === 'both') {
+    bonusMoneyPence = family.bonusMoneyPence
+  }
+
+  if (family.bonusType === 'stars' || family.bonusType === 'both') {
+    bonusStars = family.bonusStars
+  }
+
+  // Check if we've already awarded bonus for this exact streak milestone for this child
+  // (to avoid double-awarding if approval runs twice)
+  // Get the child's wallet first to check their transactions
+  const childWallet = await prisma.wallet.findFirst({
+    where: {
+      familyId,
+      childId
+    },
+    select: { id: true }
+  })
+
+  if (childWallet) {
+    // Check transactions from the last 7 days to see if we already awarded for this milestone
+    const oneWeekAgo = new Date()
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+    
+    const existingBonuses = await prisma.transaction.findMany({
+      where: {
+        walletId: childWallet.id,
+        familyId,
+        source: 'system',
+        createdAt: {
+          gte: oneWeekAgo
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    })
+
+    // Check if we already gave a bonus for this exact streak milestone
+    for (const bonus of existingBonuses) {
+      const meta = bonus.metaJson as any
+      if (meta?.type === 'streak_bonus' && meta?.streakLength === currentStreakLength) {
+        // Already awarded bonus for this streak milestone
+        return { bonusMoneyPence: 0, bonusStars: 0, shouldAward: false }
+      }
+    }
+  }
+
+  return { bonusMoneyPence, bonusStars, shouldAward: true }
+}
+
+/**
+ * @deprecated Use calculateStreakBonus instead - this function uses hardcoded values
  */
 export function calculateStreakBonusStars(newStreakLength: number): number {
-  // Award bonus stars at milestones
-  if (newStreakLength === 3) return 5   // 5 bonus stars for 3-day streak
-  if (newStreakLength === 5) return 10  // 10 bonus stars for 5-day streak
-  if (newStreakLength === 7) return 20  // 20 bonus stars for 7-day streak
-  if (newStreakLength === 14) return 50 // 50 bonus stars for 14-day streak
-  if (newStreakLength === 30) return 100 // 100 bonus stars for 30-day streak
+  // Award bonus stars at milestones (old hardcoded logic - deprecated)
+  if (newStreakLength === 3) return 5
+  if (newStreakLength === 5) return 10
+  if (newStreakLength === 7) return 20
+  if (newStreakLength === 14) return 50
+  if (newStreakLength === 30) return 100
   
   return 0
 }

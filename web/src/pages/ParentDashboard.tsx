@@ -345,7 +345,32 @@ const ParentDashboard: React.FC = () => {
         apiClient.getPayouts() // All payouts
       ])
 
-      if (familyRes.status === 'fulfilled') setFamily(familyRes.value.family)
+      if (familyRes.status === 'fulfilled') {
+        setFamily(familyRes.value.family)
+        
+        // Load streak settings from family
+        if (familyRes.value.family) {
+          const family = familyRes.value.family
+          setStreakSettings({
+            protectionDays: family.streakProtectionDays ?? 1,
+            bonusEnabled: family.bonusEnabled ?? true,
+            bonusDays: family.bonusDays ?? 7,
+            bonusMoneyPence: family.bonusMoneyPence ?? 50,
+            bonusStars: family.bonusStars ?? 5,
+            bonusType: (family.bonusType || 'both') as 'money' | 'stars' | 'both',
+            penaltyEnabled: family.penaltyEnabled ?? true,
+            firstMissPence: family.firstMissPence ?? 10,
+            firstMissStars: family.firstMissStars ?? 1,
+            secondMissPence: family.secondMissPence ?? 25,
+            secondMissStars: family.secondMissStars ?? 3,
+            thirdMissPence: family.thirdMissPence ?? 50,
+            thirdMissStars: family.thirdMissStars ?? 5,
+            penaltyType: (family.penaltyType || 'both') as 'money' | 'stars' | 'both',
+            minBalancePence: family.minBalancePence ?? 100,
+            minBalanceStars: family.minBalanceStars ?? 10
+          })
+        }
+      }
       if (membersRes.status === 'fulfilled') {
         setMembers(membersRes.value.members || [])
         const childrenList = membersRes.value.children || []
@@ -2569,10 +2594,34 @@ const ParentDashboard: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // TODO: Save streak settings to backend
-                  setToast({ message: '🔥 Streak settings saved successfully!', type: 'success' })
-                  setShowStreakSettingsModal(false)
+                onClick={async () => {
+                  try {
+                    // Save streak settings to backend
+                    await apiClient.updateFamily({
+                      streakProtectionDays: streakSettings.protectionDays,
+                      bonusEnabled: streakSettings.bonusEnabled,
+                      bonusDays: streakSettings.bonusDays,
+                      bonusMoneyPence: streakSettings.bonusMoneyPence,
+                      bonusStars: streakSettings.bonusStars,
+                      bonusType: streakSettings.bonusType,
+                      penaltyEnabled: streakSettings.penaltyEnabled,
+                      firstMissPence: streakSettings.firstMissPence,
+                      firstMissStars: streakSettings.firstMissStars,
+                      secondMissPence: streakSettings.secondMissPence,
+                      secondMissStars: streakSettings.secondMissStars,
+                      thirdMissPence: streakSettings.thirdMissPence,
+                      thirdMissStars: streakSettings.thirdMissStars,
+                      penaltyType: streakSettings.penaltyType,
+                      minBalancePence: streakSettings.minBalancePence,
+                      minBalanceStars: streakSettings.minBalanceStars
+                    })
+                    setToast({ message: '🔥 Streak settings saved successfully!', type: 'success' })
+                    setShowStreakSettingsModal(false)
+                    await loadDashboard() // Reload to get updated settings
+                  } catch (error) {
+                    console.error('Failed to save streak settings:', error)
+                    setToast({ message: 'Failed to save streak settings. Please try again.', type: 'error' })
+                  }
                 }}
                 className="flex-1 cb-button-primary flex items-center justify-center gap-2"
               >

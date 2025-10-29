@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
-import { updateStreak, getChildStreakStats, calculateStreakBonusStars } from '../utils/streaks.js'
+import { updateStreak, getChildStreakStats, calculateStreakBonus } from '../utils/streaks.js'
 import { cache } from '../utils/cache.js'
 
 interface CompletionCreateBody {
@@ -82,8 +82,22 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
         proofUrl: proofUrl || null,
         note: note || null,
         bidAmountPence: bidAmountPence
+      },
+      include: {
+        assignment: {
+          include: { chore: true }
+        }
       }
     })
+
+    // Update streak immediately when child submits (not when parent approves)
+    // This ensures children don't lose streaks due to delayed parent approvals
+    await updateStreak(
+      familyId,
+      actualChildId,
+      assignment.chore.id,
+      completion.timestamp
+    )
 
     // Invalidate family cache so parent dashboard shows new pending completion immediately
     await cache.invalidateFamily(familyId)
@@ -205,47 +219,63 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
       }
     })
 
-    // Update streak for this chore
-    await updateStreak(
-      familyId,
-      completion.childId,
-      completion.assignment.choreId,
-      completion.timestamp
-    )
-
-    // Get updated streak stats
+    // Get streak stats (streak was already updated when child submitted)
+    // We recalculate here to check for milestone bonuses that should be awarded on approval
     const streakStats = await getChildStreakStats(familyId, completion.childId)
     
-    // Check if they hit a streak milestone and award bonus
-    const bonusStars = calculateStreakBonusStars(streakStats.currentStreak)
-    let bonusWallet = wallet
+    // Check if they hit a streak milestone and award bonus (using family settings)
+    const streakBonus = await calculateStreakBonus(
+      familyId, 
+      completion.childId, 
+      streakStats.currentStreak
+    )
     
-    if (bonusStars > 0) {
-      // Award bonus stars (convert to pence: 1 star = 10 pence)
-      const bonusPence = bonusStars * 10
+    let bonusWallet = wallet
+    let totalBonusPence = 0
+    let totalBonusStars = 0
+    
+    if (streakBonus.shouldAward) {
+      // Award bonus money and/or stars
+      const updateData: any = {}
       
-      bonusWallet = await prisma.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          balancePence: { increment: bonusPence }
-        }
-      })
+      if (streakBonus.bonusMoneyPence > 0) {
+        updateData.balancePence = { increment: streakBonus.bonusMoneyPence }
+        totalBonusPence = streakBonus.bonusMoneyPence
+      }
+      
+      if (streakBonus.bonusStars > 0) {
+        updateData.stars = { increment: streakBonus.bonusStars }
+        totalBonusStars = streakBonus.bonusStars
+      }
 
-      // Create bonus transaction
-      await prisma.transaction.create({
-        data: {
-          walletId: wallet.id,
-          familyId,
-          type: 'credit',
-          amountPence: bonusPence,
-          source: 'system',
-          metaJson: { 
-            type: 'streak_bonus',
-            streakLength: streakStats.currentStreak,
-            bonusStars
-          }
+      if (Object.keys(updateData).length > 0) {
+        bonusWallet = await prisma.wallet.update({
+          where: { id: wallet.id },
+          data: updateData
+        })
+      }
+
+      // Create bonus transaction(s) - record both money and stars separately
+      if (totalBonusPence > 0 || totalBonusStars > 0) {
+        // Record money bonus if any
+        if (totalBonusPence > 0) {
+          await prisma.transaction.create({
+            data: {
+              walletId: wallet.id,
+              familyId,
+              type: 'credit',
+              amountPence: totalBonusPence,
+              source: 'system',
+              metaJson: { 
+                type: 'streak_bonus',
+                streakLength: streakStats.currentStreak,
+                bonusMoneyPence: streakBonus.bonusMoneyPence,
+                bonusStars: streakBonus.bonusStars
+              }
+            }
+          })
         }
-      })
+      }
     }
 
     // Invalidate caches (wallet, leaderboard)
@@ -260,8 +290,9 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
         doubledReward: rewardAmount,
         message: '🏆 RIVALRY WINNER! DOUBLE STARS!'
       } : undefined,
-      streakBonus: bonusStars > 0 ? {
-        stars: bonusStars,
+      streakBonus: streakBonus.shouldAward ? {
+        moneyPence: streakBonus.bonusMoneyPence,
+        stars: streakBonus.bonusStars,
         streakLength: streakStats.currentStreak
       } : undefined
     }

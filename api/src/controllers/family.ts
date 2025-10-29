@@ -25,6 +25,24 @@ interface FamilyUpdateBody {
   region?: string
   maxBudgetPence?: number
   budgetPeriod?: 'weekly' | 'monthly'
+  showLifetimeEarnings?: boolean
+  // Streak Settings
+  streakProtectionDays?: number
+  bonusEnabled?: boolean
+  bonusDays?: number
+  bonusMoneyPence?: number
+  bonusStars?: number
+  bonusType?: 'money' | 'stars' | 'both'
+  penaltyEnabled?: boolean
+  firstMissPence?: number
+  firstMissStars?: number
+  secondMissPence?: number
+  secondMissStars?: number
+  thirdMissPence?: number
+  thirdMissStars?: number
+  penaltyType?: 'money' | 'stars' | 'both'
+  minBalancePence?: number
+  minBalanceStars?: number
 }
 
 export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, reply: FastifyReply) => {
@@ -266,7 +284,12 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
 export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, reply: FastifyReply) => {
   try {
     const { familyId: jwtFamilyId, sub: userId } = req.claims!
-    const { nameCipher, region, maxBudgetPence, budgetPeriod } = req.body
+    const { 
+      nameCipher, region, maxBudgetPence, budgetPeriod, showLifetimeEarnings,
+      streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
+      penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
+      minBalancePence, minBalanceStars
+    } = req.body
 
     // Try to get familyId from JWT or find it from user's membership
     let familyId = jwtFamilyId
@@ -334,6 +357,25 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     if (region !== undefined) updateData.region = region || null
     if (maxBudgetPence !== undefined) updateData.maxBudgetPence = maxBudgetPence
     if (budgetPeriod !== undefined) updateData.budgetPeriod = budgetPeriod
+    if (showLifetimeEarnings !== undefined) updateData.showLifetimeEarnings = showLifetimeEarnings
+    
+    // Streak settings
+    if (streakProtectionDays !== undefined) updateData.streakProtectionDays = streakProtectionDays
+    if (bonusEnabled !== undefined) updateData.bonusEnabled = bonusEnabled
+    if (bonusDays !== undefined) updateData.bonusDays = bonusDays
+    if (bonusMoneyPence !== undefined) updateData.bonusMoneyPence = bonusMoneyPence
+    if (bonusStars !== undefined) updateData.bonusStars = bonusStars
+    if (bonusType !== undefined) updateData.bonusType = bonusType
+    if (penaltyEnabled !== undefined) updateData.penaltyEnabled = penaltyEnabled
+    if (firstMissPence !== undefined) updateData.firstMissPence = firstMissPence
+    if (firstMissStars !== undefined) updateData.firstMissStars = firstMissStars
+    if (secondMissPence !== undefined) updateData.secondMissPence = secondMissPence
+    if (secondMissStars !== undefined) updateData.secondMissStars = secondMissStars
+    if (thirdMissPence !== undefined) updateData.thirdMissPence = thirdMissPence
+    if (thirdMissStars !== undefined) updateData.thirdMissStars = thirdMissStars
+    if (penaltyType !== undefined) updateData.penaltyType = penaltyType
+    if (minBalancePence !== undefined) updateData.minBalancePence = minBalancePence
+    if (minBalanceStars !== undefined) updateData.minBalanceStars = minBalanceStars
 
     const updatedFamily = await prisma.family.update({
       where: { id: familyId },
