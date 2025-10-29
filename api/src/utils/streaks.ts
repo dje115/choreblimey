@@ -152,7 +152,7 @@ export async function getChildStreakStats(familyId: string, childId: string): Pr
     }
   })
 
-  const individualStreaksFormatted = individualStreaks.map(streak => ({
+  const individualStreaksFormatted = individualStreaks.map((streak: any) => ({
     choreId: streak.choreId,
     chore: streak.chore ? {
       id: streak.chore.id,
