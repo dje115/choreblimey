@@ -314,18 +314,12 @@ const ParentDashboard: React.FC = () => {
   useEffect(() => {
     if (family) {
       setFamilyName(family.nameCipher || '')
-      if (family.maxBudgetPence) {
-        setBudgetSettings({
-          maxBudgetPence: family.maxBudgetPence,
-          budgetPeriod: family.budgetPeriod || 'weekly',
-          showLifetimeEarnings: family.showLifetimeEarnings !== false // Default to true
-        })
-      } else if (family.showLifetimeEarnings !== undefined) {
-        setBudgetSettings(prev => ({
-          ...prev,
-          showLifetimeEarnings: family.showLifetimeEarnings
-        }))
-      }
+      // Always update budget settings when family data changes
+      setBudgetSettings({
+        maxBudgetPence: family.maxBudgetPence || 0,
+        budgetPeriod: family.budgetPeriod || 'weekly',
+        showLifetimeEarnings: family.showLifetimeEarnings !== false // Default to true
+      })
     }
   }, [family])
 
@@ -351,6 +345,12 @@ const ParentDashboard: React.FC = () => {
         // Load streak settings from family
         if (familyRes.value.family) {
           const family = familyRes.value.family
+          console.log('Loaded family data:', { 
+            bonusDays: family.bonusDays, 
+            bonusEnabled: family.bonusEnabled,
+            streakProtectionDays: family.streakProtectionDays,
+            hasBonusDays: 'bonusDays' in family
+          })
           setStreakSettings({
             protectionDays: family.streakProtectionDays ?? 1,
             bonusEnabled: family.bonusEnabled ?? true,
@@ -1838,38 +1838,70 @@ const ParentDashboard: React.FC = () => {
                           min="0"
                           step="1"
                           value={(budgetSettings.maxBudgetPence / 100).toFixed(2)}
-                          onChange={(e) => setBudgetSettings(prev => ({ ...prev, maxBudgetPence: Math.round(parseFloat(e.target.value) * 100) }))}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0
+                            setBudgetSettings(prev => ({ ...prev, maxBudgetPence: Math.round(value * 100) }))
+                          }}
                           className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
                           placeholder="0.00"
                         />
                       </div>
                     </div>
                     
-                    {budget && budget.maxBudgetPence > 0 && (
-                      <>
+                    {budgetSettings.maxBudgetPence > 0 && (() => {
+                      // Calculate allocated budget using current budgetSettings.budgetPeriod (not database value)
+                      // This matches the "Estimated Monthly Earnings Per Child" calculation
+                      let totalWeeklyEarnings = 0
+                      uniqueChildren.forEach((child: any) => {
+                        const childAssignments = assignments.filter((a: any) => 
+                          a.childId === child.id && a.chore?.active
+                        )
+                        
+                        childAssignments.forEach((a: any) => {
+                          if (a.chore?.frequency === 'daily') {
+                            totalWeeklyEarnings += (a.chore.baseRewardPence || 0) * 7
+                          } else if (a.chore?.frequency === 'weekly') {
+                            totalWeeklyEarnings += (a.chore.baseRewardPence || 0)
+                          }
+                          // 'once' chores don't count towards regular budget
+                        })
+                      })
+
+                      // Convert to monthly if needed
+                      const calculatedAllocatedPence = budgetSettings.budgetPeriod === 'monthly' 
+                        ? totalWeeklyEarnings * 4 
+                        : totalWeeklyEarnings
+
+                      const calculatedRemainingPence = budgetSettings.maxBudgetPence - calculatedAllocatedPence
+                      const calculatedPercentUsed = budgetSettings.maxBudgetPence 
+                        ? Math.round((calculatedAllocatedPence / budgetSettings.maxBudgetPence) * 100) 
+                        : 0
+
+                      return (
+                        <>
                         <div className="p-3 bg-white rounded-[var(--radius-md)] border-2 border-[var(--card-border)]">
                           <div className="flex justify-between text-sm mb-2">
                             <span className="text-[var(--text-secondary)]">Currently Allocated:</span>
-                            <span className="font-bold text-[var(--text-primary)]">£{((budget.allocatedPence || 0) / 100).toFixed(2)}</span>
+                            <span className="font-bold text-[var(--text-primary)]">£{(calculatedAllocatedPence / 100).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-sm mb-2">
                             <span className="text-[var(--text-secondary)]">Remaining:</span>
-                            <span className={`font-bold ${budget.remainingPence < 0 ? 'text-red-600' : 'text-[var(--success)]'}`}>
-                              £{((budget.remainingPence || 0) / 100).toFixed(2)}
+                            <span className={`font-bold ${calculatedRemainingPence < 0 ? 'text-red-600' : 'text-[var(--success)]'}`}>
+                              £{(calculatedRemainingPence / 100).toFixed(2)}
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-3 mt-3">
                             <div 
                               className={`h-3 rounded-full transition-all ${
-                                budget.percentUsed > 90 ? 'bg-red-500' : 
-                                budget.percentUsed > 70 ? 'bg-orange-500' : 
+                                calculatedPercentUsed > 90 ? 'bg-red-500' : 
+                                calculatedPercentUsed > 70 ? 'bg-orange-500' : 
                                 'bg-[var(--success)]'
                               }`}
-                              style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
+                              style={{ width: `${Math.min(calculatedPercentUsed, 100)}%` }}
                             ></div>
                           </div>
                           <p className="text-xs text-[var(--text-secondary)] mt-2 text-center">
-                            {budget.percentUsed}% of budget allocated
+                            {calculatedPercentUsed}% of budget allocated
                           </p>
                         </div>
 
@@ -1919,7 +1951,8 @@ const ParentDashboard: React.FC = () => {
                           </div>
                         )}
                       </>
-                    )}
+                      )
+                    })()}
                     
                     {/* Lifetime Earnings Toggle */}
                     <div className="border-t-2 border-[var(--card-border)] pt-4 mt-4">
@@ -2038,12 +2071,22 @@ const ParentDashboard: React.FC = () => {
                 onClick={async () => {
                   try {
                     // Save budget settings
-                    await apiClient.updateFamily({
+                    const response = await apiClient.updateFamily({
                       maxBudgetPence: budgetSettings.maxBudgetPence,
                       budgetPeriod: budgetSettings.budgetPeriod,
                       showLifetimeEarnings: budgetSettings.showLifetimeEarnings
                     })
                     // TODO: Save rivalry settings when backend is ready
+                    
+                    // Update budget settings immediately from response
+                    if (response?.family) {
+                      setBudgetSettings({
+                        maxBudgetPence: response.family.maxBudgetPence || 0,
+                        budgetPeriod: response.family.budgetPeriod || 'weekly',
+                        showLifetimeEarnings: response.family.showLifetimeEarnings !== false
+                      })
+                    }
+                    
                     setToast({ message: '✅ Settings saved successfully!', type: 'success' })
                     await loadDashboard() // Reload to get updated budget
                   } catch (error) {
@@ -2254,7 +2297,14 @@ const ParentDashboard: React.FC = () => {
                         min="3"
                         max="30"
                         value={streakSettings.bonusDays}
-                        onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusDays: parseInt(e.target.value) }))}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value)
+                          if (isNaN(value)) {
+                            console.error('Invalid bonusDays value:', e.target.value)
+                            return
+                          }
+                          setStreakSettings(prev => ({ ...prev, bonusDays: value }))
+                        }}
                         className="w-full h-3 bg-green-200 rounded-lg appearance-none cursor-pointer accent-green-500"
                       />
                       <div className="flex justify-between text-xs text-green-600 mt-1">
@@ -2596,8 +2646,8 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
-                    // Save streak settings to backend
-                    await apiClient.updateFamily({
+                    // Validate all values before sending
+                    const settingsToSave = {
                       streakProtectionDays: streakSettings.protectionDays,
                       bonusEnabled: streakSettings.bonusEnabled,
                       bonusDays: streakSettings.bonusDays,
@@ -2614,13 +2664,74 @@ const ParentDashboard: React.FC = () => {
                       penaltyType: streakSettings.penaltyType,
                       minBalancePence: streakSettings.minBalancePence,
                       minBalanceStars: streakSettings.minBalanceStars
-                    })
+                    }
+                    console.log('Saving streak settings:', settingsToSave)
+                    
+                    // Save streak settings to backend
+                    const response = await apiClient.updateFamily(settingsToSave)
+                    console.log('Update response:', response)
+                    
+                    // Use the response data directly if available, otherwise reload
+                    if (response?.family) {
+                      console.log('Using response data:', {
+                        bonusDays: response.family.bonusDays,
+                        bonusEnabled: response.family.bonusEnabled
+                      })
+                      const family = response.family
+                      setStreakSettings({
+                        protectionDays: family.streakProtectionDays ?? 1,
+                        bonusEnabled: family.bonusEnabled ?? true,
+                        bonusDays: family.bonusDays ?? 7,
+                        bonusMoneyPence: family.bonusMoneyPence ?? 50,
+                        bonusStars: family.bonusStars ?? 5,
+                        bonusType: (family.bonusType || 'both') as 'money' | 'stars' | 'both',
+                        penaltyEnabled: family.penaltyEnabled ?? true,
+                        firstMissPence: family.firstMissPence ?? 10,
+                        firstMissStars: family.firstMissStars ?? 1,
+                        secondMissPence: family.secondMissPence ?? 25,
+                        secondMissStars: family.secondMissStars ?? 3,
+                        thirdMissPence: family.thirdMissPence ?? 50,
+                        thirdMissStars: family.thirdMissStars ?? 5,
+                        penaltyType: (family.penaltyType || 'both') as 'money' | 'stars' | 'both',
+                        minBalancePence: family.minBalancePence ?? 100,
+                        minBalanceStars: family.minBalanceStars ?? 10
+                      })
+                      setFamily(family)
+                    } else {
+                      // Fallback: reload dashboard
+                      await loadDashboard()
+                    }
+                    
                     setToast({ message: '🔥 Streak settings saved successfully!', type: 'success' })
                     setShowStreakSettingsModal(false)
-                    await loadDashboard() // Reload to get updated settings
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Failed to save streak settings:', error)
-                    setToast({ message: 'Failed to save streak settings. Please try again.', type: 'error' })
+                    
+                    // Handle different error types
+                    let errorMessage = 'Failed to save streak settings. Please try again.'
+                    
+                    if (error?.response?.data?.error) {
+                      // API error with error message
+                      errorMessage = error.response.data.error
+                    } else if (error?.response?.data) {
+                      // API error but no error field, stringify the data
+                      errorMessage = typeof error.response.data === 'string' 
+                        ? error.response.data 
+                        : JSON.stringify(error.response.data)
+                    } else if (error?.message) {
+                      // Standard error message
+                      errorMessage = error.message
+                    }
+                    
+                    console.error('Error details:', {
+                      message: error?.message,
+                      response: error?.response,
+                      responseData: error?.response?.data,
+                      status: error?.response?.status,
+                      errorMessage
+                    })
+                    
+                    setToast({ message: errorMessage, type: 'error' })
                   }
                 }}
                 className="flex-1 cb-button-primary flex items-center justify-center gap-2"

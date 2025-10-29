@@ -544,21 +544,30 @@ export const getBudget = async (req: FastifyRequest, reply: FastifyReply) => {
       return reply.status(404).send({ error: 'Family not found' })
     }
 
-    // Calculate allocated budget from active chores
-    const activeChores = await prisma.chore.findMany({
+    // Calculate allocated budget from assignments (not just all active chores)
+    // This matches the frontend calculation in "Estimated Weekly Earnings Per Child"
+    const assignments = await prisma.assignment.findMany({
       where: {
         familyId,
-        active: true
+        childId: { not: null } // Only count assigned chores
       },
-      select: {
-        baseRewardPence: true,
-        frequency: true
+      include: {
+        chore: {
+          select: {
+            baseRewardPence: true,
+            frequency: true,
+            active: true
+          }
+        }
       }
     })
 
-    // Calculate weekly cost
+    // Calculate weekly cost based on assigned chores only
     let allocatedPence = 0
-    for (const chore of activeChores) {
+    for (const assignment of assignments) {
+      const chore = assignment.chore
+      if (!chore || !chore.active) continue // Only count active chores
+      
       if (chore.frequency === 'daily') {
         allocatedPence += chore.baseRewardPence * 7 // 7 days per week
       } else if (chore.frequency === 'weekly') {
