@@ -97,13 +97,22 @@ export async function updateStreak(
 }
 
 /**
- * Get overall streak stats for a child across all chores
+ * Get overall streak stats for a child across all chores, plus individual streaks per chore
  */
 export async function getChildStreakStats(familyId: string, childId: string): Promise<{
   currentStreak: number
   bestStreak: number
   totalCompletedDays: number
   streakBonus: number
+  individualStreaks?: Array<{
+    choreId: string
+    chore?: {
+      id: string
+      title: string
+    }
+    current: number
+    best: number
+  }>
 }> {
   // Get ALL completions (pending + approved) - streaks are based on submission, not approval
   // This ensures children don't lose streaks due to delayed parent approvals
@@ -124,43 +133,136 @@ export async function getChildStreakStats(familyId: string, childId: string): Pr
     }
   })
 
+  // Get individual streaks per chore from the database
+  const individualStreaks = await prisma.streak.findMany({
+    where: {
+      familyId,
+      childId
+    },
+    include: {
+      chore: {
+        select: {
+          id: true,
+          title: true
+        }
+      }
+    },
+    orderBy: {
+      current: 'desc'
+    }
+  })
+
+  const individualStreaksFormatted = individualStreaks.map(streak => ({
+    choreId: streak.choreId,
+    chore: streak.chore ? {
+      id: streak.chore.id,
+      title: streak.chore.title
+    } : undefined,
+    current: streak.current,
+    best: streak.best
+  }))
+
   if (completions.length === 0) {
     return {
       currentStreak: 0,
       bestStreak: 0,
       totalCompletedDays: 0,
-      streakBonus: 0
+      streakBonus: 0,
+      individualStreaks: individualStreaksFormatted
     }
   }
 
-  // Get unique days with completions
+  // Get unique days with completions (using UTC to match database timestamps)
   const uniqueDays = new Set<string>()
   for (const completion of completions) {
-    const dateKey = new Date(completion.timestamp).toISOString().split('T')[0]
+    // Convert timestamp to UTC date string (YYYY-MM-DD)
+    const date = new Date(completion.timestamp)
+    const dateKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
     uniqueDays.add(dateKey)
   }
 
   const sortedDays = Array.from(uniqueDays).sort().reverse()
   
-  // Calculate current streak
-  let currentStreak = 0
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // Use UTC for "today" to match the dateKey format above (define before using in debug logs)
+  const now = new Date()
+  const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`
   
-  for (let i = 0; i < sortedDays.length; i++) {
-    const checkDate = new Date(sortedDays[i])
-    checkDate.setHours(0, 0, 0, 0)
+  // Get family settings for streak protection
+  const family = await prisma.family.findUnique({
+    where: { id: familyId },
+    select: {
+      streakProtectionDays: true
+    }
+  })
+  const protectionDays = family?.streakProtectionDays || 0
+  
+  // Calculate current streak based on ACTUAL consecutive completion days
+  // Protection days only determine if streak is "alive" (not broken) - they don't add to the count
+  let currentStreak = 0
+  
+  // Debug logging
+  process.stderr.write(`\n[STREAK CALC] Child: ${childId}\n`)
+  process.stderr.write(`[STREAK CALC] Total completions: ${completions.length}\n`)
+  process.stderr.write(`[STREAK CALC] Unique days: ${sortedDays.join(', ')}\n`)
+  process.stderr.write(`[STREAK CALC] Today UTC: ${todayUTC}\n`)
+  process.stderr.write(`[STREAK CALC] Protection days: ${protectionDays}\n`)
+  
+  if (sortedDays.length === 0) {
+    currentStreak = 0
+  } else {
+    // Start from the most recent completion day
+    let lastStreakDay = -1
     
-    const expectedDate = new Date(today)
-    expectedDate.setDate(expectedDate.getDate() - i)
-    expectedDate.setHours(0, 0, 0, 0)
-    
-    if (checkDate.getTime() === expectedDate.getTime()) {
-      currentStreak++
-    } else {
-      break
+    for (let i = 0; i < sortedDays.length; i++) {
+      if (i === 0) {
+        // First date - this is the most recent completion day
+        // Check if streak is still "alive" (today or within protection days)
+        // Protection determines if streak is alive, but doesn't add to the count
+        // Calculate days between completion date and today (both in UTC)
+        const completionDateStr = sortedDays[i] // Already in YYYY-MM-DD format
+        const completionDateObj = new Date(completionDateStr + 'T00:00:00Z')
+        const todayDateObj = new Date(todayUTC + 'T00:00:00Z')
+        const daysSinceCompletion = Math.floor((todayDateObj.getTime() - completionDateObj.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // Always count the most recent completion day (whether it's today or within protection)
+        // This ensures if someone completes tasks today, today counts immediately
+        if (daysSinceCompletion <= protectionDays) {
+          // Streak is still alive - start counting consecutive days
+          // If today has completions (daysSinceCompletion === 0), today counts
+          // If yesterday has completions (daysSinceCompletion === 1) and within protection, streak is alive but yesterday counts
+          currentStreak = 1
+          lastStreakDay = i
+          process.stderr.write(`[STREAK CALC] Started streak - day ${completionDateStr}, daysSince: ${daysSinceCompletion}\n`)
+        } else {
+          // Too old, streak is broken
+          process.stderr.write(`[STREAK CALC] Streak broken - day ${completionDateStr} too old (${daysSinceCompletion} days ago)\n`)
+          break
+        }
+      } else {
+        // Check if this date continues the streak (must be consecutive)
+        // Use string-based comparison since sortedDays contains YYYY-MM-DD strings
+        const lastDateStr = sortedDays[lastStreakDay]
+        const lastDate = new Date(lastDateStr + 'T00:00:00Z')
+        lastDate.setUTCDate(lastDate.getUTCDate() - 1)
+        const expectedPrevDateStr = `${lastDate.getUTCFullYear()}-${String(lastDate.getUTCMonth() + 1).padStart(2, '0')}-${String(lastDate.getUTCDate()).padStart(2, '0')}`
+        const completionDateStr = sortedDays[i]
+        
+        if (completionDateStr === expectedPrevDateStr) {
+          // Consecutive day - perfect, count it
+          currentStreak++
+          lastStreakDay = i
+          process.stderr.write(`[STREAK CALC] Continued streak - day ${completionDateStr}, streak now: ${currentStreak}\n`)
+        } else {
+          // Gap exists - not consecutive, so streak ends here
+          // Protection days don't fill gaps in the count - they only prevent the streak from breaking
+          process.stderr.write(`[STREAK CALC] Streak broken - day ${completionDateStr} not consecutive to ${lastDateStr} (expected ${expectedPrevDateStr})\n`)
+          break
+        }
+      }
     }
   }
+  
+  process.stderr.write(`[STREAK CALC] Final current streak: ${currentStreak}\n\n`)
 
   // Calculate best streak
   let bestStreak = 0
@@ -193,7 +295,8 @@ export async function getChildStreakStats(familyId: string, childId: string): Pr
     currentStreak,
     bestStreak,
     totalCompletedDays: uniqueDays.size,
-    streakBonus
+    streakBonus,
+    individualStreaks: individualStreaksFormatted
   }
 }
 

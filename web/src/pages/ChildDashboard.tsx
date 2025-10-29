@@ -118,6 +118,7 @@ const ChildDashboard: React.FC = () => {
   const [choreChampions, setChoreChampions] = useState<Map<string, any>>(new Map())
   const [choreBids, setChoreBids] = useState<Map<string, any[]>>(new Map())
   const [choreStreaks, setChoreStreaks] = useState<Map<string, any>>(new Map())
+  const [allChoreStreaks, setAllChoreStreaks] = useState<Map<string, any>>(new Map()) // Streaks for all chores (not just challenge)
 
   // Theme management
   const [currentTheme, setCurrentTheme] = useState<ChildTheme>(getTheme('superhero'))
@@ -348,7 +349,23 @@ const ChildDashboard: React.FC = () => {
         setLeaderboard(transformedLeaderboard)
       }
       if (streaksRes.status === 'fulfilled') {
+        console.log('🔥 STREAK STATS RECEIVED:', streaksRes.value.stats)
+        console.log('🔥 Current Streak:', streaksRes.value.stats?.currentStreak)
         setStreakStats(streaksRes.value.stats)
+        
+        // Build map of streaks by choreId for all chores (to show flames on missions)
+        if (streaksRes.value.stats?.individualStreaks) {
+          const streaksByChore = new Map<string, any>()
+          streaksRes.value.stats.individualStreaks.forEach((streak: any) => {
+            if (streak.chore?.id && streak.current > 0) {
+              streaksByChore.set(streak.chore.id, streak)
+            }
+          })
+          setAllChoreStreaks(streaksByChore)
+        } else {
+          // Fallback: try to get streaks from the streakStats object if structured differently
+          setAllChoreStreaks(new Map())
+        }
       }
       if (transactionsRes.status === 'fulfilled') {
         setTransactions(transactionsRes.value.transactions || [])
@@ -705,8 +722,21 @@ const ChildDashboard: React.FC = () => {
                             🧹
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-lg text-white mb-1">
-                              {chore.title}
+                            <h3 className="font-bold text-lg text-white mb-1 flex items-center gap-2">
+                              {(() => {
+                                const choreStreak = allChoreStreaks.get(chore.id)
+                                if (choreStreak && choreStreak.current > 0) {
+                                  return (
+                                    <>
+                                      <span className="text-orange-400" title={`${choreStreak.current} day streak!`}>
+                                        🔥 {choreStreak.current}
+                                      </span>
+                                      {chore.title}
+                                    </>
+                                  )
+                                }
+                                return chore.title
+                              })()}
                             </h3>
                             <p className="text-sm text-gray-300 line-clamp-2">
                               {chore.description || 'Complete this task to earn stars!'}
@@ -815,7 +845,7 @@ const ChildDashboard: React.FC = () => {
               <div className="mt-8">
                 <h3 className="cb-heading-md text-[var(--text-secondary)] mb-4">📋 Recent Activity</h3>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {completions.slice(0, 6).map((completion) => {
+                  {completions.slice(0, 7).map((completion) => {
                     const assignment = assignments.find(a => a.id === completion.assignmentId)
                     const chore = assignment?.chore
                     
@@ -859,11 +889,40 @@ const ChildDashboard: React.FC = () => {
                     }
 
                     const badge = getStatusBadge(completion.status)
-                    const timeAgo = new Date(completion.timestamp).toLocaleString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    })
+                    const completionDate = new Date(completion.timestamp)
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const yesterday = new Date(today)
+                    yesterday.setDate(yesterday.getDate() - 1)
+                    const completionDay = new Date(completionDate)
+                    completionDay.setHours(0, 0, 0, 0)
+                    
+                    let timeDisplay = ''
+                    if (completionDay.getTime() === today.getTime()) {
+                      // Today - just show time
+                      timeDisplay = `Today ${completionDate.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}`
+                    } else if (completionDay.getTime() === yesterday.getTime()) {
+                      // Yesterday
+                      timeDisplay = `Yesterday ${completionDate.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}`
+                    } else {
+                      // Older - show date and time
+                      timeDisplay = completionDate.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: completionDay.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })
+                    }
 
                     return (
                       <div
@@ -878,7 +937,7 @@ const ChildDashboard: React.FC = () => {
                             <h4 className="font-bold text-sm text-white truncate">
                               {chore.title}
                             </h4>
-                            <p className="text-xs text-gray-400">{timeAgo}</p>
+                            <p className="text-xs text-gray-400">{timeDisplay}</p>
                           </div>
                         </div>
 
@@ -907,92 +966,249 @@ const ChildDashboard: React.FC = () => {
         {activeTab === 'streaks' && (
           <div className="space-y-6">
             <h2 className="cb-heading-lg text-[var(--primary)]">🔥 Your Streaks</h2>
+            
+            {/* Main Stats Cards */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="cb-card bg-gradient-to-br from-orange-400 to-red-500 text-white p-6">
+              <div className="cb-card bg-gradient-to-br from-orange-400 to-red-500 text-white p-6 shadow-lg">
                 <div className="text-6xl mb-4">🔥</div>
                 <h3 className="text-3xl font-bold mb-2">{streakStats?.currentStreak || 0} Days</h3>
                 <p className="text-white/90">Current Streak</p>
+                {streakStats?.currentStreak > 0 && (
+                  <div className="mt-3 text-xs bg-white/20 rounded-lg px-2 py-1 inline-block">
+                    Keep it going! 💪
+                  </div>
+                )}
               </div>
-              <div className="cb-card bg-gradient-to-br from-purple-400 to-pink-500 text-white p-6">
+              
+              <div className="cb-card bg-gradient-to-br from-purple-400 to-pink-500 text-white p-6 shadow-lg">
                 <div className="text-6xl mb-4">🏆</div>
                 <h3 className="text-3xl font-bold mb-2">{streakStats?.bestStreak || 0} Days</h3>
-                <p className="text-white/90">Best Streak</p>
+                <p className="text-white/90">Best Streak Ever</p>
+                {streakStats?.currentStreak === streakStats?.bestStreak && streakStats?.currentStreak > 0 && (
+                  <div className="mt-3 text-xs bg-white/20 rounded-lg px-2 py-1 inline-block">
+                    Personal Best! 🎯
+                  </div>
+                )}
               </div>
-              <div className="cb-card bg-gradient-to-br from-green-400 to-teal-500 text-white p-6">
-                <div className="text-6xl mb-4">⭐</div>
-                <h3 className="text-3xl font-bold mb-2">+{streakStats?.streakBonus || 0}%</h3>
-                <p className="text-white/90">Streak Bonus</p>
+              
+              <div className="cb-card bg-gradient-to-br from-green-400 to-teal-500 text-white p-6 shadow-lg">
+                <div className="text-6xl mb-4">📅</div>
+                <h3 className="text-3xl font-bold mb-2">{streakStats?.totalCompletedDays || 0}</h3>
+                <p className="text-white/90">Total Days Completed</p>
+                {streakStats?.totalCompletedDays > 0 && (
+                  <div className="mt-3 text-xs bg-white/20 rounded-lg px-2 py-1 inline-block">
+                    That's {Math.floor((streakStats.totalCompletedDays / 7))} weeks! 📆
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Streak Milestones */}
-            <div className="cb-card p-6">
-              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎯 Streak Milestones</h3>
-              <div className="space-y-3">
-                {[
-                  { days: 3, stars: 5, bonus: '10%' },
-                  { days: 5, stars: 10, bonus: '15%' },
-                  { days: 7, stars: 20, bonus: '20%' },
-                  { days: 14, stars: 50, bonus: '20%' },
-                  { days: 30, stars: 100, bonus: '20%' }
-                ].map((milestone) => {
-                  const achieved = (streakStats?.currentStreak || 0) >= milestone.days
-                  const wasBest = (streakStats?.bestStreak || 0) >= milestone.days
+            {/* Individual Chore Streaks */}
+            {streakStats?.individualStreaks && streakStats.individualStreaks.length > 0 && (
+              <div className="cb-card p-6">
+                <h3 className="cb-heading-md text-[var(--primary)] mb-4">🔥 Your Chore Streaks</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {streakStats.individualStreaks
+                    .filter((s: any) => s.current > 0)
+                    .sort((a: any, b: any) => b.current - a.current)
+                    .map((streak: any) => (
+                      <div
+                        key={streak.choreId}
+                        className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-4"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                            <span className="text-orange-500">🔥</span>
+                            {streak.chore?.title || 'Unknown Chore'}
+                          </h4>
+                          <span className="text-2xl font-bold text-orange-600">{streak.current}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
+                          <span>🔥 {streak.current} days</span>
+                          <span>🏆 Best: {streak.best}</span>
+                        </div>
+                        {streak.current >= streak.best && streak.current > 0 && (
+                          <div className="mt-2 text-xs font-bold text-orange-600 bg-orange-100 rounded px-2 py-1 inline-block">
+                            🎯 Matching your best!
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+                {streakStats.individualStreaks.filter((s: any) => s.current === 0).length > 0 && (
+                  <div className="mt-4 text-sm text-[var(--text-secondary)] text-center">
+                    Start streaks on {streakStats.individualStreaks.filter((s: any) => s.current === 0).length} other chores to earn more bonuses! 💪
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Next Bonus Milestone */}
+            {familySettings && (
+              <div className="cb-card p-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300">
+                <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎁 Your Next Bonus</h3>
+                {(() => {
+                  const currentStreak = streakStats?.currentStreak || 0
+                  const bonusDays = familySettings.bonusDays || 7
+                  const bonusEnabled = familySettings.bonusEnabled !== false
+                  const bonusType = familySettings.bonusType || 'both'
+                  const bonusMoneyPence = familySettings.bonusMoneyPence || 0
+                  const bonusStars = familySettings.bonusStars || 0
+                  
+                  // Calculate next bonus milestone
+                  const nextMilestone = Math.ceil((currentStreak + 1) / bonusDays) * bonusDays
+                  const daysUntilNext = nextMilestone - currentStreak
+                  
+                  if (!bonusEnabled) {
+                    return (
+                      <div className="text-center py-4">
+                        <p className="text-[var(--text-secondary)]">Bonuses are currently disabled</p>
+                      </div>
+                    )
+                  }
                   
                   return (
-                    <div
-                      key={milestone.days}
-                      className={`flex items-center gap-4 p-4 rounded-[var(--radius-lg)] border-2 transition-all ${
-                        achieved
-                          ? 'bg-[var(--success)]/10 border-[var(--success)] shadow-lg'
-                          : wasBest
-                          ? 'bg-gray-100 border-gray-300'
-                          : 'bg-white border-[var(--card-border)]'
-                      }`}
-                    >
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                        achieved ? 'bg-[var(--success)] text-white' : wasBest ? 'bg-gray-300' : 'bg-[var(--card-border)]'
-                      }`}>
-                        {achieved ? '✅' : wasBest ? '🏅' : '🔒'}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-[var(--text-primary)]">
-                          {milestone.days} Day Streak
-                        </h4>
-                        <p className="text-sm text-[var(--text-secondary)]">
-                          Earn {milestone.stars} bonus stars + {milestone.bonus} boost
-                        </p>
-                      </div>
-                      {achieved && (
-                        <div className="text-2xl font-bold text-[var(--success)]">
-                          🎉
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-orange-600 mb-2">
+                          {daysUntilNext} {daysUntilNext === 1 ? 'day' : 'days'} to go!
                         </div>
-                      )}
+                        <div className="text-sm text-[var(--text-secondary)] mb-4">
+                          Complete chores for {daysUntilNext} more {daysUntilNext === 1 ? 'day' : 'days'} to reach {nextMilestone} days
+                        </div>
+                        
+                        {/* Progress bar */}
+                        <div className="w-full bg-gray-200 rounded-full h-6 mb-4 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-orange-400 to-red-500 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                            style={{ width: `${Math.min(100, (currentStreak / nextMilestone) * 100)}%` }}
+                          >
+                            {currentStreak > 0 && `${currentStreak}/${nextMilestone}`}
+                          </div>
+                        </div>
+                        
+                        {/* Bonus reward preview */}
+                        <div className="bg-white rounded-xl p-4 border-2 border-yellow-300">
+                          <div className="font-bold text-lg text-[var(--text-primary)] mb-2">
+                            You'll earn:
+                          </div>
+                          <div className="flex items-center justify-center gap-6">
+                            {(bonusType === 'money' || bonusType === 'both') && bonusMoneyPence > 0 && (
+                              <div className="text-center">
+                                <div className="text-3xl font-bold text-green-600">💰</div>
+                                <div className="text-xl font-bold text-green-600">£{(bonusMoneyPence / 100).toFixed(2)}</div>
+                              </div>
+                            )}
+                            {(bonusType === 'stars' || bonusType === 'both') && bonusStars > 0 && (
+                              <div className="text-center">
+                                <div className="text-3xl font-bold text-yellow-600">⭐</div>
+                                <div className="text-xl font-bold text-yellow-600">{bonusStars} Stars</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Bonus schedule */}
+                        <div className="mt-4 text-xs text-[var(--text-secondary)] text-center">
+                          💡 Bonuses are awarded every {bonusDays} days ({bonusDays}, {bonusDays * 2}, {bonusDays * 3}...)
+                        </div>
+                      </div>
                     </div>
                   )
-                })}
+                })()}
               </div>
-            </div>
+            )}
 
-            {/* Tips */}
+            {/* Streak Protection Info */}
+            {familySettings && familySettings.streakProtectionDays > 0 && (
+              <div className="cb-card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300">
+                <h3 className="cb-heading-md text-blue-600 mb-3 flex items-center gap-2">
+                  🛡️ Streak Protection
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)] mb-3">
+                  You have <span className="font-bold text-blue-600">{familySettings.streakProtectionDays}</span> protection {familySettings.streakProtectionDays === 1 ? 'day' : 'days'}!
+                </p>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  If you miss a day, your streak won't break for {familySettings.streakProtectionDays} {familySettings.streakProtectionDays === 1 ? 'day' : 'days'}. 
+                  This gives you a safety net! 🎯
+                </p>
+              </div>
+            )}
+
+            {/* Penalty Information (if enabled) */}
+            {familySettings && familySettings.penaltyEnabled && (
+              <div className="cb-card p-6 bg-gradient-to-br from-red-50 to-pink-50 border-2 border-red-300">
+                <h3 className="cb-heading-md text-red-600 mb-3 flex items-center gap-2">
+                  ⚠️ Penalty Info
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)] mb-3">
+                  Missing chores after your protection period will result in penalties:
+                </p>
+                <div className="space-y-2 text-sm">
+                  {familySettings.firstMissPence > 0 && (
+                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                      <span>1st miss:</span>
+                      <span className="font-bold text-red-600">
+                        -£{(familySettings.firstMissPence / 100).toFixed(2)}
+                        {familySettings.firstMissStars > 0 && ` / -${familySettings.firstMissStars}⭐`}
+                      </span>
+                    </div>
+                  )}
+                  {familySettings.secondMissPence > 0 && (
+                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                      <span>2nd miss:</span>
+                      <span className="font-bold text-red-600">
+                        -£{(familySettings.secondMissPence / 100).toFixed(2)}
+                        {familySettings.secondMissStars > 0 && ` / -${familySettings.secondMissStars}⭐`}
+                      </span>
+                    </div>
+                  )}
+                  {familySettings.thirdMissPence > 0 && (
+                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                      <span>3rd+ miss:</span>
+                      <span className="font-bold text-red-600">
+                        -£{(familySettings.thirdMissPence / 100).toFixed(2)}
+                        {familySettings.thirdMissStars > 0 && ` / -${familySettings.thirdMissStars}⭐`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {(familySettings.minBalancePence > 0 || familySettings.minBalanceStars > 0) && (
+                  <div className="mt-3 text-xs text-[var(--text-secondary)] bg-white rounded-lg px-3 py-2">
+                    🛡️ Protection: You'll always keep at least £{(familySettings.minBalancePence / 100).toFixed(2)}
+                    {familySettings.minBalanceStars > 0 && ` and ${familySettings.minBalanceStars} stars`}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Streak Tips */}
             <div className="cb-card bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 p-6">
               <h3 className="cb-heading-md text-blue-600 mb-3">💡 Streak Tips</h3>
               <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-600">•</span>
-                  <span>Complete at least one chore every day to maintain your streak</span>
+                  <span className="text-blue-600 font-bold">•</span>
+                  <span>Complete at least one chore every day to maintain your streak 🔥</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-600">•</span>
-                  <span>Streak bonuses apply to all your chore rewards</span>
+                  <span className="text-blue-600 font-bold">•</span>
+                  <span>Your streak counts when you submit a chore (even before parent approval!) ✅</span>
                 </li>
+                {familySettings?.streakProtectionDays > 0 && (
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">•</span>
+                    <span>You have {familySettings.streakProtectionDays} protection {familySettings.streakProtectionDays === 1 ? 'day' : 'days'} - use them wisely! 🛡️</span>
+                  </li>
+                )}
+                {familySettings?.bonusEnabled && (
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">•</span>
+                    <span>Earn bonuses every {familySettings.bonusDays || 7} days - keep going! 🎁</span>
+                  </li>
+                )}
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-600">•</span>
-                  <span>Missing a day will reset your current streak, but your best streak is saved</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-600">•</span>
-                  <span>Milestone bonuses are awarded when approved by parents</span>
+                  <span className="text-blue-600 font-bold">•</span>
+                  <span>Your best streak is saved forever - try to beat it! 🏆</span>
                 </li>
               </ul>
             </div>
@@ -1782,3 +1998,4 @@ const ChildDashboard: React.FC = () => {
 }
 
 export default ChildDashboard
+
