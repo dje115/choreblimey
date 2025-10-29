@@ -599,14 +599,61 @@ const ChildDashboard: React.FC = () => {
               <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
                 {assignments.filter(a => {
                   const hasCompletion = completions.some(c => c.assignmentId === a.id)
-                  return a.chore?.active && !hasCompletion
+                  if (!a.chore?.active || hasCompletion) return false
+                  
+                  // For daily chores, only show assignments created today
+                  if (a.chore.frequency === 'daily') {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const assignmentDate = new Date(a.createdAt)
+                    assignmentDate.setHours(0, 0, 0, 0)
+                    return assignmentDate.getTime() === today.getTime()
+                  }
+                  
+                  // For weekly chores, show assignments from this week
+                  if (a.chore.frequency === 'weekly') {
+                    const today = new Date()
+                    const day = today.getDay()
+                    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
+                    const startOfWeek = new Date(today)
+                    startOfWeek.setDate(diff)
+                    startOfWeek.setHours(0, 0, 0, 0)
+                    const assignmentDate = new Date(a.createdAt)
+                    return assignmentDate >= startOfWeek
+                  }
+                  
+                  // For 'once' chores, show all
+                  return true
                 }).length} active
               </span>
             </div>
 
             {assignments.filter(a => {
               const hasCompletion = completions.some(c => c.assignmentId === a.id)
-              return a.chore?.active && !hasCompletion
+              if (!a.chore?.active || hasCompletion) return false
+              
+              // For daily chores, only show assignments created today
+              if (a.chore.frequency === 'daily') {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                const assignmentDate = new Date(a.createdAt)
+                assignmentDate.setHours(0, 0, 0, 0)
+                return assignmentDate.getTime() === today.getTime()
+              }
+              
+              // For weekly chores, show assignments from this week
+              if (a.chore.frequency === 'weekly') {
+                const today = new Date()
+                const day = today.getDay()
+                const diff = today.getDate() - day + (day === 0 ? -6 : 1)
+                const startOfWeek = new Date(today.setDate(diff))
+                startOfWeek.setHours(0, 0, 0, 0)
+                const assignmentDate = new Date(a.createdAt)
+                return assignmentDate >= startOfWeek
+              }
+              
+              // For 'once' chores, show all
+              return true
             }).length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-8xl mb-4">🎉</div>
@@ -617,7 +664,31 @@ const ChildDashboard: React.FC = () => {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {assignments.filter(a => {
                   const hasCompletion = completions.some(c => c.assignmentId === a.id)
-                  return a.chore?.active && !hasCompletion
+                  if (!a.chore?.active || hasCompletion) return false
+                  
+                  // For daily chores, only show assignments created today
+                  if (a.chore.frequency === 'daily') {
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const assignmentDate = new Date(a.createdAt)
+                    assignmentDate.setHours(0, 0, 0, 0)
+                    return assignmentDate.getTime() === today.getTime()
+                  }
+                  
+                  // For weekly chores, show assignments from this week
+                  if (a.chore.frequency === 'weekly') {
+                    const today = new Date()
+                    const day = today.getDay()
+                    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
+                    const startOfWeek = new Date(today)
+                    startOfWeek.setDate(diff)
+                    startOfWeek.setHours(0, 0, 0, 0)
+                    const assignmentDate = new Date(a.createdAt)
+                    return assignmentDate >= startOfWeek
+                  }
+                  
+                  // For 'once' chores, show all
+                  return true
                 }).map((assignment) => {
                   const chore = assignment.chore
                   return (

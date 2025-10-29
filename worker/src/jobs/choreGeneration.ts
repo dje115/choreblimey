@@ -197,11 +197,12 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
 
   for (const chore of dailyChores) {
     try {
-      // Check if there's an UNCOMPLETED chore for today
+      // Check if there's an UNCOMPLETED chore assignment for today
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       
-      const existingAssignment = await prisma.assignment.findFirst({
+      // First check for today's assignment
+      const todayAssignment = await prisma.assignment.findFirst({
         where: {
           choreId: chore.id,
           familyId: family.id,
@@ -215,19 +216,19 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
         }
       })
 
-      // If assignment exists and is NOT completed, skip it
-      const hasApprovedCompletion = existingAssignment?.completions?.some(
-        (c: any) => c.status === 'approved'
-      )
-      
-      if (existingAssignment && !hasApprovedCompletion) {
-        console.log(`✅ Daily chore "${chore.title}" already exists for ${child.nickname} (not completed yet)`)
-        continue
-      }
-      
-      // If assignment exists and IS completed, we'll create a new one below
-      if (existingAssignment && hasApprovedCompletion) {
-        console.log(`✅ Daily chore "${chore.title}" was completed by ${child.nickname} - regenerating for next day`)
+      // If assignment exists for today and is NOT completed, skip creating a new one
+      if (todayAssignment) {
+        const hasApprovedCompletion = todayAssignment.completions?.some(
+          (c: any) => c.status === 'approved'
+        )
+        
+        if (!hasApprovedCompletion) {
+          console.log(`✅ Daily chore "${chore.title}" already exists for ${child.nickname} today (not completed yet) - skipping`)
+          continue
+        }
+        
+        // If assignment exists and IS completed, we'll create a new one below
+        console.log(`✅ Daily chore "${chore.title}" was completed by ${child.nickname} today - regenerating for next day`)
       }
 
       // Check if child completed this chore yesterday

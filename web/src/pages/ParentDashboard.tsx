@@ -716,8 +716,13 @@ const ParentDashboard: React.FC = () => {
     return true
   })
 
+  // De-duplicate children array before rendering (defensive check)
+  const uniqueChildren = Array.from(
+    new Map(children.map((child: any) => [child.id, child])).values()
+  )
+
   // For pending tab, show chores assigned but not yet completed
-  const pendingChoresByChild = children.map(child => {
+  const pendingChoresByChild = uniqueChildren.map(child => {
     if (activeTab !== 'pending') return { child, chores: [] }
     
     const childAssignments = assignments.filter((a: any) => a.childId === child.id)
@@ -748,7 +753,7 @@ const ParentDashboard: React.FC = () => {
   })
 
   // For completed tab, show all submissions (pending approval, approved, rejected)
-  const completionsByChild = children.map(child => {
+  const completionsByChild = uniqueChildren.map(child => {
     if (activeTab !== 'completed') return { child, completions: [] }
     
     // Show all recent completions for this child
@@ -942,7 +947,14 @@ const ParentDashboard: React.FC = () => {
                       {filteredChores.map((chore) => {
                         // Find assignments for this chore
                         const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
-                        const assignedChildren = choreAssigns.map((a: any) => a.child).filter(Boolean)
+                        const assignedChildren = Array.from(
+                          new Map(
+                            choreAssigns
+                              .map((a: any) => a.child)
+                              .filter(Boolean)
+                              .map((child: any) => [child.id, child])
+                          ).values()
+                        )
                         const hasBidding = choreAssigns.some((a: any) => a.biddingEnabled)
 
                         return (
@@ -1475,7 +1487,7 @@ const ParentDashboard: React.FC = () => {
 
               {/* Children List */}
               <div className="space-y-3">
-                {children.map((child) => {
+                {uniqueChildren.map((child) => {
                   // Get this child's wallet to show total stars
                   const childWallet = wallets.find((w: any) => w.childId === child.id)
                   const totalStars = childWallet?.stars || 0
@@ -1560,7 +1572,7 @@ const ParentDashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {children.map((child: any) => {
+                  {uniqueChildren.map((child: any) => {
                     const childWallet = wallets.find((w: any) => w.childId === child.id)
                     const balancePence = childWallet?.balancePence || 0
 
@@ -1843,7 +1855,7 @@ const ParentDashboard: React.FC = () => {
                               📊 Estimated {budgetSettings.budgetPeriod === 'monthly' ? 'Monthly' : 'Weekly'} Earnings Per Child
                             </h5>
                             <div className="space-y-2">
-                              {children.map((child: any) => {
+                              {uniqueChildren.map((child: any) => {
                                 // Calculate this child's potential earnings from active assignments
                                 const childAssignments = assignments.filter((a: any) => 
                                   a.childId === child.id && a.chore?.active
@@ -1904,59 +1916,6 @@ const ParentDashboard: React.FC = () => {
                   </div>
               </div>
             </div>
-            </div>
-
-            {/* Parent Email Management Section */}
-            <div className="border-t-2 border-blue-200 pt-6">
-              <h4 className="font-bold text-blue-600 mb-4">📧 Email Management</h4>
-              
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-[var(--radius-md)]">
-                  <h5 className="font-semibold text-blue-800 mb-2">Current Email Address</h5>
-                  <p className="text-sm text-blue-700 mb-3">{user?.email}</p>
-                  <button
-                    onClick={() => setShowEmailChangeModal(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold text-sm"
-                  >
-                    Change Email
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Account Management Section */}
-            <div className="border-t-2 border-red-200 pt-6">
-              <h4 className="font-bold text-red-600 mb-4">⚠️ Account Management</h4>
-              
-              <div className="space-y-4">
-                {/* Suspend Account */}
-                <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-[var(--radius-md)]">
-                  <div>
-                    <h5 className="font-semibold text-yellow-800 mb-1">⏸️ Suspend Account</h5>
-                    <p className="text-sm text-yellow-700">Prevent automatic deletion for 12 months</p>
-                  </div>
-                  <button
-                    onClick={() => setShowSuspendAccountModal(true)}
-                    className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-semibold"
-                  >
-                    Suspend
-                  </button>
-                </div>
-
-                {/* Delete Account */}
-                <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-[var(--radius-md)]">
-                  <div>
-                    <h5 className="font-semibold text-red-800 mb-1">🗑️ Delete Account</h5>
-                    <p className="text-sm text-red-700">Permanently delete all family data</p>
-                  </div>
-                  <button
-                    onClick={() => setShowDeleteAccountModal(true)}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
               )}
 
               {/* Account Tab */}
@@ -3037,7 +2996,7 @@ const ParentDashboard: React.FC = () => {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {children.map((child: any) => (
+                    {uniqueChildren.map((child: any) => (
                       <label
                         key={child.id}
                         className="flex items-center gap-3 p-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:border-[var(--primary)] transition-all cursor-pointer"
@@ -3286,7 +3245,7 @@ const ParentDashboard: React.FC = () => {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {children.map((child: any) => (
+                    {uniqueChildren.map((child: any) => (
                       <label
                         key={child.id}
                         className="flex items-center gap-3 p-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:border-[var(--primary)] transition-all cursor-pointer"

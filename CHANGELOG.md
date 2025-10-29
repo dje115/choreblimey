@@ -4,6 +4,26 @@ All notable changes to ChoreBlimey! will be documented in this file.
 
 ## [Unreleased] - 2025-10-28
 
+### Fixed
+- **Duplicate Assignments Issue**
+  - Fixed duplicate assignments appearing on child dashboard for uncompleted tasks
+  - Worker now properly checks for existing assignments before creating new ones
+  - Child dashboard filters to show only today's assignments for daily chores
+  - Weekly chores filtered to show only current week's assignments
+  - Prevents duplicate assignments when worker runs multiple times
+  
+- **React Key Warnings**
+  - Fixed duplicate React key warnings for children in parent dashboard
+  - Added defensive de-duplication logic before rendering children arrays
+  - Fixed duplicate children in assignedChildren array from chore assignments
+  - Improved component rendering stability
+
+- **JSX Compilation Errors**
+  - Fixed "Adjacent JSX elements" error in Settings modal
+  - Corrected tabbed Settings modal structure (Rivalry, Budget, Account)
+  - Removed duplicate sections in Account tab
+  - Improved modal component organization
+
 ### Added
 - **Admin Dashboard Improvements**
   - Real-time system statistics (families, children, chores, completions)
