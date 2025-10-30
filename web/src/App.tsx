@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider } from './theme/ThemeProvider'
+import VersionBadge from './components/VersionBadge'
 import { LanguageProvider } from './contexts/LanguageContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
@@ -83,6 +84,7 @@ const AppContent = () => {
             </Routes>
           </div>
         </Router>
+        <VersionBadge />
       </ThemeProvider>
   )
 }

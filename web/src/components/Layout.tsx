@@ -1,4 +1,5 @@
 import React from 'react'
+import VersionBadge from './VersionBadge'
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -89,6 +90,8 @@ const Layout: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Outlet />
       </main>
+
+      <VersionBadge />
     </div>
   )
 }
