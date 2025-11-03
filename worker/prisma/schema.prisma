@@ -36,6 +36,24 @@ model Family {
   holidayMode   Boolean         @default(false) // Whether family is in holiday mode
   holidayStartDate DateTime?    // When holiday mode started
   holidayEndDate   DateTime?    // When holiday mode ends
+  
+  // Streak Settings
+  streakProtectionDays    Int      @default(1)    // Grace period before penalties start
+  bonusEnabled            Boolean  @default(true)  // Enable streak bonuses
+  bonusDays               Int      @default(7)    // Days in a row to earn bonus
+  bonusMoneyPence         Int      @default(50)   // Bonus money amount
+  bonusStars              Int      @default(5)    // Bonus stars amount
+  bonusType               String   @default("both") // 'money' | 'stars' | 'both'
+  penaltyEnabled          Boolean  @default(true)  // Enable streak penalties
+  firstMissPence          Int      @default(10)   // Penalty for 1st miss
+  firstMissStars          Int      @default(1)    // Penalty stars for 1st miss
+  secondMissPence         Int      @default(25)   // Penalty for 2nd miss
+  secondMissStars         Int      @default(3)    // Penalty stars for 2nd miss
+  thirdMissPence          Int      @default(50)   // Penalty for 3rd+ miss
+  thirdMissStars          Int      @default(5)    // Penalty stars for 3rd+ miss
+  penaltyType             String   @default("both") // 'money' | 'stars' | 'both'
+  minBalancePence         Int      @default(100)  // Minimum balance protection (never drop below)
+  minBalanceStars         Int      @default(10)   // Minimum stars protection (never drop below)
 
   // Back-relations
   members       FamilyMember[]
