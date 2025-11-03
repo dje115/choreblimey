@@ -74,6 +74,7 @@ export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, rep
       data: {
         familyId,
         code: joinCode,
+        intendedNickname: nickname,
         expiresAt
       }
     })

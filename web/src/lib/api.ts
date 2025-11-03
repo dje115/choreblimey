@@ -122,12 +122,35 @@ class ApiClient {
     penaltyType?: 'money' | 'stars' | 'both'
     minBalancePence?: number
     minBalanceStars?: number
+    holidayMode?: boolean
+    holidayStartDate?: string | null
+    holidayEndDate?: string | null
   }) {
     return this.patch('/family', data)
   }
 
   async getFamilyMembers() {
     return this.get('/family/members')
+  }
+
+  async updateFamilyMember(memberId: string, data: { displayName?: string; birthMonth?: number | null; birthYear?: number | null }) {
+    return this.patch(`/family/members/${memberId}`, data)
+  }
+
+  async generateDeviceToken(memberId: string) {
+    return this.post(`/family/members/${memberId}/device-token`, {})
+  }
+
+  async toggleMemberPause(memberId: string) {
+    return this.patch(`/family/members/${memberId}/pause`)
+  }
+
+  async removeMember(memberId: string) {
+    return this.delete(`/family/members/${memberId}`)
+  }
+
+  async getMemberStats(memberId: string) {
+    return this.get(`/family/members/${memberId}/stats`)
   }
 
   async getFamilyBudget() {

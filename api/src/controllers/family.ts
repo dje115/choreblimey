@@ -534,6 +534,9 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
         nickname: true,
         ageGroup: true,
         gender: true,
+        email: true,
+        birthMonth: true,
+        birthYear: true,
         theme: true,
         paused: true,
         createdAt: true

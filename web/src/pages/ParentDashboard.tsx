@@ -973,95 +973,6 @@ const ParentDashboard: React.FC = () => {
             </div>
           </div>
         )}
-        {/* Overview Tiles Grid */}
-        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
-          {/* Total Chores */}
-          <div className="cb-card bg-gradient-to-br from-[var(--primary)] to-[#FF6B00] text-white p-6 shadow-xl bounce-hover">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                📝
-              </div>
-              <span className="text-5xl font-bold">{chores.length}</span>
-            </div>
-            <h3 className="font-bold text-lg mb-1">Total Chores</h3>
-            <p className="text-white/80 text-sm">Active across family</p>
-          </div>
-
-          {/* Active Children */}
-          <div className="cb-card bg-gradient-to-br from-[var(--secondary)] to-[#1E7DB8] text-white p-6 shadow-xl bounce-hover">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                👨‍👩‍👧‍👦
-              </div>
-              <span className="text-5xl font-bold">{children.length}</span>
-            </div>
-            <h3 className="font-bold text-lg mb-1">Family Members</h3>
-            <p className="text-white/80 text-sm">Kids on the team</p>
-          </div>
-
-          {/* Pending Reviews */}
-          <div className="cb-card bg-gradient-to-br from-[var(--warning)] to-[#F5A623] text-white p-6 shadow-xl bounce-hover">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                ⏳
-              </div>
-              <span className="text-5xl font-bold">{pendingCompletions.length}</span>
-            </div>
-            <h3 className="font-bold text-lg mb-1">Pending Review</h3>
-            <p className="text-white/80 text-sm">Awaiting approval</p>
-          </div>
-
-          {/* Pending Rewards */}
-          <div className="cb-card bg-gradient-to-br from-purple-500 to-pink-600 text-white p-6 shadow-xl bounce-hover">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                🎁
-              </div>
-              <span className="text-5xl font-bold">{pendingRedemptions.length}</span>
-            </div>
-            <h3 className="font-bold text-lg mb-1">Pending Rewards</h3>
-            <p className="text-white/80 text-sm">To be delivered</p>
-          </div>
-
-          {/* Budget Tracker */}
-          <div className={`cb-card text-white p-6 shadow-xl bounce-hover ${
-            !budget?.maxBudgetPence 
-              ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
-              : budget.percentUsed > 90 
-                ? 'bg-gradient-to-br from-red-500 to-pink-600'
-                : budget.percentUsed > 70
-                  ? 'bg-gradient-to-br from-orange-500 to-yellow-500'
-                  : 'bg-gradient-to-br from-[var(--success)] to-[#00A679]'
-          }`}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-3xl">
-                💰
-              </div>
-              <div className="text-right">
-                {budget?.maxBudgetPence ? (
-                  <>
-                    <div className="text-5xl font-bold">{budget.percentUsed}%</div>
-                    <div className="text-sm text-white/70 mt-1">
-                      £{((budget.allocatedPence || 0) / 100).toFixed(2)} / £{(budget.maxBudgetPence / 100).toFixed(2)}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-3xl font-bold">Not Set</div>
-                )}
-              </div>
-            </div>
-            <h3 className="font-bold text-lg mb-1">
-              {budget?.budgetPeriod === 'monthly' ? 'Monthly' : 'Weekly'} Budget
-            </h3>
-            <p className="text-white/80 text-sm">
-              {budget?.maxBudgetPence 
-                ? `£${((budget.remainingPence || 0) / 100).toFixed(2)} remaining`
-                : 'Set in Settings'
-              }
-            </p>
-          </div>
-        </section>
-
         {/* Main Content Grid */}
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left Column: Manage Chores (2 cols on desktop) */}
@@ -2092,7 +2003,17 @@ const ParentDashboard: React.FC = () => {
                           a.childId === child.id && a.chore?.active
                         )
                         
-                        childAssignments.forEach((a: any) => {
+                        // De-duplicate by choreId to avoid counting the same chore multiple times
+                        const uniqueChoreIds = new Set<string>()
+                        const deduplicatedAssignments = childAssignments.filter((a: any) => {
+                          if (uniqueChoreIds.has(a.choreId)) {
+                            return false // Skip duplicate
+                          }
+                          uniqueChoreIds.add(a.choreId)
+                          return true
+                        })
+                        
+                        deduplicatedAssignments.forEach((a: any) => {
                           if (a.chore?.frequency === 'daily') {
                             totalWeeklyEarnings += (a.chore.baseRewardPence || 0) * 7
                           } else if (a.chore?.frequency === 'weekly') {
@@ -2149,18 +2070,45 @@ const ParentDashboard: React.FC = () => {
                             <div className="space-y-2">
                               {uniqueChildren.map((child: any) => {
                                 // Calculate this child's potential earnings from active assignments
+                                // Filter to only assignments for this child with active chores
                                 const childAssignments = assignments.filter((a: any) => 
                                   a.childId === child.id && a.chore?.active
                                 )
                                 
+                                // De-duplicate by choreId to avoid counting the same chore multiple times
+                                // (in case there are duplicate assignments for the same chore)
+                                const uniqueChoreIds = new Set<string>()
+                                const deduplicatedAssignments = childAssignments.filter((a: any) => {
+                                  if (!a.choreId) return false // Skip if no choreId
+                                  if (uniqueChoreIds.has(a.choreId)) {
+                                    console.warn(`⚠️ Duplicate assignment found for child ${child.nickname}, chore ${a.choreId}`)
+                                    return false // Skip duplicate
+                                  }
+                                  uniqueChoreIds.add(a.choreId)
+                                  return true
+                                })
+                                
                                 let weeklyEarnings = 0
-                                childAssignments.forEach((a: any) => {
+                                deduplicatedAssignments.forEach((a: any) => {
+                                  if (!a.chore) return // Skip if no chore data
                                   if (a.chore?.frequency === 'daily') {
                                     weeklyEarnings += (a.chore.baseRewardPence || 0) * 7
                                   } else if (a.chore?.frequency === 'weekly') {
                                     weeklyEarnings += (a.chore.baseRewardPence || 0)
                                   }
                                   // 'once' chores don't count towards regular budget
+                                })
+                                
+                                console.log(`💰 Budget calc for ${child.nickname}:`, {
+                                  totalAssignments: childAssignments.length,
+                                  uniqueChores: deduplicatedAssignments.length,
+                                  assignments: deduplicatedAssignments.map((a: any) => ({
+                                    choreTitle: a.chore?.title,
+                                    frequency: a.chore?.frequency,
+                                    rewardPence: a.chore?.baseRewardPence,
+                                    weeklyValue: a.chore?.frequency === 'daily' ? (a.chore.baseRewardPence || 0) * 7 : (a.chore.baseRewardPence || 0)
+                                  })),
+                                  weeklyEarnings: `£${(weeklyEarnings / 100).toFixed(2)}`
                                 })
 
                                 // Convert to monthly if needed
@@ -4478,9 +4426,20 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
-                    // Validate required fields
-                    if (!selectedChild.birthYear) {
+                    // Get birthYear from state - it should be preserved from when modal was opened
+                    // If it's missing, we can't save (but this shouldn't happen if child already has a birthYear)
+                    const birthYear = selectedChild.birthYear
+                    
+                    // Validate required fields - only check if birthYear is null/undefined (not 0 or empty string)
+                    if (birthYear === null || birthYear === undefined) {
                       setToast({ message: '❌ Birth year is required to calculate age group', type: 'error' })
+                      return
+                    }
+
+                    // Ensure birthYear is a number
+                    const birthYearNum = typeof birthYear === 'number' ? birthYear : parseInt(String(birthYear))
+                    if (isNaN(birthYearNum) || birthYearNum <= 0) {
+                      setToast({ message: '❌ Birth year must be a valid number', type: 'error' })
                       return
                     }
 
@@ -4489,8 +4448,8 @@ const ParentDashboard: React.FC = () => {
                       nickname: selectedChild.nickname,
                       gender: selectedChild.gender,
                       email: selectedChild.email,
-                      birthMonth: selectedChild.birthMonth,
-                      birthYear: selectedChild.birthYear
+                      birthMonth: selectedChild.birthMonth ?? undefined,
+                      birthYear: birthYearNum
                     })
                     setToast({ message: '✅ Profile updated successfully!', type: 'success' })
                     setShowChildProfileModal(false)

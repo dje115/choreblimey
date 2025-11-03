@@ -113,7 +113,26 @@ export const list = async (req: FastifyRequest<{ Querystring: { childId?: string
       orderBy: { createdAt: 'desc' }
     })
 
-    return { payouts }
+    // Get user info for paidBy fields
+    const userIds = payouts.filter(p => p.paidBy).map(p => p.paidBy!)
+    const uniqueUserIds = [...new Set(userIds)]
+    
+    const users = uniqueUserIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: uniqueUserIds } },
+          select: { id: true, email: true }
+        })
+      : []
+    
+    const userMap = new Map(users.map(u => [u.id, u]))
+    
+    // Add paidByUser info to each payout
+    const payoutsWithUser = payouts.map(payout => ({
+      ...payout,
+      paidByUser: payout.paidBy ? userMap.get(payout.paidBy) : null
+    }))
+
+    return { payouts: payoutsWithUser }
   } catch (error) {
     console.error('Failed to list payouts:', error)
     reply.status(500).send({ error: 'Failed to list payouts' })

@@ -110,6 +110,12 @@ export const callback = async (req: FastifyRequest<{ Querystring: CallbackBody }
       user = await prisma.user.create({
         data: { email: authToken.email }
       })
+    } else {
+      // Update last login time
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() }
+      })
     }
 
     // If this is a family invite, add user to family
@@ -364,6 +370,7 @@ export const generateChildJoinCode = async (req: FastifyRequest<{ Body: Generate
       data: {
         familyId,
         code,
+        intendedNickname: nickname,
         expiresAt
       }
     })

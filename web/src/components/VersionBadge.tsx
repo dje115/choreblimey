@@ -9,8 +9,8 @@ const VersionBadge: React.FC = () => {
   if (!version) return null
   return (
     <div
-      style={{ position: 'fixed', right: 8, bottom: 8, zIndex: 50 }}
-      className="px-2 py-1 rounded-md text-xs bg-black/60 text-white backdrop-blur"
+      style={{ position: 'fixed', right: 12, bottom: 12, zIndex: 9999 }}
+      className="px-3 py-2 rounded-lg text-sm font-semibold bg-black/80 text-white backdrop-blur shadow-lg border border-white/20"
       aria-label={`Build ${version}`}
       title={`Version ${version}\nBuilt ${time}`}
     >

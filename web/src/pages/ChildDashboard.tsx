@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import Toast from '../components/Toast'
@@ -96,9 +96,21 @@ const ChildDashboard: React.FC = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [streakStats, setStreakStats] = useState<any>(null)
   const [transactions, setTransactions] = useState<any[]>([])
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [familyMembers, setFamilyMembers] = useState<any[]>([])
   const [error, setError] = useState<string>('')
   const [successMessage, setSuccessMessage] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('today')
+  
+  // Holiday mode state
+  const [holidayMode, setHolidayMode] = useState({
+    isActive: false,
+    isFamilyHoliday: false,
+    startDate: '',
+    endDate: '',
+    message: '',
+  })
+  const holidayPrevActiveRef = useRef(false)
   
   // Toast & Confetti
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
@@ -247,7 +259,7 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.getWalletStats(childId),
         apiClient.getFamily(),
@@ -257,7 +269,8 @@ const ChildDashboard: React.FC = () => {
         apiClient.getRewards(childId),
         apiClient.getLeaderboard(),
         apiClient.getStreakStats(childId),
-        apiClient.getTransactions(childId, 50)
+        apiClient.getTransactions(childId, 50),
+        apiClient.getPayouts(childId) // Get payouts to show who paid
       ])
 
       if (walletRes.status === 'fulfilled') {
@@ -267,11 +280,59 @@ const ChildDashboard: React.FC = () => {
         setWalletStats(walletStatsRes.value.stats)
       }
       if (familyRes.status === 'fulfilled') {
-        setFamilySettings(familyRes.value.family)
+        const family = familyRes.value.family
+        setFamilySettings(family)
+
+        if (family) {
+          const wasActive = holidayPrevActiveRef.current
+          const now = new Date()
+          const holidayEnabled = Boolean(family.holidayMode)
+          const withinStart = !family.holidayStartDate || new Date(family.holidayStartDate) <= now
+          const withinEnd = !family.holidayEndDate || new Date(family.holidayEndDate) >= now
+          const isFamilyHolidayActive = holidayEnabled && withinStart && withinEnd
+
+          const isHolidayActive = isFamilyHolidayActive
+
+          if (isHolidayActive) {
+            const endDate = family.holidayEndDate ? new Date(family.holidayEndDate) : null
+            let message = "It's holiday time! No chores today – enjoy your break!"
+            if (endDate) {
+              const millisLeft = endDate.getTime() - now.getTime()
+              const daysLeft = Math.max(0, Math.ceil(millisLeft / (1000 * 60 * 60 * 24)))
+              if (daysLeft > 0) {
+                message = `Holiday mode! ${daysLeft} day${daysLeft === 1 ? '' : 's'} left of your break!`
+              }
+            }
+
+            setHolidayMode({
+              isActive: true,
+              isFamilyHoliday: true,
+              startDate: family.holidayStartDate || '',
+              endDate: family.holidayEndDate || '',
+              message,
+            })
+          } else {
+            if (wasActive) {
+              console.log('Holiday mode ended; refreshing missions on next poll')
+            }
+            setHolidayMode({
+              isActive: false,
+              isFamilyHoliday: false,
+              startDate: '',
+              endDate: '',
+              message: '',
+            })
+          }
+
+          holidayPrevActiveRef.current = isHolidayActive
+        }
       }
       if (familyMembersRes.status === 'fulfilled') {
         const members = familyMembersRes.value.members || []
         const children = familyMembersRes.value.children || []
+        
+        // Store family members for payout display
+        setFamilyMembers(members)
         
         // Look for child in the children array, not members array
         const currentChild = children.find((child: any) => child.id === childId)
@@ -369,6 +430,9 @@ const ChildDashboard: React.FC = () => {
       }
       if (transactionsRes.status === 'fulfilled') {
         setTransactions(transactionsRes.value.transactions || [])
+      }
+      if (payoutsRes.status === 'fulfilled') {
+        setPayouts(payoutsRes.value.payouts || [])
       }
     } catch (err: any) {
       console.error('Error loading dashboard:', err)
@@ -528,8 +592,13 @@ const ChildDashboard: React.FC = () => {
             <div>
               <h1 className="text-4xl sm:text-5xl font-bold mb-2" style={{ fontFamily: "'Baloo 2', cursive" }}>
                 Hey {user?.nickname || 'Champion'}! 🌟
+                {holidayMode.isActive && (
+                  <span className="ml-3 text-3xl animate-bounce" title="Holiday mode active">🌴</span>
+                )}
               </h1>
-              <p className="text-white/90 text-lg">Time to earn those stars!</p>
+              <p className="text-white/90 text-lg">
+                {holidayMode.isActive ? 'Enjoy your holiday break!' : 'Time to earn those stars!'}
+              </p>
             </div>
             <div className="flex gap-2">
               <button
@@ -580,6 +649,19 @@ const ChildDashboard: React.FC = () => {
         </div>
       </header>
 
+      {holidayMode.isActive && (
+        <div className="bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 text-white py-4 px-4">
+          <div className="container mx-auto flex items-center justify-center gap-3 text-center">
+            <div className="text-4xl animate-bounce">🌴</div>
+            <div className="flex-1">
+              <h2 className="text-xl sm:text-2xl font-bold mb-1">Holiday mode is active!</h2>
+              <p className="text-sm sm:text-base opacity-90">{holidayMode.message}</p>
+            </div>
+            <div className="text-4xl animate-bounce delay-100">😎</div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="sticky top-0 z-30 bg-white border-b-2 border-[var(--card-border)] shadow-md">
         <div className="container mx-auto px-4">
@@ -611,6 +693,22 @@ const ChildDashboard: React.FC = () => {
         {/* Today Tab */}
         {activeTab === 'today' && (
           <div className="space-y-6">
+            {holidayMode.isActive && (
+              <div className="cb-card bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-300 p-6">
+                <div className="text-center space-y-3">
+                  <div className="flex justify-center gap-4 text-4xl">
+                    <span className="animate-bounce">🌴</span>
+                    <span className="animate-bounce delay-100">☀️</span>
+                    <span className="animate-bounce delay-200">😎</span>
+                  </div>
+                  <h3 className="font-bold text-yellow-800 text-2xl">Holiday mode is active!</h3>
+                  <p className="text-yellow-700 text-lg">{holidayMode.message}</p>
+                  <div className="bg-white/60 rounded-lg px-4 py-2 inline-block">
+                    <p className="text-yellow-800 font-semibold text-sm">No chores required today—have fun and relax!</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <h2 className="cb-heading-lg text-[var(--primary)]">🎯 Today's Missions</h2>
               <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
@@ -1708,7 +1806,12 @@ const ChildDashboard: React.FC = () => {
                       } else if (metaJson.payoutId) {
                         icon = '💸'
                         label = 'Paid Out'
-                        description = `Method: ${metaJson.method || 'cash'}`
+                        // Find the payout to get who paid
+                        const payout = payouts.find((p: any) => p.id === metaJson.payoutId)
+                        const paidByName = payout?.paidByUser
+                          ? familyMembers.find((m: any) => m.userId === payout.paidBy)?.user?.email?.split('@')[0] || payout.paidByUser.email?.split('@')[0] || 'Parent'
+                          : 'Parent'
+                        description = `Method: ${metaJson.method || 'cash'} • Paid by ${paidByName}`
                       } else {
                         icon = '💸'
                         label = 'Money Removed'
