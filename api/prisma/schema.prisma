@@ -77,9 +77,10 @@ model Family {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  email       String   @unique
+  lastLoginAt DateTime? // Track last login time for stats
+  createdAt   DateTime @default(now())
 
   members   FamilyMember[]
 }
@@ -95,13 +96,17 @@ enum Role {
 }
 
 model FamilyMember {
-  id        String   @id @default(uuid())
-  familyId  String
-  userId    String
-  role      Role
-  invitedBy String?
-  createdAt DateTime @default(now())
-  scopeJson Json?
+  id          String   @id @default(uuid())
+  familyId    String
+  userId      String
+  role        Role
+  invitedBy   String?
+  displayName String?  // Optional display name/nickname for adults
+  birthMonth  Int?     // 1-12, optional birthday month for adults
+  birthYear   Int?     // e.g., 1980, optional birthday year for adults
+  paused      Boolean  @default(false) // Pause account access
+  createdAt   DateTime @default(now())
+  scopeJson   Json?
 
   family    Family  @relation(fields: [familyId], references: [id])
   user      User    @relation(fields: [userId], references: [id])
@@ -210,6 +215,7 @@ model Assignment {
   childId            String?
   biddingEnabled     Boolean  @default(false)
   linkedAssignmentId String?
+  createdBy          String?  // UserId who created this assignment
   createdAt          DateTime @default(now())
 
   chore       Chore      @relation(fields: [choreId], references: [id])
@@ -248,6 +254,7 @@ model Completion {
   note            String?
   status          CompletionStatus  @default(pending)
   bidAmountPence  Int?              // The actual bid amount if this was a challenge chore
+  approvedBy      String?           // UserId who approved this completion
 
   assignment Assignment @relation(fields: [assignmentId], references: [id])
   family     Family     @relation(fields: [familyId], references: [id])
@@ -447,13 +454,14 @@ model AuthToken {
 }
 
 model ChildJoinCode {
-  id        String   @id @default(uuid())
-  familyId  String
-  code      String   @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-  usedAt    DateTime?
-  usedByChildId String? @unique
+  id              String   @id @default(uuid())
+  familyId        String
+  code            String   @unique
+  intendedNickname String? // The nickname this code was intended for (if specified when generating)
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  usedAt          DateTime?
+  usedByChildId   String?  @unique
 
   family Family @relation(fields: [familyId], references: [id])
   usedByChild Child? @relation(fields: [usedByChildId], references: [id])

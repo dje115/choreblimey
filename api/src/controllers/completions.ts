@@ -111,7 +111,7 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
 
 export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
-    const { familyId } = req.claims!
+    const { familyId, sub: userId } = req.claims!
     const { id } = req.params
 
     // Find and update completion
@@ -135,7 +135,10 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
     // Update completion status
     await prisma.completion.update({
       where: { id },
-      data: { status: 'approved' }
+      data: { 
+        status: 'approved',
+        approvedBy: userId
+      }
     })
 
     // Check if this is a bidding chore and if child won the rivalry

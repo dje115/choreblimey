@@ -64,7 +64,7 @@ export const list = async (req: FastifyRequest<{ Querystring: { childId?: string
 
 export const create = async (req: FastifyRequest<{ Body: AssignmentCreateBody }>, reply: FastifyReply) => {
   try {
-    const { familyId } = req.claims!
+    const { familyId, sub: userId } = req.claims!
     const { choreId, childId, biddingEnabled = false } = req.body
 
     if (!choreId) {
@@ -96,7 +96,8 @@ export const create = async (req: FastifyRequest<{ Body: AssignmentCreateBody }>
         choreId,
         familyId,
         childId: childId || null,
-        biddingEnabled
+        biddingEnabled,
+        createdBy: userId
       },
       include: {
         chore: true,

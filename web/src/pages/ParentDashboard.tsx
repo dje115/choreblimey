@@ -54,6 +54,7 @@ const ParentDashboard: React.FC = () => {
     }, 100)
   }
   const [family, setFamily] = useState<any>(null)
+  const [holidayOptimisticUntil, setHolidayOptimisticUntil] = useState<number>(0)
   const [members, setMembers] = useState<any[]>([])
   const [children, setChildren] = useState<any[]>([])
   const [chores, setChores] = useState<any[]>([])
@@ -77,6 +78,9 @@ const ParentDashboard: React.FC = () => {
   
   // Modals
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteType, setInviteType] = useState<'child' | 'adult'>('child')
+  const [adultRole, setAdultRole] = useState<'parent_co_parent' | 'parent_viewer' | 'grandparent' | 'uncle_aunt' | 'relative_contributor'>('parent_co_parent')
+  const [adultName, setAdultName] = useState('')
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'rivalry' | 'budget' | 'account'>('rivalry')
@@ -93,6 +97,16 @@ const ParentDashboard: React.FC = () => {
   const [generatingCode, setGeneratingCode] = useState(false)
   const [newJoinCode, setNewJoinCode] = useState<string | null>(null)
   const [childProfileTab, setChildProfileTab] = useState<'info' | 'device' | 'stats' | 'management'>('info')
+  
+  // Adult member management modal
+  const [showAdultProfileModal, setShowAdultProfileModal] = useState(false)
+  const [selectedAdult, setSelectedAdult] = useState<any>(null)
+  const [adultProfileTab, setAdultProfileTab] = useState<'info' | 'device' | 'stats' | 'management'>('info')
+  const [adultDeviceToken, setAdultDeviceToken] = useState<string | null>(null)
+  const [generatingDeviceToken, setGeneratingDeviceToken] = useState(false)
+  const [deviceTokenEmailSent, setDeviceTokenEmailSent] = useState(false)
+  const [adultStats, setAdultStats] = useState<any>(null)
+  const [loadingAdultStats, setLoadingAdultStats] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   
   // Payout system
@@ -101,6 +115,14 @@ const ParentDashboard: React.FC = () => {
   const [payoutAmount, setPayoutAmount] = useState('')
   const [payoutMethod, setPayoutMethod] = useState<'cash' | 'bank_transfer' | 'other'>('cash')
   const [payoutNote, setPayoutNote] = useState('')
+  
+  // Holiday Mode
+  const [holidayMode, setHolidayMode] = useState({
+    familyHolidayMode: false,
+    familyHolidayStartDate: '',
+    familyHolidayEndDate: '',
+    childHolidayModes: {} as Record<string, { enabled: boolean; startDate: string; endDate: string }>
+  })
   
   // Streak Settings
   const [streakSettings, setStreakSettings] = useState({
@@ -179,6 +201,18 @@ const ParentDashboard: React.FC = () => {
     childIds: [],
     biddingEnabled: false
   })
+
+  const [showHolidayModal, setShowHolidayModal] = useState(false)
+
+  const parentLoadingRef = useRef(false)
+  const uiBusyRef = useRef(false)
+  const debounce = (fn: (...args: any[]) => void, wait = 400) => {
+    let timeoutId: number | undefined
+    return (...args: any[]) => {
+      if (timeoutId) window.clearTimeout(timeoutId)
+      timeoutId = window.setTimeout(() => fn(...args), wait)
+    }
+  }
 
   useEffect(() => {
     loadDashboard()
@@ -324,6 +358,10 @@ const ParentDashboard: React.FC = () => {
   }, [family])
 
   const loadDashboard = async () => {
+    if (parentLoadingRef.current) {
+      return
+    }
+    parentLoadingRef.current = true
     try {
       const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes, payoutsRes] = await Promise.allSettled([
         apiClient.getFamily(),
@@ -340,34 +378,59 @@ const ParentDashboard: React.FC = () => {
       ])
 
       if (familyRes.status === 'fulfilled') {
-        setFamily(familyRes.value.family)
-        
-        // Load streak settings from family
-        if (familyRes.value.family) {
-          const family = familyRes.value.family
-          console.log('Loaded family data:', { 
-            bonusDays: family.bonusDays, 
-            bonusEnabled: family.bonusEnabled,
-            streakProtectionDays: family.streakProtectionDays,
-            hasBonusDays: 'bonusDays' in family
+        const familyData = familyRes.value.family
+        setFamily(prev => {
+          if (familyData && Date.now() < holidayOptimisticUntil && prev) {
+            return {
+              ...familyData,
+              holidayMode: prev.holidayMode,
+              holidayStartDate: prev.holidayStartDate,
+              holidayEndDate: prev.holidayEndDate,
+            }
+          }
+          return familyData
+        })
+
+        // Load streak and holiday settings from family
+        if (familyData) {
+          const withinOptimistic = Date.now() < holidayOptimisticUntil
+          // Don't update holiday mode state if modal is open or within optimistic window
+          if (!withinOptimistic && !showHolidayModal) {
+            setHolidayMode(prev => ({
+              ...prev,
+              familyHolidayMode: familyData.holidayMode ?? false,
+              familyHolidayStartDate: familyData.holidayStartDate
+                ? new Date(familyData.holidayStartDate).toISOString().split('T')[0]
+                : '',
+              familyHolidayEndDate: familyData.holidayEndDate
+                ? new Date(familyData.holidayEndDate).toISOString().split('T')[0]
+                : '',
+            }))
+          }
+
+          console.log('Loaded family data:', {
+            bonusDays: familyData.bonusDays,
+            bonusEnabled: familyData.bonusEnabled,
+            streakProtectionDays: familyData.streakProtectionDays,
+            hasBonusDays: 'bonusDays' in familyData,
           })
           setStreakSettings({
-            protectionDays: family.streakProtectionDays ?? 1,
-            bonusEnabled: family.bonusEnabled ?? true,
-            bonusDays: family.bonusDays ?? 7,
-            bonusMoneyPence: family.bonusMoneyPence ?? 50,
-            bonusStars: family.bonusStars ?? 5,
-            bonusType: (family.bonusType || 'both') as 'money' | 'stars' | 'both',
-            penaltyEnabled: family.penaltyEnabled ?? true,
-            firstMissPence: family.firstMissPence ?? 10,
-            firstMissStars: family.firstMissStars ?? 1,
-            secondMissPence: family.secondMissPence ?? 25,
-            secondMissStars: family.secondMissStars ?? 3,
-            thirdMissPence: family.thirdMissPence ?? 50,
-            thirdMissStars: family.thirdMissStars ?? 5,
-            penaltyType: (family.penaltyType || 'both') as 'money' | 'stars' | 'both',
-            minBalancePence: family.minBalancePence ?? 100,
-            minBalanceStars: family.minBalanceStars ?? 10
+            protectionDays: familyData.streakProtectionDays ?? 1,
+            bonusEnabled: familyData.bonusEnabled ?? true,
+            bonusDays: familyData.bonusDays ?? 7,
+            bonusMoneyPence: familyData.bonusMoneyPence ?? 50,
+            bonusStars: familyData.bonusStars ?? 5,
+            bonusType: (familyData.bonusType || 'both') as 'money' | 'stars' | 'both',
+            penaltyEnabled: familyData.penaltyEnabled ?? true,
+            firstMissPence: familyData.firstMissPence ?? 10,
+            firstMissStars: familyData.firstMissStars ?? 1,
+            secondMissPence: familyData.secondMissPence ?? 25,
+            secondMissStars: familyData.secondMissStars ?? 3,
+            thirdMissPence: familyData.thirdMissPence ?? 50,
+            thirdMissStars: familyData.thirdMissStars ?? 5,
+            penaltyType: (familyData.penaltyType || 'both') as 'money' | 'stars' | 'both',
+            minBalancePence: familyData.minBalancePence ?? 100,
+            minBalanceStars: familyData.minBalanceStars ?? 10,
           })
         }
       }
@@ -422,6 +485,7 @@ const ParentDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error loading dashboard:', error)
     } finally {
+      parentLoadingRef.current = false
       setLoading(false)
     }
   }
@@ -452,7 +516,33 @@ const ParentDashboard: React.FC = () => {
     setInviteLoading(true)
     setInviteMessage('')
 
-    // Validate required fields
+    // ADULT INVITE FLOW
+    if (inviteType === 'adult') {
+      try {
+        if (!inviteData.email) {
+          setInviteMessage('❌ Email is required for parent/relative invites')
+          setInviteLoading(false)
+          return
+        }
+        const result = await apiClient.inviteToFamily({
+          email: inviteData.email,
+          role: adultRole,
+          nameCipher: family?.nameCipher || 'Family',
+          nickname: adultName || 'Parent',
+          sendEmail: true
+        })
+        const info = result?.emailSent ? ` – Sent to ${inviteData.email}` : (result?.token ? ` – Token: ${result.token}` : '')
+        setInviteMessage(`✅ Invite created${info}`)
+        setInviteLoading(false)
+        return
+      } catch (error: any) {
+        setInviteMessage(`❌ ${error.message}`)
+        setInviteLoading(false)
+        return
+      }
+    }
+
+    // CHILD INVITE FLOW
     if (!inviteData.realName.trim()) {
       setInviteMessage('❌ Name is required')
       setInviteLoading(false)
@@ -500,6 +590,14 @@ const ParentDashboard: React.FC = () => {
 
       const emailMessage = inviteData.email ? ` – Sent to ${inviteData.email}` : ' – No email provided'
       setInviteMessage(`✅ Join code: ${result.joinCode}${emailMessage}`)
+      // Refresh join codes list immediately
+      try {
+        const joinCodesResponse = await apiClient.getFamilyJoinCodes()
+        console.log('Refreshed join codes:', joinCodesResponse.joinCodes)
+        setJoinCodes(joinCodesResponse.joinCodes || [])
+      } catch (error) {
+        console.error('Failed to refresh join codes:', error)
+      }
       setTimeout(() => {
         setShowInviteModal(false)
         setInviteMessage('')
@@ -826,6 +924,25 @@ const ParentDashboard: React.FC = () => {
               <button onClick={() => setShowStreakSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all flex items-center gap-2">
                 🔥 Streaks
               </button>
+              <button
+                onClick={() => {
+                  console.log('🌴 Holiday header button - current state:', {
+                    familyHolidayMode: family?.holidayMode,
+                    start: family?.holidayStartDate,
+                    end: family?.holidayEndDate,
+                  })
+                  // Set optimistic window immediately to prevent background refreshes from interfering
+                  setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
+                  setShowHolidayModal(true)
+                }}
+                className={`px-4 py-2 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${
+                  family?.holidayMode
+                    ? 'bg-yellow-400/30 hover:bg-yellow-400/40 text-yellow-50 border-2 border-yellow-300'
+                    : 'bg-white/20 hover:bg-white/30'
+                }`}
+              >
+                🌴 Holiday Mode {family?.holidayMode ? '☀️' : ''}
+              </button>
               <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
                 ⚙️ Settings
               </button>
@@ -835,6 +952,27 @@ const ParentDashboard: React.FC = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {family?.holidayMode && (
+          <div className="cb-card bg-yellow-50 border-2 border-yellow-300 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🌴</div>
+              <div className="flex-1">
+                <div className="font-semibold text-yellow-900">Family holiday mode is active</div>
+                <div className="text-sm text-yellow-800">Chores still appear, but streaks and penalties are paused. Manage settings from the holiday panel.</div>
+              </div>
+              <button
+                onClick={() => {
+                  // Set optimistic window immediately to prevent background refreshes from interfering
+                  setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
+                  setShowHolidayModal(true)
+                }}
+                className="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 border border-yellow-300 rounded-md text-yellow-900 text-sm font-semibold"
+              >
+                Manage
+              </button>
+            </div>
+          </div>
+        )}
         {/* Overview Tiles Grid */}
         <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
           {/* Total Chores */}
@@ -1485,8 +1623,20 @@ const ParentDashboard: React.FC = () => {
                         className="flex items-center gap-2 p-3 bg-white rounded-[var(--radius-md)] border-2 border-[var(--card-border)]"
                       >
                         <div className="flex-1">
-                          <div className="font-mono text-2xl font-bold text-[var(--primary)] tracking-wider">
-                            {joinCode.code}
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="font-mono text-2xl font-bold text-[var(--primary)] tracking-wider">
+                              {joinCode.code}
+                            </div>
+                            {joinCode.intendedNickname && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                For {joinCode.intendedNickname}
+                              </span>
+                            )}
+                            {joinCode.usedByChild && (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Used by {joinCode.usedByChild.nickname}
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-[var(--text-secondary)] mt-1">
                             Expires {new Date(joinCode.expiresAt).toLocaleDateString()}
@@ -1509,6 +1659,84 @@ const ParentDashboard: React.FC = () => {
                   </p>
                 </div>
               )}
+
+              {/* Adults/Parents List */}
+              {(() => {
+                // Filter out children (child_player role) to get only adults
+                const adultMembers = members.filter((m: any) => m.role !== 'child_player')
+                
+                const getRoleDisplayName = (role: string) => {
+                  const roleMap: Record<string, string> = {
+                    'parent_admin': '👑 Family Admin',
+                    'parent_co_parent': '👨‍👩‍👧 Co-Parent',
+                    'parent_viewer': '👀 Viewer',
+                    'grandparent': '👴👵 Grandparent',
+                    'uncle_aunt': '👨‍👩 Uncle/Aunt',
+                    'relative_contributor': '🎁 Contributor'
+                  }
+                  return roleMap[role] || role
+                }
+                
+                if (adultMembers.length > 0) {
+                  return (
+                    <div className="mb-6">
+                      <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">👨‍👩‍👧 Adults & Parents</h4>
+                      <div className="space-y-2">
+                        {adultMembers.map((member: any) => (
+                          <button
+                            key={member.id}
+                            onClick={async () => {
+                              setSelectedAdult(member)
+                              setAdultProfileTab('info')
+                              setShowAdultProfileModal(true)
+                              // Load stats when opening modal
+                              try {
+                                setLoadingAdultStats(true)
+                                const statsResponse = await apiClient.getMemberStats(member.id)
+                                setAdultStats(statsResponse.stats)
+                              } catch (error) {
+                                console.error('Failed to load member stats:', error)
+                              } finally {
+                                setLoadingAdultStats(false)
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-[var(--radius-md)] hover:shadow-md hover:border-blue-400 transition-all cursor-pointer text-left"
+                          >
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0">
+                              {member.user?.email?.charAt(0).toUpperCase() || 'P'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-[var(--text-primary)] truncate">
+                                  {member.displayName || member.user?.email?.split('@')[0] || member.user?.email || 'Parent'}
+                                </h4>
+                                {member.paused && (
+                                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                                    ⏸️ Paused
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)] truncate">
+                                {getRoleDisplayName(member.role)} • {member.user?.email || 'No email'}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                Joined {new Date(member.joinedAt || member.user?.createdAt || member.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors shrink-0">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
 
               {/* Children List */}
               <div className="space-y-3">
@@ -1651,20 +1879,27 @@ const ParentDashboard: React.FC = () => {
                 <div className="mt-6">
                   <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">📝 Recent Payouts</h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {payouts.slice(0, 5).map((payout: any) => (
-                      <div key={payout.id} className="flex items-center justify-between p-2 bg-[var(--background)] rounded-lg text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">💵</span>
-                          <div>
-                            <p className="font-medium text-[var(--text-primary)]">{payout.child?.nickname}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {new Date(payout.createdAt).toLocaleDateString()} • {payout.method || 'cash'}
-                            </p>
+                    {payouts.slice(0, 5).map((payout: any) => {
+                      // Get the name to display - try to get from family members first, fallback to email
+                      const paidByName = payout.paidByUser 
+                        ? members.find((m: any) => m.userId === payout.paidBy)?.user?.email?.split('@')[0] || payout.paidByUser.email?.split('@')[0] || 'Parent'
+                        : 'Parent'
+                      
+                      return (
+                        <div key={payout.id} className="flex items-center justify-between p-2 bg-[var(--background)] rounded-lg text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">💵</span>
+                            <div>
+                              <p className="font-medium text-[var(--text-primary)]">{payout.child?.nickname}</p>
+                              <p className="text-xs text-[var(--text-secondary)]">
+                                {new Date(payout.createdAt).toLocaleDateString()} • {payout.method || 'cash'} • Paid by {paidByName}
+                              </p>
+                            </div>
                           </div>
+                          <p className="font-bold text-green-600">£{(payout.amountPence / 100).toFixed(2)}</p>
                         </div>
-                        <p className="font-bold text-green-600">£{(payout.amountPence / 100).toFixed(2)}</p>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -2744,12 +2979,341 @@ const ParentDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Holiday Mode Modal */}
+      {showHolidayModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <h3 className="cb-heading-xl text-[var(--primary)] mb-2">🌴 Holiday Mode</h3>
+              <p className="text-[var(--text-secondary)]">
+                Pause chores and streaks when your family takes a break.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Family-wide Holiday Mode */}
+              <div className="cb-card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+                <h4 className="cb-heading-lg text-blue-600 mb-4 flex items-center gap-2">
+                  🌍 Family Holiday Mode
+                </h4>
+                <p className="text-sm text-[var(--text-secondary)] mb-4">
+                  Pause all chores, streaks, and penalties for the whole family.
+                </p>
+
+                <div className="space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={holidayMode.familyHolidayMode}
+                      onChange={(e) => {
+                        const newValue = e.target.checked
+                        setHolidayMode((prev) => ({
+                          ...prev,
+                          familyHolidayMode: newValue,
+                          familyHolidayStartDate: newValue ? prev.familyHolidayStartDate : '',
+                          familyHolidayEndDate: newValue ? prev.familyHolidayEndDate : '',
+                        }))
+                        // Don't update family state here - only update on save
+                        // The optimistic window was already set when modal opened
+                      }}
+                      className="w-5 h-5 accent-[var(--primary)]"
+                    />
+                    <div>
+                      <span className="font-semibold text-[var(--text-primary)]">Enable family holiday mode</span>
+                      <p className="text-xs text-[var(--text-secondary)]">Every child will be paused.</p>
+                    </div>
+                  </label>
+
+                  {holidayMode.familyHolidayMode && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Start Date</label>
+                        <input
+                          type="date"
+                          value={holidayMode.familyHolidayStartDate}
+                          onChange={(e) =>
+                            setHolidayMode((prev) => ({
+                              ...prev,
+                              familyHolidayStartDate: e.target.value,
+                            }))
+                          }
+                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">End Date (optional)</label>
+                        <input
+                          type="date"
+                          value={holidayMode.familyHolidayEndDate}
+                          onChange={(e) =>
+                            setHolidayMode((prev) => ({
+                              ...prev,
+                              familyHolidayEndDate: e.target.value,
+                            }))
+                          }
+                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                        />
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">Leave empty to end manually.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Individual Child Holiday Mode */}
+              <div className="cb-card p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
+                <h4 className="cb-heading-lg text-green-600 mb-4 flex items-center gap-2">
+                  👧 Individual Child Holiday Mode
+                </h4>
+                <p className="text-sm text-[var(--text-secondary)] mb-4">
+                  Pause chores for specific children while others continue as normal.
+                </p>
+
+                <div className="space-y-4">
+                  {children.map((child: any) => (
+                    <div key={child.id} className="bg-white rounded-lg p-4 border border-green-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold">
+                            {child.nickname?.charAt(0)?.toUpperCase() || 'C'}
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-[var(--text-primary)]">{child.nickname}</h5>
+                            <p className="text-xs text-[var(--text-secondary)]">Child account</p>
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={holidayMode.childHolidayModes[child.id]?.enabled || false}
+                            onChange={(e) =>
+                              setHolidayMode((prev) => ({
+                                ...prev,
+                                childHolidayModes: {
+                                  ...prev.childHolidayModes,
+                                  [child.id]: {
+                                    ...prev.childHolidayModes[child.id],
+                                    enabled: e.target.checked,
+                                    startDate: e.target.checked
+                                      ? prev.childHolidayModes[child.id]?.startDate || new Date().toISOString().split('T')[0]
+                                      : '',
+                                    endDate: e.target.checked ? prev.childHolidayModes[child.id]?.endDate || '' : '',
+                                  },
+                                },
+                              }))
+                            }
+                            className="w-5 h-5 accent-green-500"
+                          />
+                          <span className="text-sm font-semibold">Holiday mode</span>
+                          {holidayMode.childHolidayModes[child.id]?.enabled && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Active</span>
+                          )}
+                        </label>
+                      </div>
+
+                      {holidayMode.childHolidayModes[child.id]?.enabled && (
+                        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                          <p className="text-sm text-green-700 mb-3">
+                            This child is paused even if family holiday mode is off.
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Start Date (optional)</label>
+                              <input
+                                type="date"
+                                value={holidayMode.childHolidayModes[child.id]?.startDate || ''}
+                                onChange={(e) =>
+                                  setHolidayMode((prev) => ({
+                                    ...prev,
+                                    childHolidayModes: {
+                                      ...prev.childHolidayModes,
+                                      [child.id]: {
+                                        ...prev.childHolidayModes[child.id],
+                                        startDate: e.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                className="w-full px-3 py-2 border border-green-300 rounded-md focus:border-green-500 focus:outline-none text-sm"
+                              />
+                              <p className="text-xs text-green-600 mt-1">Leave empty to start right away.</p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">End Date (optional)</label>
+                              <input
+                                type="date"
+                                value={holidayMode.childHolidayModes[child.id]?.endDate || ''}
+                                onChange={(e) =>
+                                  setHolidayMode((prev) => ({
+                                    ...prev,
+                                    childHolidayModes: {
+                                      ...prev.childHolidayModes,
+                                      [child.id]: {
+                                        ...prev.childHolidayModes[child.id],
+                                        endDate: e.target.value,
+                                      },
+                                    },
+                                  }))
+                                }
+                                className="w-full px-3 py-2 border border-green-300 rounded-md focus:border-green-500 focus:outline-none text-sm"
+                              />
+                              <p className="text-xs text-green-600 mt-1">Leave empty to end manually.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Holiday Mode Info */}
+              <div className="cb-card p-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200">
+                <h4 className="cb-heading-lg text-orange-600 mb-4 flex items-center gap-2">
+                  ℹ️ What happens during holiday mode?
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h5 className="font-semibold text-orange-700 mb-2">Paused while active:</h5>
+                    <ul className="space-y-1 text-[var(--text-secondary)]">
+                      <li>• New streak days and bonuses</li>
+                      <li>• Penalties and deductions</li>
+                      <li>• Streak break checks</li>
+                      <li>• Mission penalties</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-orange-700 mb-2">Still available:</h5>
+                    <ul className="space-y-1 text-[var(--text-secondary)]">
+                      <li>• Existing wallet balances</li>
+                      <li>• Rewards shop</li>
+                      <li>• Dashboard access</li>
+                      <li>• Parent controls</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                type="button"
+                onClick={() => {
+                  // Restore holiday mode state from family data when canceling
+                  if (family) {
+                    setHolidayMode(prev => ({
+                      ...prev,
+                      familyHolidayMode: family.holidayMode ?? false,
+                      familyHolidayStartDate: family.holidayStartDate
+                        ? new Date(family.holidayStartDate).toISOString().split('T')[0]
+                        : '',
+                      familyHolidayEndDate: family.holidayEndDate
+                        ? new Date(family.holidayEndDate).toISOString().split('T')[0]
+                        : '',
+                    }))
+                  }
+                  setShowHolidayModal(false)
+                  // Clear optimistic window on cancel so next refresh updates normally
+                  setHolidayOptimisticUntil(0)
+                }}
+                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={uiBusyRef.current}
+                onClick={debounce(async () => {
+                  if (uiBusyRef.current) return
+                  uiBusyRef.current = true
+                  try {
+                    const updateData = {
+                      holidayMode: holidayMode.familyHolidayMode,
+                      holidayStartDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayStartDate || undefined : null,
+                      holidayEndDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayEndDate || undefined : null,
+                    }
+                    await apiClient.updateFamily(updateData)
+                    setFamily((prev) => {
+                      if (!prev) return prev
+                      return {
+                        ...prev,
+                        holidayMode: holidayMode.familyHolidayMode,
+                        holidayStartDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayStartDate || null : null,
+                        holidayEndDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayEndDate || null : null,
+                      }
+                    })
+                    setShowHolidayModal(false)
+                    setHolidayOptimisticUntil(Date.now() + 30000)
+                    setToast({ message: 'Holiday settings saved', type: 'success' })
+                  } catch (error: any) {
+                    console.error('Failed to save holiday mode settings:', error)
+                    setToast({ message: error.message || 'Failed to save holiday settings', type: 'error' })
+                  } finally {
+                    uiBusyRef.current = false
+                  }
+                })}
+                className="flex-1 cb-button-primary flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">🌴</span>
+                Save Holiday Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invite Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="cb-card w-full max-w-lg">
-            <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">➕ Invite to Family</h3>
+            <h3 className="cb-heading-lg text-center mb-2 text-[var(--primary)]">➕ Invite to Family</h3>
+            <div className="flex justify-center gap-2 mb-4">
+              <button type="button" onClick={() => setInviteType('child')} className={`px-3 py-1 rounded-full text-sm border ${inviteType==='child' ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'border-[var(--card-border)]'}`}>Child</button>
+              <button type="button" onClick={() => setInviteType('adult')} className={`px-3 py-1 rounded-full text-sm border ${inviteType==='adult' ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'border-[var(--card-border)]'}`}>Parent/Relative</button>
+            </div>
             <form onSubmit={handleInvite} className="space-y-5">
+              {inviteType === 'adult' ? (
+                <>
+                  <div>
+                    <label className="block font-semibold text-[var(--text-primary)] mb-2">Email <span className="text-red-500">*</span></label>
+                    <input
+                      name="email"
+                      type="email"
+                      value={inviteData.email}
+                      onChange={(e) => setInviteData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                      placeholder="parent@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-[var(--text-primary)] mb-2">Name (optional)</label>
+                      <input
+                        value={adultName}
+                        onChange={(e) => setAdultName(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
+                        placeholder="e.g., Sam Jones"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-[var(--text-primary)] mb-2">Role</label>
+                      <select
+                        value={adultRole}
+                        onChange={(e) => setAdultRole(e.target.value as any)}
+                        className="w-full px-3 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                      >
+                        <option value="parent_co_parent">Co‑parent</option>
+                        <option value="parent_viewer">Parent (viewer)</option>
+                        <option value="grandparent">Grandparent</option>
+                        <option value="uncle_aunt">Uncle/Aunt</option>
+                        <option value="relative_contributor">Contributor</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
               <div>
                 <label className="block font-semibold text-[var(--text-primary)] mb-2">Email (Optional)</label>
                 <input
@@ -2836,6 +3400,8 @@ const ParentDashboard: React.FC = () => {
                   Year is required to calculate age group. Month is optional for more precise age calculation.
                 </p>
               </div>
+              </>
+              )}
 
               {inviteMessage && (
                 <div className={`p-4 rounded-[var(--radius-md)] text-sm font-semibold ${
@@ -2853,7 +3419,9 @@ const ParentDashboard: React.FC = () => {
                   onClick={() => {
                     setShowInviteModal(false)
                     setInviteMessage('')
-                    setInviteData({ email: '', nickname: '', ageGroup: '5-8' })
+                    setInviteType('child')
+                    setAdultName('')
+                    setInviteData({ email: '', realName: '', nickname: '', birthYear: null, birthMonth: null })
                   }}
                   className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
                 >
@@ -3737,6 +4305,9 @@ const ParentDashboard: React.FC = () => {
                         })
                         setNewJoinCode(response.joinCode.code)
                         setToast({ message: '✅ New join code generated!', type: 'success' })
+                        // Refresh join codes list immediately
+                        const joinCodesResponse = await apiClient.getFamilyJoinCodes()
+                        setJoinCodes(joinCodesResponse.joinCodes || [])
                       } catch (error) {
                         console.error('Failed to generate join code:', error)
                         setToast({ message: 'Failed to generate code. Please try again.', type: 'error' })
@@ -4195,6 +4766,525 @@ const ParentDashboard: React.FC = () => {
               >
                 Suspend Account
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adult Profile Modal */}
+      {showAdultProfileModal && selectedAdult && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="cb-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="cb-heading-lg text-[var(--primary)]">👤 {(selectedAdult.displayName || selectedAdult.user?.email?.split('@')[0] || selectedAdult.user?.email || 'Parent')}'s Profile</h3>
+              <button
+              onClick={() => {
+                setShowAdultProfileModal(false)
+                setSelectedAdult(null)
+                setAdultProfileTab('info')
+                setAdultDeviceToken(null)
+                setDeviceTokenEmailSent(false)
+                setAdultStats(null)
+              }}
+                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Profile Header */}
+            <div className="flex items-center gap-4 p-6 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-[var(--radius-lg)] mb-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-4xl font-bold text-white">
+                {selectedAdult.user?.email?.charAt(0).toUpperCase() || 'P'}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-2xl font-bold text-[var(--text-primary)]">
+                  {selectedAdult.displayName || selectedAdult.user?.email?.split('@')[0] || selectedAdult.user?.email || 'Parent'}
+                </h4>
+                <p className="text-[var(--text-secondary)]">{selectedAdult.user?.email || 'No email'}</p>
+                {(() => {
+                  const roleMap: Record<string, string> = {
+                    'parent_admin': '👑 Family Admin',
+                    'parent_co_parent': '👨‍👩‍👧 Co-Parent',
+                    'parent_viewer': '👀 Viewer',
+                    'grandparent': '👴👵 Grandparent',
+                    'uncle_aunt': '👨‍👩 Uncle/Aunt',
+                    'relative_contributor': '🎁 Contributor'
+                  }
+                  return (
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">
+                      Role: {roleMap[selectedAdult.role] || selectedAdult.role}
+                    </p>
+                  )
+                })()}
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-[var(--card-border)] mb-6 overflow-x-auto">
+              <button 
+                onClick={() => setAdultProfileTab('info')} 
+                className={`px-4 py-3 font-semibold text-sm transition-all whitespace-nowrap ${
+                  adultProfileTab === 'info' 
+                    ? 'border-b-2 border-[var(--primary)] text-[var(--primary)]' 
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📝 Basic Info
+              </button>
+              <button 
+                onClick={() => setAdultProfileTab('device')} 
+                className={`px-4 py-3 font-semibold text-sm transition-all whitespace-nowrap ${
+                  adultProfileTab === 'device' 
+                    ? 'border-b-2 border-[var(--primary)] text-[var(--primary)]' 
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📱 Device Access
+              </button>
+              <button 
+                onClick={async () => {
+                  setAdultProfileTab('stats')
+                  // Load stats when switching to stats tab
+                  if (selectedAdult && !adultStats) {
+                    try {
+                      setLoadingAdultStats(true)
+                      const statsResponse = await apiClient.getMemberStats(selectedAdult.id)
+                      setAdultStats(statsResponse.stats)
+                    } catch (error) {
+                      console.error('Failed to load member stats:', error)
+                    } finally {
+                      setLoadingAdultStats(false)
+                    }
+                  }
+                }}
+                className={`px-4 py-3 font-semibold text-sm transition-all whitespace-nowrap ${
+                  adultProfileTab === 'stats' 
+                    ? 'border-b-2 border-[var(--primary)] text-[var(--primary)]' 
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📊 Stats
+              </button>
+              <button 
+                onClick={() => setAdultProfileTab('management')} 
+                className={`px-4 py-3 font-semibold text-sm transition-all whitespace-nowrap ${
+                  adultProfileTab === 'management' 
+                    ? 'border-b-2 border-[var(--primary)] text-[var(--primary)]' 
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                🔧 Management
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="min-h-[400px] overflow-y-auto">
+              {adultProfileTab === 'info' && (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">📝 Basic Information</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Display Name</label>
+                        <input
+                          type="text"
+                          value={selectedAdult.displayName || ''}
+                          onChange={(e) => setSelectedAdult({ ...selectedAdult, displayName: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          placeholder={selectedAdult.user?.email?.split('@')[0] || 'Enter display name'}
+                        />
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">
+                          Optional - A friendly name to display instead of email
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Email Address</label>
+                        <input
+                          type="email"
+                          value={selectedAdult.user?.email || ''}
+                          readOnly
+                          className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] bg-gray-50 text-gray-600"
+                        />
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">
+                          Email cannot be changed here. Contact support if you need to update it.
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Role</label>
+                        <div className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] bg-gray-50 text-gray-600">
+                          {(() => {
+                            const roleMap: Record<string, string> = {
+                              'parent_admin': '👑 Family Admin',
+                              'parent_co_parent': '👨‍👩‍👧 Co-Parent',
+                              'parent_viewer': '👀 Viewer',
+                              'grandparent': '👴👵 Grandparent',
+                              'uncle_aunt': '👨‍👩 Uncle/Aunt',
+                              'relative_contributor': '🎁 Contributor'
+                            }
+                            return roleMap[selectedAdult.role] || selectedAdult.role
+                          })()}
+                        </div>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">
+                          Role is set by the family admin when inviting
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">Joined</label>
+                        <div className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] bg-gray-50 text-gray-600">
+                          {new Date(selectedAdult.joinedAt || selectedAdult.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+
+                      {/* Birthday */}
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                          Birthday (Optional)
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-[var(--text-secondary)] mb-1">Month</label>
+                            <select
+                              value={selectedAdult.birthMonth || ''}
+                              onChange={(e) => setSelectedAdult({ ...selectedAdult, birthMonth: e.target.value ? parseInt(e.target.value) : null })}
+                              className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                            >
+                              <option value="">Select month</option>
+                              <option value="1">January</option>
+                              <option value="2">February</option>
+                              <option value="3">March</option>
+                              <option value="4">April</option>
+                              <option value="5">May</option>
+                              <option value="6">June</option>
+                              <option value="7">July</option>
+                              <option value="8">August</option>
+                              <option value="9">September</option>
+                              <option value="10">October</option>
+                              <option value="11">November</option>
+                              <option value="12">December</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-[var(--text-secondary)] mb-1">Year</label>
+                            <input
+                              type="number"
+                              placeholder="e.g., 1980"
+                              value={selectedAdult.birthYear || ''}
+                              onChange={(e) => setSelectedAdult({ ...selectedAdult, birthYear: e.target.value ? parseInt(e.target.value) : null })}
+                              className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                              min="1900"
+                              max="2025"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-[var(--text-secondary)] mt-2">
+                          Optional - Can be used for future features like birthday reminders
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-4 pt-4 border-t border-[var(--card-border)]">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await apiClient.updateFamilyMember(selectedAdult.id, {
+                            displayName: selectedAdult.displayName || undefined,
+                            birthMonth: selectedAdult.birthMonth || undefined,
+                            birthYear: selectedAdult.birthYear || undefined
+                          })
+                          setToast({ message: '✅ Member updated successfully!', type: 'success' })
+                          // Refresh members list
+                          const response = await apiClient.getFamilyMembers()
+                          setMembers(response.members || [])
+                          // Update selected adult with fresh data
+                          const updatedMember = response.members?.find((m: any) => m.id === selectedAdult.id)
+                          if (updatedMember) {
+                            setSelectedAdult(updatedMember)
+                          }
+                        } catch (error: any) {
+                          console.error('Failed to update member:', error)
+                          setToast({ message: error.message || 'Failed to update member', type: 'error' })
+                        }
+                      }}
+                      className="flex-1 cb-button-primary"
+                    >
+                      💾 Save Changes
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {adultProfileTab === 'device' && (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">📱 Device Access</h4>
+                    <p className="text-sm text-[var(--text-secondary)] mb-4">
+                      Send a magic link email to {selectedAdult.user?.email || 'their email address'} to allow access from a new or different device (tablet, phone, etc.). The link will expire in 7 days.
+                    </p>
+
+                    {deviceTokenEmailSent ? (
+                      <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-[var(--radius-lg)]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-2xl">📧</span>
+                          <h4 className="font-bold text-[var(--text-primary)]">Device Access Email Sent</h4>
+                        </div>
+                        <p className="text-sm text-[var(--text-secondary)] mb-3">
+                          An email with a device access link has been sent to <strong>{selectedAdult.user?.email}</strong>.
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)] mb-3">
+                          They can click the link in the email to access ChoreBlimey from a new device. The link expires in 7 days.
+                        </p>
+                        {adultDeviceToken && (
+                          <div className="p-3 bg-white rounded-[var(--radius-md)] border-2 border-[var(--card-border)] mb-3">
+                            <p className="text-xs text-[var(--text-secondary)] mb-2">Or use this token manually:</p>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <div className="font-mono text-sm font-bold text-[var(--primary)] break-all">
+                                  {adultDeviceToken}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(adultDeviceToken)
+                                  setToast({ message: '📋 Token copied to clipboard!', type: 'info' })
+                                }}
+                                className="px-3 py-1 bg-[var(--primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--secondary)] transition-all font-semibold text-xs"
+                              >
+                                📋 Copy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            setDeviceTokenEmailSent(false)
+                            setAdultDeviceToken(null)
+                          }}
+                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:bg-[var(--background)] transition-all font-semibold text-sm"
+                        >
+                          Send Another Email
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            setGeneratingDeviceToken(true)
+                            setDeviceTokenEmailSent(false)
+                            const response = await apiClient.generateDeviceToken(selectedAdult.id)
+                            if (response.emailSent) {
+                              setDeviceTokenEmailSent(true)
+                              setAdultDeviceToken(response.token || null)
+                              setToast({ message: '✅ Device access email sent!', type: 'success' })
+                            } else {
+                              // Fallback if email failed
+                              setAdultDeviceToken(response.token || null)
+                              setToast({ message: '⚠️ Token created but email failed. Token shown below.', type: 'warning' })
+                            }
+                          } catch (error: any) {
+                            console.error('Failed to generate device token:', error)
+                            setToast({ message: error.message || 'Failed to generate device token', type: 'error' })
+                          } finally {
+                            setGeneratingDeviceToken(false)
+                          }
+                        }}
+                        disabled={generatingDeviceToken}
+                        className="w-full px-6 py-4 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] text-white rounded-[var(--radius-lg)] hover:shadow-lg transition-all font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {generatingDeviceToken ? '⏳ Sending Email...' : '📧 Send Device Access Email'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {adultProfileTab === 'stats' && (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">📊 Activity Stats</h4>
+                    
+                    {loadingAdultStats ? (
+                      <div className="p-4 text-center">
+                        <p className="text-[var(--text-secondary)]">Loading stats...</p>
+                      </div>
+                    ) : adultStats ? (
+                      <div className="space-y-4">
+                        {/* Last Login */}
+                        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-[var(--radius-lg)]">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">🕐</span>
+                            <h5 className="font-bold text-[var(--text-primary)]">Last Login</h5>
+                          </div>
+                          <p className="text-sm text-[var(--text-secondary)]">
+                            {adultStats.lastLogin 
+                              ? new Date(adultStats.lastLogin).toLocaleString()
+                              : 'Never logged in'}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-[var(--radius-lg)]">
+                          <div className="flex items-center gap-3 mb-4">
+                            <span className="text-2xl">📈</span>
+                            <h5 className="font-bold text-[var(--text-primary)]">Actions Performed</h5>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-3 bg-white rounded-[var(--radius-md)] border border-green-200">
+                              <div className="text-2xl font-bold text-[var(--primary)]">
+                                {adultStats.actions?.assignmentsCreated || 0}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)] mt-1">Chores Assigned</div>
+                            </div>
+                            <div className="text-center p-3 bg-white rounded-[var(--radius-md)] border border-green-200">
+                              <div className="text-2xl font-bold text-[var(--primary)]">
+                                {adultStats.actions?.payoutsMade || 0}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)] mt-1">Payouts Made</div>
+                            </div>
+                            <div className="text-center p-3 bg-white rounded-[var(--radius-md)] border border-green-200 col-span-2">
+                              <div className="text-2xl font-bold text-[var(--primary)]">
+                                {adultStats.actions?.completionsApproved || 0}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)] mt-1">Completions Approved</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-[var(--radius-lg)]">
+                        <p className="text-sm text-yellow-800">
+                          Unable to load stats. Please try again.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {adultProfileTab === 'management' && (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-[var(--text-primary)] mb-4">🔧 Account Management</h4>
+                    <p className="text-sm text-[var(--text-secondary)] mb-6">
+                      Manage this adult member's account access and settings.
+                    </p>
+                    
+                    <div className="space-y-4">
+                      {/* Pause Member Button */}
+                      {selectedAdult.userId !== user?.id && (
+                        <div className="p-4 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-[var(--radius-lg)]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-2xl">{selectedAdult.paused ? '▶️' : '⏸️'}</span>
+                            <div>
+                              <h5 className="font-bold text-[var(--text-primary)]">
+                                {selectedAdult.paused ? 'Account is Paused' : 'Temporarily Pause Account'}
+                              </h5>
+                              <p className="text-sm text-[var(--text-secondary)]">
+                                {selectedAdult.paused 
+                                  ? 'This member\'s account is currently paused. They cannot access ChoreBlimey.'
+                                  : 'Temporarily disable this member\'s access to ChoreBlimey'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const action = selectedAdult.paused ? 'unpause' : 'pause'
+                              const memberName = selectedAdult.displayName || selectedAdult.user?.email?.split('@')[0] || 'this member'
+                              
+                              if (confirm(`${selectedAdult.paused ? '▶️' : '⏸️'} ${action.charAt(0).toUpperCase() + action.slice(1)} ${memberName}'s account?\n\n${
+                                selectedAdult.paused 
+                                  ? 'This will restore their access to ChoreBlimey.'
+                                  : 'This will temporarily disable their access to ChoreBlimey until you reactivate their account.'
+                              }\n\nYou can ${action} their account anytime from this page.`)) {
+                                try {
+                                  const response = await apiClient.toggleMemberPause(selectedAdult.id)
+                                  
+                                  // Update the selected adult state
+                                  setSelectedAdult({ ...selectedAdult, paused: response.paused })
+                                  
+                                  setToast({ 
+                                    message: `✅ Account ${response.paused ? 'paused' : 'unpaused'} successfully!`, 
+                                    type: 'success' 
+                                  })
+                                  
+                                  // Reload members list to reflect changes
+                                  const membersResponse = await apiClient.getFamilyMembers()
+                                  setMembers(membersResponse.members || [])
+                                } catch (error: any) {
+                                  console.error('Failed to toggle pause status:', error)
+                                  setToast({ message: error.message || 'Failed to toggle pause status. Please try again.', type: 'error' })
+                                }
+                              }
+                            }}
+                            className={`w-full px-4 py-3 text-white rounded-lg font-semibold transition-colors text-sm ${
+                              selectedAdult.paused 
+                                ? 'bg-green-500 hover:bg-green-600' 
+                                : 'bg-yellow-500 hover:bg-yellow-600'
+                            }`}
+                          >
+                            {selectedAdult.paused ? '▶️ Unpause Account' : '⏸️ Pause Account'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Remove Member Button */}
+                      {selectedAdult.userId !== user?.id && (
+                        <div className="p-4 bg-gradient-to-br from-red-50 to-pink-50 border-2 border-red-200 rounded-[var(--radius-lg)]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-2xl">👋</span>
+                            <div>
+                              <h5 className="font-bold text-[var(--text-primary)]">Remove Member from Family</h5>
+                              <p className="text-sm text-[var(--text-secondary)]">
+                                Permanently remove this member from your family account
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const memberName = selectedAdult.displayName || selectedAdult.user?.email?.split('@')[0] || selectedAdult.user?.email || 'this member'
+                              if (confirm(`👋 Remove ${memberName} from your family?\n\nThis will permanently remove them from your family account.\n\nThey will lose access to all family data and settings.\n\nThis action cannot be undone!\n\nType "${memberName}" to confirm:`)) {
+                                const confirmation = prompt(`Type "${memberName}" to confirm removal:`)
+                                if (confirmation === memberName) {
+                                  try {
+                                    await apiClient.removeMember(selectedAdult.id)
+                                    setToast({ message: '👋 Member removed successfully!', type: 'success' })
+                                    setShowAdultProfileModal(false)
+                                    setSelectedAdult(null)
+                                    // Reload members list
+                                    const membersResponse = await apiClient.getFamilyMembers()
+                                    setMembers(membersResponse.members || [])
+                                  } catch (error: any) {
+                                    console.error('Failed to remove member:', error)
+                                    setToast({ message: error.message || 'Failed to remove member. Please try again.', type: 'error' })
+                                  }
+                                } else {
+                                  setToast({ message: '❌ Removal cancelled - name did not match', type: 'error' })
+                                }
+                              }
+                            }}
+                            className="w-full px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm"
+                          >
+                            🗑️ Remove Member
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedAdult.userId === user?.id && (
+                        <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-[var(--radius-lg)]">
+                          <p className="text-sm text-blue-800">
+                            ℹ️ You cannot pause or remove your own account. Ask another admin to manage your account if needed.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -43,6 +43,9 @@ interface FamilyUpdateBody {
   penaltyType?: 'money' | 'stars' | 'both'
   minBalancePence?: number
   minBalanceStars?: number
+  holidayMode?: boolean
+  holidayStartDate?: string | null
+  holidayEndDate?: string | null
 }
 
 export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, reply: FastifyReply) => {
@@ -144,6 +147,7 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
         data: {
           familyId: actualFamilyId,
           code: joinCode,
+          intendedNickname: nickname || null,
           expiresAt
         }
       })
@@ -225,6 +229,9 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
         maxBudgetPence: true,
         budgetPeriod: true,
         showLifetimeEarnings: true,
+        holidayMode: true,
+        holidayStartDate: true,
+        holidayEndDate: true,
         // Streak settings
         streakProtectionDays: true,
         bonusEnabled: true,
@@ -308,7 +315,8 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
       nameCipher, region, maxBudgetPence, budgetPeriod, showLifetimeEarnings,
       streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
       penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
-      minBalancePence, minBalanceStars
+      minBalancePence, minBalanceStars,
+      holidayMode, holidayStartDate, holidayEndDate
     } = req.body || {}
 
     // Try to get familyId from JWT or find it from user's membership
@@ -396,7 +404,30 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     if (penaltyType !== undefined) updateData.penaltyType = penaltyType
     if (minBalancePence !== undefined) updateData.minBalancePence = minBalancePence
     if (minBalanceStars !== undefined) updateData.minBalanceStars = minBalanceStars
-
+    if (holidayMode !== undefined) updateData.holidayMode = holidayMode
+    if (holidayStartDate !== undefined) {
+      if (!holidayStartDate) {
+        updateData.holidayStartDate = null
+      } else {
+        const parsed = new Date(holidayStartDate)
+        if (Number.isNaN(parsed.getTime())) {
+          return reply.status(400).send({ error: 'Invalid holidayStartDate' })
+        }
+        updateData.holidayStartDate = parsed
+      }
+    }
+    if (holidayEndDate !== undefined) {
+      if (!holidayEndDate) {
+        updateData.holidayEndDate = null
+      } else {
+        const parsed = new Date(holidayEndDate)
+        if (Number.isNaN(parsed.getTime())) {
+          return reply.status(400).send({ error: 'Invalid holidayEndDate' })
+        }
+        updateData.holidayEndDate = parsed
+      }
+    }
+ 
     const updatedFamily = await prisma.family.update({
       where: { id: familyId },
       data: updateData
@@ -412,6 +443,9 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
         maxBudgetPence: true,
         budgetPeriod: true,
         showLifetimeEarnings: true,
+        holidayMode: true,
+        holidayStartDate: true,
+        holidayEndDate: true,
         // Streak settings
         streakProtectionDays: true,
         bonusEnabled: true,
@@ -511,6 +545,10 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
       members: members.map(member => ({
         id: member.id,
         role: member.role,
+        displayName: member.displayName,
+        birthMonth: member.birthMonth,
+        birthYear: member.birthYear,
+        paused: member.paused,
         joinedAt: member.createdAt,
         user: member.user
       })),
@@ -524,6 +562,349 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
   } catch (error) {
     console.error('Failed to get family members:', error)
     reply.status(500).send({ error: 'Failed to get family members' })
+  }
+}
+
+interface UpdateMemberBody {
+  displayName?: string
+  birthMonth?: number | null
+  birthYear?: number | null
+}
+
+export const updateMember = async (req: FastifyRequest<{ Params: { id: string }; Body: UpdateMemberBody }>, reply: FastifyReply) => {
+  try {
+    const { familyId, sub: userId } = req.claims!
+    const { id } = req.params
+    const { displayName, birthMonth, birthYear } = req.body
+
+    if (!familyId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Verify member belongs to family
+    const member = await prisma.familyMember.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!member) {
+      return reply.status(404).send({ error: 'Member not found' })
+    }
+
+    // Build update data
+    const updateData: any = {}
+    if (displayName !== undefined) {
+      updateData.displayName = displayName || null
+    }
+    if (birthMonth !== undefined) {
+      updateData.birthMonth = birthMonth || null
+    }
+    if (birthYear !== undefined) {
+      updateData.birthYear = birthYear || null
+    }
+
+    // Update member
+    const updated = await prisma.familyMember.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true
+          }
+        }
+      }
+    })
+
+    // Invalidate cache
+    await cache.invalidateFamily(familyId)
+
+    return reply.send({
+      member: {
+        id: updated.id,
+        role: updated.role,
+        displayName: updated.displayName,
+        birthMonth: updated.birthMonth,
+        birthYear: updated.birthYear,
+        joinedAt: updated.createdAt,
+        user: updated.user
+      }
+    })
+  } catch (error: any) {
+    console.error('Failed to update member:', error)
+    req.log.error(error)
+    return reply.status(500).send({ error: 'Failed to update member', details: error.message })
+  }
+}
+
+export const generateDeviceToken = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, sub: userId } = req.claims!
+    const { id } = req.params
+
+    if (!familyId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Verify member belongs to family
+    const member = await prisma.familyMember.findFirst({
+      where: { id, familyId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    if (!member) {
+      return reply.status(404).send({ error: 'Member not found' })
+    }
+
+    // Generate device access token (magic link for adults)
+    const token = generateToken()
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+    // Delete any existing device access tokens for this email
+    await prisma.authToken.deleteMany({
+      where: { 
+        email: member.user.email, 
+        type: 'device_access',
+        familyId 
+      }
+    })
+
+    const authToken = await prisma.authToken.create({
+      data: {
+        email: member.user.email,
+        token,
+        type: 'device_access',
+        familyId,
+        expiresAt
+      }
+    })
+
+    // Send magic link email to the adult
+    try {
+      const { sendMagicLink } = await import('../utils/email.js')
+      await sendMagicLink(member.user.email, token)
+      
+      return reply.send({
+        message: 'Device access email sent successfully',
+        emailSent: true,
+        expiresAt: authToken.expiresAt
+      })
+    } catch (emailError: any) {
+      console.error('Failed to send device access email:', emailError)
+      // Still return success but note email failed
+      return reply.send({
+        message: 'Device access token created but email failed to send',
+        emailSent: false,
+        token: authToken.token, // Return token as fallback
+        expiresAt: authToken.expiresAt
+      })
+    }
+  } catch (error: any) {
+    console.error('Failed to generate device token:', error)
+    req.log.error(error)
+    return reply.status(500).send({ error: 'Failed to generate device token', details: error.message })
+  }
+}
+
+export const toggleMemberPause = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, sub: userId } = req.claims!
+    const { id } = req.params
+
+    if (!familyId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Verify member belongs to family
+    const member = await prisma.familyMember.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!member) {
+      return reply.status(404).send({ error: 'Member not found' })
+    }
+
+    // Prevent pausing yourself
+    if (member.userId === userId) {
+      return reply.status(400).send({ error: 'Cannot pause your own account' })
+    }
+
+    // Prevent pausing the last admin
+    if (member.role === 'parent_admin' && !member.paused) {
+      const adminCount = await prisma.familyMember.count({
+        where: {
+          familyId,
+          role: 'parent_admin',
+          paused: false
+        }
+      })
+      if (adminCount <= 1) {
+        return reply.status(400).send({ error: 'Cannot pause the last admin member' })
+      }
+    }
+
+    // Toggle pause status
+    const updated = await prisma.familyMember.update({
+      where: { id },
+      data: { paused: !member.paused }
+    })
+
+    // Invalidate cache
+    await cache.invalidateFamily(familyId)
+
+    return reply.send({
+      message: `Member ${updated.paused ? 'paused' : 'unpaused'} successfully`,
+      paused: updated.paused
+    })
+  } catch (error: any) {
+    console.error('Failed to toggle member pause:', error)
+    req.log.error(error)
+    return reply.status(500).send({ error: 'Failed to toggle member pause', details: error.message })
+  }
+}
+
+export const removeMember = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, sub: userId } = req.claims!
+    const { id } = req.params
+
+    if (!familyId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Verify member belongs to family
+    const member = await prisma.familyMember.findFirst({
+      where: { id, familyId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    if (!member) {
+      return reply.status(404).send({ error: 'Member not found' })
+    }
+
+    // Prevent removing yourself
+    if (member.userId === userId) {
+      return reply.status(400).send({ error: 'Cannot remove your own account' })
+    }
+
+    // Prevent removing the last admin
+    if (member.role === 'parent_admin') {
+      const adminCount = await prisma.familyMember.count({
+        where: {
+          familyId,
+          role: 'parent_admin'
+        }
+      })
+      if (adminCount <= 1) {
+        return reply.status(400).send({ error: 'Cannot remove the last admin member' })
+      }
+    }
+
+    // Delete the family member record
+    await prisma.familyMember.delete({
+      where: { id }
+    })
+
+    // Note: We don't delete the User record as they might be part of other families
+    // If they have no other family memberships, that's handled by data cleanup
+
+    // Invalidate cache
+    await cache.invalidateFamily(familyId)
+
+    return reply.send({
+      message: 'Member removed successfully'
+    })
+  } catch (error: any) {
+    console.error('Failed to remove member:', error)
+    req.log.error(error)
+    return reply.status(500).send({ error: 'Failed to remove member', details: error.message })
+  }
+}
+
+export const getMemberStats = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, sub: userId } = req.claims!
+    const { id } = req.params
+
+    if (!familyId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Verify member belongs to family
+    const member = await prisma.familyMember.findFirst({
+      where: { id, familyId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            lastLoginAt: true
+          }
+        }
+      }
+    })
+
+    if (!member) {
+      return reply.status(404).send({ error: 'Member not found' })
+    }
+
+    // Count actions performed by this user
+    const [assignmentsCount, payoutsCount, completionsApprovedCount] = await Promise.all([
+      // Count assignments created by this user
+      prisma.assignment.count({
+        where: {
+          familyId,
+          createdBy: member.userId
+        }
+      }),
+      
+      // Count payouts made by this user
+      prisma.payout.count({
+        where: {
+          familyId,
+          paidBy: member.userId
+        }
+      }),
+      
+      // Count completions approved by this user
+      prisma.completion.count({
+        where: {
+          familyId,
+          status: 'approved',
+          approvedBy: member.userId
+        }
+      })
+    ])
+
+    return reply.send({
+      stats: {
+        lastLogin: member.user.lastLoginAt,
+        actions: {
+          assignmentsCreated: assignmentsCount,
+          payoutsMade: payoutsCount,
+          completionsApproved: completionsApprovedCount
+        }
+      }
+    })
+  } catch (error: any) {
+    console.error('Failed to get member stats:', error)
+    req.log.error(error)
+    return reply.status(500).send({ error: 'Failed to get member stats', details: error.message })
   }
 }
 
@@ -612,14 +993,22 @@ export const getJoinCodes = async (req: FastifyRequest, reply: FastifyReply) => 
           gt: new Date() // Greater than now (not expired)
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      },
       select: {
         id: true,
         code: true,
+        intendedNickname: true,
         createdAt: true,
-        expiresAt: true
+        expiresAt: true,
+        usedByChildId: true,
+        usedByChild: {
+          select: {
+            id: true,
+            nickname: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     })
 
