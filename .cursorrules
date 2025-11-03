@@ -10,8 +10,8 @@
     "orm": "Prisma"
   },
   "paths": {
-    "compose": "docker/docker-compose.yml",
-    "env": "docker/dev.env",
+    "compose": "docker/docker-compose-secure.yml",
+    "env": "docker/dev-secure.env",
     "prismaSchema": "api/prisma/schema.prisma",
     "apiEntry": "api/src/server.ts",
     "webEntry": "web/src/main.tsx",
@@ -44,12 +44,15 @@
     "When generating frontend components, keep mobile-first layout and Tailwind classes.",
     "For DB changes, update prisma schema and create a migration (migrate dev --name <meaningful-name>).",
     "Ensure multi-tenant safety: always scope by familyId on read/write.",
-    "Never leak data across families; include server-side guards."
+    "Never leak data across families; include server-side guards.",
+    "CRITICAL: ALWAYS use docker-compose-secure.yml and dev-secure.env. NEVER use docker-compose.yml (legacy/deprecated).",
+    "For Docker commands: use 'docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env'",
+    "For exec commands: use 'docker exec choreblimey-secure-api-1' (not 'docker compose exec api')"
   ],
   "runbook": {
-    "startStack": "docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build",
-    "migrate": "docker compose -f docker/docker-compose.yml exec api npx prisma migrate dev --name init",
-    "seed": "docker compose -f docker/docker-compose.yml exec api npm run seed",
+    "startStack": "docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d",
+    "migrate": "docker exec choreblimey-secure-api-1 npx prisma migrate dev --name init",
+    "seed": "docker exec choreblimey-secure-api-1 npm run seed",
     "apiHealth": "http://localhost:1501/v1/health",
     "web": "http://localhost:1500"
   },
@@ -59,7 +62,9 @@
     "Queries have appropriate indexes or use existing ones.",
     "UI works on phone widths (≤390px) and tablet, then desktop.",
     "No secrets or PII logged.",
-    "Env vars read from docker/dev.env."
+    "Env vars read from docker/dev-secure.env.",
+    "ALWAYS use docker-compose-secure.yml - NEVER use docker-compose.yml (legacy/deprecated).",
+    "Container names: choreblimey-secure-api-1, choreblimey-secure-web-1, choreblimey-secure-admin-api-1, choreblimey-secure-admin-web-1"
   ],
   "commitConventions": {
     "style": "conventional-commits",
