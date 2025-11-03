@@ -87,13 +87,9 @@ export async function choreGeneration(job: Job<ChoreGenerationJobData>) {
       try {
         console.log(`\n🏠 Processing family: ${family.id}`)
         
-        // Check if family is in holiday mode
-        if (isFamilyInHolidayMode(family)) {
-          console.log(`🏖️  Family ${family.id} is in holiday mode - skipping`)
-          results.holidayModeSkipped++
-          continue
-        }
-
+        // Note: We still process families in holiday mode - chores are generated normally,
+        // but penalties and streak breaks are skipped
+        
         const familyResult = await processFamilyChores(family, dryRun)
         
         // Merge results
@@ -154,11 +150,8 @@ async function processFamilyChores(family: any, dryRun: boolean) {
         continue
       }
 
-      // Check if child is in holiday mode
-      if (isChildInHolidayMode(child)) {
-        console.log(`🏖️  Child ${child.nickname} is in holiday mode - skipping`)
-        continue
-      }
+      // Note: We still process children in holiday mode - chores are generated normally,
+      // but penalties and streak breaks are skipped (checked inside processDailyChores/processWeeklyChores)
 
       console.log(`\n👶 Processing child: ${child.nickname}`)
 
@@ -277,38 +270,49 @@ async function processDailyChores(family: any, child: any, dryRun: boolean) {
       })
 
       if (!yesterdayCompletion) {
-        // Child didn't complete yesterday's chore - check if penalty should be applied
-        // Calculate consecutive missed days for this chore
-        const consecutiveMissedDays = await calculateConsecutiveMissedDays(
-          family.id,
-          child.id,
-          chore.id,
-          today
-        )
+        // Check if holiday mode is/was active (family or child) - if so, skip penalties and protect streaks
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        const wasInHolidayMode = isFamilyInHolidayModeOnDate(family, yesterday) || isChildInHolidayModeOnDate(child, yesterday)
         
-        // Check protection days - if within grace period, skip penalty AND protect streak
-        const protectionDays = family.streakProtectionDays || 0
-        const daysAfterProtection = consecutiveMissedDays - protectionDays
-        
-        if (daysAfterProtection > 0 && family.penaltyEnabled) {
-          console.log(`⚠️  ${child.nickname} missed "${chore.title}" ${consecutiveMissedDays} day(s) in a row (${daysAfterProtection} after protection) - applying streak penalty`)
-          
+        if (wasInHolidayMode) {
+          console.log(`🏖️  ${child.nickname} missed "${chore.title}" yesterday but was in holiday mode - no penalty, streak protected`)
+          // Protect the streak automatically during holiday mode
           if (!dryRun) {
-            await applyStreakPenalty(family, child, chore, consecutiveMissedDays, 'missed_daily_chore')
-          }
-          result.penaltiesApplied++
-        } else if (daysAfterProtection <= 0) {
-          console.log(`🛡️  ${child.nickname} missed "${chore.title}" but is within ${protectionDays} day protection period - no penalty, streak protected`)
-          
-          // Protect the streak - update lastIncrementDate to yesterday (the missed day)
-          // This ensures the streak continues when they complete the next chore
-          if (!dryRun) {
-            const yesterday = new Date(today)
-            yesterday.setDate(yesterday.getDate() - 1)
             await protectStreak(family.id, child.id, chore.id, yesterday)
           }
         } else {
-          console.log(`⚙️  Penalties disabled for family - skipping penalty`)
+          // Child didn't complete yesterday's chore - check if penalty should be applied
+          // Calculate consecutive missed days for this chore
+          const consecutiveMissedDays = await calculateConsecutiveMissedDays(
+            family.id,
+            child.id,
+            chore.id,
+            today
+          )
+          
+          // Check protection days - if within grace period, skip penalty AND protect streak
+          const protectionDays = family.streakProtectionDays || 0
+          const daysAfterProtection = consecutiveMissedDays - protectionDays
+          
+          if (daysAfterProtection > 0 && family.penaltyEnabled) {
+            console.log(`⚠️  ${child.nickname} missed "${chore.title}" ${consecutiveMissedDays} day(s) in a row (${daysAfterProtection} after protection) - applying streak penalty`)
+            
+            if (!dryRun) {
+              await applyStreakPenalty(family, child, chore, consecutiveMissedDays, 'missed_daily_chore')
+            }
+            result.penaltiesApplied++
+          } else if (daysAfterProtection <= 0) {
+            console.log(`🛡️  ${child.nickname} missed "${chore.title}" but is within ${protectionDays} day protection period - no penalty, streak protected`)
+            
+            // Protect the streak - update lastIncrementDate to yesterday (the missed day)
+            // This ensures the streak continues when they complete the next chore
+            if (!dryRun) {
+              await protectStreak(family.id, child.id, chore.id, yesterday)
+            }
+          } else {
+            console.log(`⚙️  Penalties disabled for family - skipping penalty`)
+          }
         }
       }
 
@@ -426,30 +430,42 @@ async function processWeeklyChores(family: any, child: any, dryRun: boolean) {
       })
 
       if (!lastWeekCompletion) {
-        // Child didn't complete last week's chore - check if penalty should be applied
-        // For weekly chores, we treat each missed week as a separate miss
-        // (protection days still apply - if protectionDays = 1, first miss is free)
-        const consecutiveMissedWeeks = 1 // For weekly, we're checking one week at a time
+        // Check if holiday mode was active during the previous week - if so, skip penalties and protect streaks
+        // We check at the start of last week to see if holiday mode was active
+        const wasInHolidayMode = isFamilyInHolidayModeOnDate(family, lastWeekStart) || isChildInHolidayModeOnDate(child, lastWeekStart)
         
-        const daysAfterProtection = consecutiveMissedWeeks - (family.streakProtectionDays || 0)
-        
-        if (daysAfterProtection > 0 && family.penaltyEnabled) {
-          console.log(`⚠️  ${child.nickname} missed "${chore.title}" last week (${daysAfterProtection} after protection) - applying streak penalty`)
-          
+        if (wasInHolidayMode) {
+          console.log(`🏖️  ${child.nickname} missed "${chore.title}" last week but was in holiday mode - no penalty, streak protected`)
+          // Protect the streak automatically during holiday mode
           if (!dryRun) {
-            // For weekly chores, we'll use the first miss penalty (since it's treated as a single event)
-            await applyStreakPenalty(family, child, chore, consecutiveMissedWeeks, 'missed_weekly_chore')
-          }
-          result.penaltiesApplied++
-        } else if (daysAfterProtection <= 0) {
-          console.log(`🛡️  ${child.nickname} missed "${chore.title}" but is within ${family.streakProtectionDays || 0} week protection period - no penalty, streak protected`)
-          
-          // Protect the streak for weekly chores too
-          if (!dryRun) {
-            await protectStreak(family.id, child.id, chore.id, new Date())
+            await protectStreak(family.id, child.id, chore.id, lastWeekStart)
           }
         } else {
-          console.log(`⚙️  Penalties disabled for family - skipping penalty`)
+          // Child didn't complete last week's chore - check if penalty should be applied
+          // For weekly chores, we treat each missed week as a separate miss
+          // (protection days still apply - if protectionDays = 1, first miss is free)
+          const consecutiveMissedWeeks = 1 // For weekly, we're checking one week at a time
+          
+          const daysAfterProtection = consecutiveMissedWeeks - (family.streakProtectionDays || 0)
+          
+          if (daysAfterProtection > 0 && family.penaltyEnabled) {
+            console.log(`⚠️  ${child.nickname} missed "${chore.title}" last week (${daysAfterProtection} after protection) - applying streak penalty`)
+            
+            if (!dryRun) {
+              // For weekly chores, we'll use the first miss penalty (since it's treated as a single event)
+              await applyStreakPenalty(family, child, chore, consecutiveMissedWeeks, 'missed_weekly_chore')
+            }
+            result.penaltiesApplied++
+          } else if (daysAfterProtection <= 0) {
+            console.log(`🛡️  ${child.nickname} missed "${chore.title}" but is within ${family.streakProtectionDays || 0} week protection period - no penalty, streak protected`)
+            
+            // Protect the streak for weekly chores too
+            if (!dryRun) {
+              await protectStreak(family.id, child.id, chore.id, lastWeekStart)
+            }
+          } else {
+            console.log(`⚙️  Penalties disabled for family - skipping penalty`)
+          }
         }
       }
 
@@ -733,20 +749,25 @@ async function applyStreakPenalty(
 }
 
 /**
- * Check if family is in holiday mode
+ * Check if family is in holiday mode (at current time)
  */
 function isFamilyInHolidayMode(family: any): boolean {
+  return isFamilyInHolidayModeOnDate(family, new Date())
+}
+
+/**
+ * Check if family is in holiday mode on a specific date
+ */
+function isFamilyInHolidayModeOnDate(family: any, checkDate: Date): boolean {
   if (!family.holidayMode) return false
   
-  const now = new Date()
-  
   // Check if holiday has started
-  if (family.holidayStartDate && now < new Date(family.holidayStartDate)) {
+  if (family.holidayStartDate && checkDate < new Date(family.holidayStartDate)) {
     return false
   }
   
   // Check if holiday has ended
-  if (family.holidayEndDate && now > new Date(family.holidayEndDate)) {
+  if (family.holidayEndDate && checkDate > new Date(family.holidayEndDate)) {
     return false
   }
   
@@ -754,20 +775,25 @@ function isFamilyInHolidayMode(family: any): boolean {
 }
 
 /**
- * Check if child is in holiday mode
+ * Check if child is in holiday mode (at current time)
  */
 function isChildInHolidayMode(child: any): boolean {
+  return isChildInHolidayModeOnDate(child, new Date())
+}
+
+/**
+ * Check if child is in holiday mode on a specific date
+ */
+function isChildInHolidayModeOnDate(child: any, checkDate: Date): boolean {
   if (!child.holidayMode) return false
   
-  const now = new Date()
-  
   // Check if holiday has started
-  if (child.holidayStartDate && now < new Date(child.holidayStartDate)) {
+  if (child.holidayStartDate && checkDate < new Date(child.holidayStartDate)) {
     return false
   }
   
   // Check if holiday has ended
-  if (child.holidayEndDate && now > new Date(child.holidayEndDate)) {
+  if (child.holidayEndDate && checkDate > new Date(child.holidayEndDate)) {
     return false
   }
   
