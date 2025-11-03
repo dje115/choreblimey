@@ -167,7 +167,7 @@ class ApiClient {
 
   async inviteToFamily(data: { 
     email?: string; 
-    role: 'parent_admin' | 'parent_viewer' | 'relative_contributor' | 'child_player'; 
+    role: 'parent_admin' | 'parent_co_parent' | 'parent_viewer' | 'grandparent' | 'uncle_aunt' | 'relative_contributor' | 'child_player'; 
     nameCipher: string; 
     nickname: string; 
     ageGroup?: string; 

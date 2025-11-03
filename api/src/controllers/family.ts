@@ -48,6 +48,16 @@ interface FamilyUpdateBody {
   holidayEndDate?: string | null
 }
 
+/**
+ * Create a new family
+ * @route POST /family
+ * @description Creates a new family and adds the authenticated user as the admin member
+ * @param {FastifyRequest<{ Body: FamilyCreateBody }>} req - Request containing family name and optional region
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ family }>} Created family object
+ * @throws {400} Bad Request - Family name is required
+ * @throws {500} Internal Server Error - Failed to create family
+ */
 export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, reply: FastifyReply) => {
   try {
     const { sub: userId } = req.claims!
@@ -80,6 +90,18 @@ export const create = async (req: FastifyRequest<{ Body: FamilyCreateBody }>, re
   }
 }
 
+/**
+ * Invite a member to the family
+ * @route POST /family/invite
+ * @description Invites a new member (child or adult) to the family. For children, generates a join code.
+ *              For adults, sends a magic link email if email is provided.
+ * @param {FastifyRequest<{ Body: FamilyInviteBody }>} req - Request containing invite details
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ joinCode?, emailSent?, token? }>} Join code for children, email status for adults
+ * @throws {400} Bad Request - Family name and nickname are required
+ * @throws {404} Not Found - User not found
+ * @throws {500} Internal Server Error - Failed to send invite
+ */
 export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, reply: FastifyReply) => {
   try {
     const { sub: userId, familyId } = req.claims!
@@ -206,6 +228,15 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
   }
 }
 
+/**
+ * Get family details
+ * @route GET /family
+ * @description Retrieves family information including settings, holiday mode, and streak configuration
+ * @param {FastifyRequest} req - Fastify request object
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ family }>} Family object with all settings
+ * @throws {404} Not Found - User not part of a family
+ */
 export const get = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
@@ -499,6 +530,15 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
   }
 }
 
+/**
+ * Get all family members
+ * @route GET /family/members
+ * @description Retrieves all family members (adults and children) with their roles and details
+ * @param {FastifyRequest} req - Fastify request object
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ members, children }>} List of adult members and children
+ * @throws {404} Not Found - User not part of a family
+ */
 export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
@@ -574,6 +614,17 @@ interface UpdateMemberBody {
   birthYear?: number | null
 }
 
+/**
+ * Update a family member's information
+ * @route PATCH /family/members/:id
+ * @description Updates a family member's display name, birthday, or other profile information
+ * @param {FastifyRequest<{ Params: { id: string }; Body: UpdateMemberBody }>} req - Request with member ID and update data
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ member }>} Updated member object
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {404} Not Found - Member not found
+ * @throws {500} Internal Server Error - Failed to update member
+ */
 export const updateMember = async (req: FastifyRequest<{ Params: { id: string }; Body: UpdateMemberBody }>, reply: FastifyReply) => {
   try {
     const { familyId, sub: userId } = req.claims!
@@ -641,6 +692,17 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
   }
 }
 
+/**
+ * Generate device access token for a family member
+ * @route POST /family/members/:id/device-token
+ * @description Generates a magic link token for device access and sends it via email to the member
+ * @param {FastifyRequest<{ Params: { id: string } }>} req - Request with member ID
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ emailSent, token?, expiresAt }>} Email send status and optional token
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {404} Not Found - Member not found
+ * @throws {500} Internal Server Error - Failed to generate token or send email
+ */
 export const generateDeviceToken = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
     const { familyId, sub: userId } = req.claims!
@@ -717,6 +779,17 @@ export const generateDeviceToken = async (req: FastifyRequest<{ Params: { id: st
   }
 }
 
+/**
+ * Toggle member pause status
+ * @route PATCH /family/members/:id/pause
+ * @description Pauses or unpauses a family member's account access. Prevents pausing yourself or the last admin.
+ * @param {FastifyRequest<{ Params: { id: string } }>} req - Request with member ID
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ message, paused }>} Success message and new pause status
+ * @throws {400} Bad Request - Cannot pause yourself or the last admin
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {404} Not Found - Member not found
+ */
 export const toggleMemberPause = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
     const { familyId, sub: userId } = req.claims!
@@ -774,6 +847,17 @@ export const toggleMemberPause = async (req: FastifyRequest<{ Params: { id: stri
   }
 }
 
+/**
+ * Remove a member from the family
+ * @route DELETE /family/members/:id
+ * @description Permanently removes a family member. Prevents removing yourself or the last admin.
+ * @param {FastifyRequest<{ Params: { id: string } }>} req - Request with member ID
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ message }>} Success message
+ * @throws {400} Bad Request - Cannot remove yourself or the last admin
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {404} Not Found - Member not found
+ */
 export const removeMember = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
     const { familyId, sub: userId } = req.claims!
@@ -839,6 +923,16 @@ export const removeMember = async (req: FastifyRequest<{ Params: { id: string } 
   }
 }
 
+/**
+ * Get member activity statistics
+ * @route GET /family/members/:id/stats
+ * @description Retrieves statistics for a family member including last login and action counts
+ * @param {FastifyRequest<{ Params: { id: string } }>} req - Request with member ID
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ stats }>} Member statistics (lastLogin, actions: assignmentsCreated, payoutsMade, completionsApproved)
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {404} Not Found - Member not found
+ */
 export const getMemberStats = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
     const { familyId, sub: userId } = req.claims!

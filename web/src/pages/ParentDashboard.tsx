@@ -482,9 +482,9 @@ const ParentDashboard: React.FC = () => {
         const childrenList = membersRes.value.children || []
         
         // De-duplicate children by ID to prevent React key warnings
-        const uniqueChildren = Array.from(
+        const uniqueChildren: Child[] = Array.from(
           new Map(childrenList.map((child: any) => [child.id, child])).values()
-        )
+        ) as Child[]
         setChildren(uniqueChildren)
         
         // Update ref for polling
@@ -495,8 +495,8 @@ const ParentDashboard: React.FC = () => {
           apiClient.getWallet(child.id).catch(() => ({ wallet: { balancePence: 0 } }))
         )
         const walletResults = await Promise.all(walletPromises)
-        const walletsData = walletResults.map((result: any, index: number) => ({
-          childId: uniqueChildren[index].id,
+        const walletsData = walletResults.map((result: { wallet?: { balancePence?: number; stars?: number } }, index: number) => ({
+          childId: uniqueChildren[index]!.id,
           balancePence: result.wallet?.balancePence || 0,
           stars: result.wallet?.stars || 0
         }))
@@ -663,7 +663,9 @@ const ParentDashboard: React.FC = () => {
     try {
       await apiClient.updateFamily({ nameCipher: familyName })
       setFamilyMessage('✅ Family name updated successfully!')
-      setFamily({ ...family, nameCipher: familyName })
+      if (family) {
+        setFamily({ ...family, nameCipher: familyName })
+      }
       setTimeout(() => {
         setShowFamilyModal(false)
         setFamilyMessage('')
@@ -687,7 +689,8 @@ const ParentDashboard: React.FC = () => {
       description: template.description,
       frequency: template.frequency,
       proof: 'none', // Parents can change this
-      baseRewardPence: suggestedReward
+      baseRewardPence: suggestedReward,
+      starsOverride: null
     })
 
     // Close library and open custom form
@@ -735,7 +738,8 @@ const ParentDashboard: React.FC = () => {
         description: '',
         frequency: 'daily',
         proof: 'none',
-        baseRewardPence: 50
+        baseRewardPence: 50,
+        starsOverride: null
       })
       setChoreAssignments({
         childIds: [],
@@ -894,9 +898,9 @@ const ParentDashboard: React.FC = () => {
     const childAssignments = assignments.filter((a: Assignment) => a.childId === child.id)
     
     // Get chores that have assignments but no recent completions
-    const pendingChores = childAssignments
+    const pendingChores: Chore[] = childAssignments
       .map((assignment: Assignment) => assignment.chore)
-      .filter((chore: Chore | undefined) => {
+      .filter((chore: Chore | undefined): chore is Chore => {
         if (!chore || !chore.active) return false
         
         // Check if this chore has been completed today
@@ -911,7 +915,6 @@ const ParentDashboard: React.FC = () => {
         
         return !completedToday
       })
-      .filter((chore): chore is Chore => chore !== undefined)
     
     return {
       child,
@@ -1129,10 +1132,10 @@ const ParentDashboard: React.FC = () => {
                             <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                  💰 £{(chore.baseRewardPence / 100).toFixed(2)}
+                                  💰 £{((chore.baseRewardPence || 0) / 100).toFixed(2)}
                                 </span>
                                 <span className="cb-chip bg-yellow-100 text-yellow-700">
-                                  ⭐ {chore.starsOverride || Math.max(1, Math.floor(chore.baseRewardPence / 10))}
+                                  ⭐ {chore.starsOverride || Math.max(1, Math.floor((chore.baseRewardPence || 0) / 10))}
                                 </span>
                                 <span className="cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
                                   {chore.frequency}
@@ -3782,7 +3785,8 @@ const ParentDashboard: React.FC = () => {
                       description: '',
                       frequency: 'daily',
                       proof: 'none',
-                      baseRewardPence: 50
+                      baseRewardPence: 50,
+                      starsOverride: null
                     })
                     setChoreAssignments({
                       childIds: [],
@@ -4491,7 +4495,6 @@ const ParentDashboard: React.FC = () => {
                     await apiClient.updateChild(selectedChild.id, {
                       nickname: selectedChild.nickname,
                       gender: selectedChild.gender,
-                      email: selectedChild.email,
                       birthMonth: selectedChild.birthMonth ?? undefined,
                       birthYear: birthYearNum
                     })

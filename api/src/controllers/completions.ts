@@ -9,6 +9,17 @@ interface CompletionCreateBody {
   note?: string
 }
 
+/**
+ * Create a new completion (child submits a chore)
+ * @route POST /completions
+ * @description Creates a completion record when a child submits a completed chore. Handles challenge mode bidding logic.
+ * @param {FastifyRequest<{ Body: CompletionCreateBody }>} req - Request containing assignment ID, optional proof URL and note
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ completion }>} Created completion object
+ * @throws {400} Bad Request - Child ID not found in authentication
+ * @throws {403} Forbidden - Challenge locked or chore not assigned to this child
+ * @throws {404} Not Found - Assignment or child not found
+ */
 export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>, reply: FastifyReply) => {
   try {
     const { familyId, childId, sub } = req.claims!
@@ -109,6 +120,17 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
   }
 }
 
+/**
+ * Approve a completion
+ * @route PATCH /completions/:id/approve
+ * @description Approves a pending completion, awards rewards, and updates streaks
+ * @param {FastifyRequest<{ Params: { id: string } }>} req - Request with completion ID
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ completion, wallet }>} Approved completion and updated wallet
+ * @throws {400} Bad Request - Completion already processed
+ * @throws {404} Not Found - Completion not found
+ * @throws {500} Internal Server Error - Failed to approve completion
+ */
 export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
     const { familyId, sub: userId } = req.claims!
@@ -305,6 +327,17 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
   }
 }
 
+/**
+ * Reject a completion
+ * @route PATCH /completions/:id/reject
+ * @description Rejects a pending completion with an optional reason
+ * @param {FastifyRequest<{ Params: { id: string }, Body: { reason?: string } }>} req - Request with completion ID and optional rejection reason
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ completion }>} Rejected completion object
+ * @throws {400} Bad Request - Completion already processed
+ * @throws {404} Not Found - Completion not found
+ * @throws {500} Internal Server Error - Failed to reject completion
+ */
 export const reject = async (req: FastifyRequest<{ Params: { id: string }, Body: { reason?: string } }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
@@ -343,6 +376,14 @@ export const reject = async (req: FastifyRequest<{ Params: { id: string }, Body:
   }
 }
 
+/**
+ * List completions
+ * @route GET /completions
+ * @description Retrieves completions for the family, optionally filtered by status
+ * @param {FastifyRequest<{ Querystring: { status?: string } }>} req - Request with optional status filter
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ completions }>} List of completion objects
+ */
 export const list = async (req: FastifyRequest<{ Querystring: { status?: string } }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!

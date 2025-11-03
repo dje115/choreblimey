@@ -46,6 +46,16 @@ interface UpdateChildBody {
   theme?: string
 }
 
+/**
+ * Create a new child
+ * @route POST /children
+ * @description Creates a new child profile and generates a join code for them
+ * @param {FastifyRequest<{ Body: CreateChildBody }>} req - Request containing child details
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ child }>} Created child object
+ * @throws {400} Bad Request - Nickname is required
+ * @throws {500} Internal Server Error - Failed to create child
+ */
 export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
@@ -95,6 +105,16 @@ export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, rep
   }
 }
 
+/**
+ * Update a child's profile
+ * @route PATCH /children/:id
+ * @description Updates a child's profile information. Auto-calculates age group if birth year is provided.
+ * @param {FastifyRequest<{ Params: { id: string }; Body: UpdateChildBody }>} req - Request with child ID and update data
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ child }>} Updated child object
+ * @throws {404} Not Found - Child not found
+ * @throws {500} Internal Server Error - Failed to update child
+ */
 export const update = async (req: FastifyRequest<{ Params: { id: string }; Body: UpdateChildBody }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!

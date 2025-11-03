@@ -84,39 +84,33 @@ ChoreBlimey! transforms household chores into an engaging game where children ea
 
 ### Installation
 
-#### Standard Development Stack
+#### Secure Development Stack (Recommended)
 ```bash
 # Clone repository
 git clone <repository-url>
 cd choreblimey
 
-# Start all services
-docker compose -f docker/docker-compose.yml --env-file docker/dev.env up --build
+# Start all services (secure stack)
+docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d
 
 # Access services
 # - Web: http://localhost:1500
 # - API: http://localhost:1501
+# - Admin API: http://localhost:1503
+# - Admin Web: http://localhost:1504
 # - MailHog: http://localhost:1506
-```
-
-#### Secure Admin Portal Stack (RECOMMENDED)
-```bash
-# Start secure stack with isolated admin portal
-docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d
 
 # Run database migrations
 docker exec choreblimey-secure-api-1 npx prisma migrate dev --name init
 
-# Seed demo data
+# Seed database (optional)
 docker exec choreblimey-secure-api-1 npm run seed
 
-# Access services
-# - User Web: http://localhost:1500
-# - User API: http://localhost:1501
-# - Admin Web: http://localhost:1503
-# - Admin API: http://localhost:1502
-# - MailHog: http://localhost:1506
+# Check service health
+curl http://localhost:1501/v1/health
 ```
+
+**Version**: v0.0.8 (as of latest commit)
 
 ### 📖 Docker Development Guide
 For detailed Docker setup, troubleshooting, and development workflow, see [DOCKER_DEVELOPMENT.md](./DOCKER_DEVELOPMENT.md).

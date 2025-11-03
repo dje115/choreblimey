@@ -50,6 +50,74 @@ interface LeaderboardEntry {
   totalStars: number
 }
 
+interface Assignment {
+  id: string
+  choreId: string
+  childId?: string | null
+  biddingEnabled?: boolean
+  chore?: Chore
+  [key: string]: any
+}
+
+interface Completion {
+  id: string
+  assignmentId: string
+  childId: string
+  status: 'pending' | 'approved' | 'rejected'
+  timestamp: string
+  assignment?: Assignment
+  [key: string]: any
+}
+
+interface FamilyMember {
+  id: string
+  role: string
+  user?: {
+    id: string
+    email: string
+  }
+  displayName?: string
+  [key: string]: any
+}
+
+interface Payout {
+  id: string
+  childId: string
+  amountPence: number
+  paidAt: string
+  paidBy?: string
+  paidByUser?: {
+    email: string
+  }
+  [key: string]: any
+}
+
+interface Transaction {
+  id: string
+  type: 'credit' | 'debit'
+  amountPence: number
+  source?: string
+  note?: string
+  createdAt: string
+  [key: string]: any
+}
+
+interface StreakStat {
+  chore?: {
+    id: string
+    title: string
+  }
+  current: number
+  longest: number
+  [key: string]: any
+}
+
+interface WalletStats {
+  totalEarned: number
+  totalSpent: number
+  [key: string]: any
+}
+
 type Tab = 'today' | 'streaks' | 'shop' | 'showdown' | 'bank'
 
 const ChildDashboard: React.FC = () => {
@@ -87,17 +155,17 @@ const ChildDashboard: React.FC = () => {
   }
   const [isLoading, setIsLoading] = useState(true)
   const [wallet, setWallet] = useState<Wallet | null>(null)
-  const [walletStats, setWalletStats] = useState<any>(null)
+  const [walletStats, setWalletStats] = useState<WalletStats | null>(null)
   const [familySettings, setFamilySettings] = useState<any>(null)
   const [chores, setChores] = useState<Chore[]>([])
-  const [assignments, setAssignments] = useState<any[]>([])
-  const [completions, setCompletions] = useState<any[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [completions, setCompletions] = useState<Completion[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-  const [streakStats, setStreakStats] = useState<any>(null)
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [payouts, setPayouts] = useState<any[]>([])
-  const [familyMembers, setFamilyMembers] = useState<any[]>([])
+  const [streakStats, setStreakStats] = useState<{ individualStreaks: StreakStat[]; [key: string]: any } | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [payouts, setPayouts] = useState<Payout[]>([])
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [error, setError] = useState<string>('')
   const [successMessage, setSuccessMessage] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('today')
@@ -128,7 +196,7 @@ const ChildDashboard: React.FC = () => {
 
   // Challenge mode: Track who's the champion for each chore and all bids
   const [choreChampions, setChoreChampions] = useState<Map<string, any>>(new Map())
-  const [choreBids, setChoreBids] = useState<Map<string, any[]>>(new Map())
+  const [choreBids, setChoreBids] = useState<Map<string, Array<{ id: string; childId: string; amountPence: number; [key: string]: any }>>>(new Map())
   const [choreStreaks, setChoreStreaks] = useState<Map<string, any>>(new Map())
   const [allChoreStreaks, setAllChoreStreaks] = useState<Map<string, any>>(new Map()) // Streaks for all chores (not just challenge)
 
@@ -154,7 +222,7 @@ const ChildDashboard: React.FC = () => {
 
   // Listen for chore updates from parent dashboard
   useEffect(() => {
-    const handleChoreUpdate = (event?: any) => {
+    const handleChoreUpdate = (event?: CustomEvent | Event) => {
       console.log('🔄 Chore update detected, refreshing child dashboard...', event?.detail || event)
       loadDashboard()
     }
@@ -335,7 +403,7 @@ const ChildDashboard: React.FC = () => {
         setFamilyMembers(members)
         
         // Look for child in the children array, not members array
-        const currentChild = children.find((child: any) => child.id === childId)
+        const currentChild = children.find((child: { id: string; [key: string]: any }) => child.id === childId)
         if (currentChild) {
           setIsPaused(currentChild.paused || false)
         }
@@ -345,7 +413,7 @@ const ChildDashboard: React.FC = () => {
         setAssignments(assignmentsList)
         
         // Load bids and streaks for challenge chores
-        const challengeAssignments = assignmentsList.filter((a: any) => a.biddingEnabled)
+        const challengeAssignments = assignmentsList.filter((a: Assignment) => a.biddingEnabled)
         const championsMap = new Map()
         const bidsMap = new Map()
         const streaksMap = new Map()
@@ -373,7 +441,7 @@ const ChildDashboard: React.FC = () => {
         const bidResults = await Promise.all(bidPromises)
         
         // Process results
-        bidResults.forEach((result: any) => {
+        bidResults.forEach((result: { bids: Array<{ id: string; childId: string; amountPence: number; [key: string]: any }> }) => {
           if (result.bids.length > 0) {
             bidsMap.set(result.assignmentId, result.bids)
             championsMap.set(result.assignmentId, result.champion)
@@ -383,7 +451,7 @@ const ChildDashboard: React.FC = () => {
         // Check streak data
         if (streaksRes.status === 'fulfilled' && streaksRes.value?.stats?.individualStreaks) {
           challengeAssignments.forEach(assignment => {
-            const choreStreak = streaksRes.value.stats.individualStreaks.find((s: any) => s.chore?.id === assignment.chore?.id)
+            const choreStreak = streaksRes.value.stats.individualStreaks.find((s: StreakStat) => s.chore?.id === assignment.chore?.id)
             if (choreStreak && choreStreak.current > 0) {
               streaksMap.set(assignment.id, choreStreak)
             }
@@ -402,7 +470,7 @@ const ChildDashboard: React.FC = () => {
       }
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
-        const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: any) => ({
+        const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: LeaderboardEntry) => ({
           ...entry,
           nickname: entry.child?.nickname || 'Unknown',
           ageGroup: entry.child?.ageGroup
@@ -417,7 +485,7 @@ const ChildDashboard: React.FC = () => {
         // Build map of streaks by choreId for all chores (to show flames on missions)
         if (streaksRes.value.stats?.individualStreaks) {
           const streaksByChore = new Map<string, any>()
-          streaksRes.value.stats.individualStreaks.forEach((streak: any) => {
+          streaksRes.value.stats.individualStreaks.forEach((streak: StreakStat) => {
             if (streak.chore?.id && streak.current > 0) {
               streaksByChore.set(streak.chore.id, streak)
             }
@@ -442,7 +510,7 @@ const ChildDashboard: React.FC = () => {
     }
   }
 
-  const handleMarkAsDone = (assignment: any) => {
+  const handleMarkAsDone = (assignment: Assignment) => {
     setSelectedAssignment(assignment)
     setCompletionNote('')
     setShowCompletionModal(true)
@@ -1107,9 +1175,9 @@ const ChildDashboard: React.FC = () => {
                 <h3 className="cb-heading-md text-[var(--primary)] mb-4">🔥 Your Chore Streaks</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {streakStats.individualStreaks
-                    .filter((s: any) => s.current > 0)
-                    .sort((a: any, b: any) => b.current - a.current)
-                    .map((streak: any) => (
+                    .filter((s: StreakStat) => s.current > 0)
+                    .sort((a: StreakStat, b: StreakStat) => b.current - a.current)
+                    .map((streak: StreakStat) => (
                       <div
                         key={streak.choreId}
                         className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-4"

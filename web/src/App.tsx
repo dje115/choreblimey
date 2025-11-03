@@ -7,6 +7,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import TokenHandler from './components/TokenHandler'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 // Pages
 import LandingPage from './pages/LandingPage'
@@ -36,10 +37,11 @@ const AppContent = () => {
   }
   
   return (
-    <ThemeProvider role={user?.role as any} age={getThemeAge()}>
-      <Router>
-        <div className="min-h-screen bg-background text-foreground">
-            <Routes>
+    <ErrorBoundary>
+      <ThemeProvider role={user?.role as any} age={getThemeAge()}>
+        <Router>
+          <div className="min-h-screen bg-background text-foreground">
+              <Routes>
               {/* Public routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
@@ -83,9 +85,10 @@ const AppContent = () => {
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </div>
-        </Router>
-        <VersionBadge />
-      </ThemeProvider>
+          </Router>
+          <VersionBadge />
+        </ThemeProvider>
+    </ErrorBoundary>
   )
 }
 
