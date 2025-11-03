@@ -166,11 +166,13 @@ class ApiClient {
   }
 
   async inviteToFamily(data: { 
-    email: string; 
+    email?: string; 
     role: 'parent_admin' | 'parent_viewer' | 'relative_contributor' | 'child_player'; 
     nameCipher: string; 
     nickname: string; 
     ageGroup?: string; 
+    birthYear?: number;
+    birthMonth?: number;
     sendEmail?: boolean 
   }) {
     return this.post('/family/invite', data)

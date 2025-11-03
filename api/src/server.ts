@@ -1,3 +1,12 @@
+/**
+ * ChoreBlimey API Server
+ * 
+ * Main Fastify application entry point for the user-facing API.
+ * Handles authentication, routing, rate limiting, and error handling.
+ * 
+ * @module server
+ */
+
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -17,9 +26,17 @@ await app.register(helmet, {
   contentSecurityPolicy: false
 })
 
+/**
+ * Rate limiting configuration
+ * Increased from 100 to 500 requests/minute to handle dashboard loads
+ * with multiple children/chores and consolidated API calls
+ */
 await app.register(rateLimit, {
-  max: 500, // Increased from 100 to handle dashboard loads with multiple children/chores
-  timeWindow: '1 minute'
+  max: process.env.NODE_ENV === 'production' ? 500 : 5000,
+  timeWindow: '1 minute',
+  allowList: process.env.NODE_ENV === 'production'
+    ? []
+    : ['127.0.0.1', '::1', '::ffff:127.0.0.1'],
 })
 
 await app.register(cors, { 

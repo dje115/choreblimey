@@ -5,6 +5,49 @@ import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTem
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 
+// Type definitions
+interface Family {
+  id: string
+  nameCipher: string
+  holidayMode?: boolean | null
+  holidayStartDate?: string | null
+  holidayEndDate?: string | null
+  [key: string]: any
+}
+
+interface Child {
+  id: string
+  nickname: string
+  ageGroup?: string
+  [key: string]: any
+}
+
+interface Chore {
+  id: string
+  title: string
+  active?: boolean
+  frequency?: string
+  baseRewardPence?: number
+  starsOverride?: number
+  [key: string]: any
+}
+
+interface Assignment {
+  id: string
+  choreId: string
+  childId?: string | null
+  chore?: Chore
+  [key: string]: any
+}
+
+interface Completion {
+  id: string
+  childId: string
+  timestamp: string
+  assignment?: Assignment
+  [key: string]: any
+}
+
 // Helper function to format relative time
 function getTimeAgo(date: Date): string {
   const now = new Date()
@@ -53,14 +96,14 @@ const ParentDashboard: React.FC = () => {
       console.log('📢 Second localStorage trigger sent')
     }, 100)
   }
-  const [family, setFamily] = useState<any>(null)
+  const [family, setFamily] = useState<Family | null>(null)
   const [holidayOptimisticUntil, setHolidayOptimisticUntil] = useState<number>(0)
   const [members, setMembers] = useState<any[]>([])
-  const [children, setChildren] = useState<any[]>([])
-  const [chores, setChores] = useState<any[]>([])
-  const [assignments, setAssignments] = useState<any[]>([])
-  const [pendingCompletions, setPendingCompletions] = useState<any[]>([])
-  const [recentCompletions, setRecentCompletions] = useState<any[]>([]) // All recent completions for activity feed
+  const [children, setChildren] = useState<Child[]>([])
+  const [chores, setChores] = useState<Chore[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [pendingCompletions, setPendingCompletions] = useState<Completion[]>([])
+  const [recentCompletions, setRecentCompletions] = useState<Completion[]>([]) // All recent completions for activity feed
   const [pendingRedemptions, setPendingRedemptions] = useState<any[]>([])
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [budget, setBudget] = useState<any>(null)
@@ -379,7 +422,7 @@ const ParentDashboard: React.FC = () => {
 
       if (familyRes.status === 'fulfilled') {
         const familyData = familyRes.value.family
-        setFamily(prev => {
+        setFamily((prev: Family | null) => {
           if (familyData && Date.now() < holidayOptimisticUntil && prev) {
             return {
               ...familyData,
@@ -396,7 +439,7 @@ const ParentDashboard: React.FC = () => {
           const withinOptimistic = Date.now() < holidayOptimisticUntil
           // Don't update holiday mode state if modal is open or within optimistic window
           if (!withinOptimistic && !showHolidayModal) {
-            setHolidayMode(prev => ({
+            setHolidayMode((prev: any) => ({
               ...prev,
               familyHolidayMode: familyData.holidayMode ?? false,
               familyHolidayStartDate: familyData.holidayStartDate
@@ -448,11 +491,11 @@ const ParentDashboard: React.FC = () => {
         previousChildCountRef.current = uniqueChildren.length
         
         // Fetch wallets for all children
-        const walletPromises = uniqueChildren.map((child: any) => 
+        const walletPromises = uniqueChildren.map((child: Child) => 
           apiClient.getWallet(child.id).catch(() => ({ wallet: { balancePence: 0 } }))
         )
         const walletResults = await Promise.all(walletPromises)
-        const walletsData = walletResults.map((result, index) => ({
+        const walletsData = walletResults.map((result: any, index: number) => ({
           childId: uniqueChildren[index].id,
           balancePence: result.wallet?.balancePence || 0,
           stars: result.wallet?.stars || 0
@@ -492,7 +535,7 @@ const ParentDashboard: React.FC = () => {
 
   // Handle real name change and autofill nickname
   const handleRealNameChange = (realName: string) => {
-    setInviteData(prev => {
+    setInviteData((prev: any) => {
       const newData = { ...prev, realName }
       
       // Auto-fill nickname with first name if we have a name and user hasn't manually edited nickname
@@ -507,7 +550,7 @@ const ParentDashboard: React.FC = () => {
 
   // Handle nickname change and track manual edits
   const handleNicknameChange = (nickname: string) => {
-    setInviteData(prev => ({ ...prev, nickname }))
+    setInviteData((prev: any) => ({ ...prev, nickname }))
     setNicknameManuallyEdited(true)
   }
 
@@ -671,7 +714,7 @@ const ParentDashboard: React.FC = () => {
       
       if (choreAssignments.childIds.length > 0) {
         console.log('📡 Creating assignments for', choreAssignments.childIds.length, 'children...')
-        const assignmentPromises = choreAssignments.childIds.map(childId => {
+        const assignmentPromises = choreAssignments.childIds.map((childId: string) => {
           console.log('  -> Creating assignment for childId:', childId)
           return apiClient.createAssignment({
             choreId,
@@ -711,7 +754,7 @@ const ParentDashboard: React.FC = () => {
       notifyChildDashboards()
       
       // Force component refresh
-      setRefreshKey(prev => prev + 1)
+      setRefreshKey((prev: number) => prev + 1)
       
       // Show success message
       setToast({ message: '✅ Chore created successfully!', type: 'success' })
@@ -833,34 +876,34 @@ const ParentDashboard: React.FC = () => {
     }
   }
 
-  const filteredChores = chores.filter(chore => {
+  const filteredChores = chores.filter((chore: Chore) => {
     if (activeTab === 'all') return chore.active !== false // Show all active chores
     if (activeTab === 'recurring') return chore.frequency !== 'once' && chore.active !== false
     return true
   })
 
   // De-duplicate children array before rendering (defensive check)
-  const uniqueChildren = Array.from(
-    new Map(children.map((child: any) => [child.id, child])).values()
-  )
+  const uniqueChildren: Child[] = Array.from(
+    new Map(children.map((child: Child) => [child.id, child])).values()
+  ) as Child[]
 
   // For pending tab, show chores assigned but not yet completed
-  const pendingChoresByChild = uniqueChildren.map(child => {
+  const pendingChoresByChild = uniqueChildren.map((child: Child) => {
     if (activeTab !== 'pending') return { child, chores: [] }
     
-    const childAssignments = assignments.filter((a: any) => a.childId === child.id)
+    const childAssignments = assignments.filter((a: Assignment) => a.childId === child.id)
     
     // Get chores that have assignments but no recent completions
     const pendingChores = childAssignments
-      .map((assignment: any) => assignment.chore)
-      .filter((chore: any) => {
+      .map((assignment: Assignment) => assignment.chore)
+      .filter((chore: Chore | undefined) => {
         if (!chore || !chore.active) return false
         
         // Check if this chore has been completed today
         const today = new Date()
         today.setHours(0, 0, 0, 0)
         
-        const completedToday = recentCompletions.some((c: any) => 
+        const completedToday = recentCompletions.some((c: Completion) => 
           c.childId === child.id && 
           c.assignment?.choreId === chore.id &&
           new Date(c.timestamp) >= today
@@ -868,6 +911,7 @@ const ParentDashboard: React.FC = () => {
         
         return !completedToday
       })
+      .filter((chore): chore is Chore => chore !== undefined)
     
     return {
       child,
@@ -876,12 +920,12 @@ const ParentDashboard: React.FC = () => {
   })
 
   // For completed tab, show all submissions (pending approval, approved, rejected)
-  const completionsByChild = uniqueChildren.map(child => {
+  const completionsByChild = uniqueChildren.map((child: Child) => {
     if (activeTab !== 'completed') return { child, completions: [] }
     
     // Show all recent completions for this child
     const childCompletions = recentCompletions
-      .filter((c: any) => c.childId === child.id)
+      .filter((c: Completion) => c.childId === child.id)
       .slice(0, 10)
     
     return {
@@ -1018,7 +1062,7 @@ const ParentDashboard: React.FC = () => {
                     </div>
                   ) : (
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {filteredChores.map((chore) => {
+                      {filteredChores.map((chore: Chore) => {
                         // Find assignments for this chore
                         const choreAssigns = assignments.filter((a: any) => a.chore?.id === chore.id)
                         const assignedChildren = Array.from(
@@ -1100,7 +1144,7 @@ const ParentDashboard: React.FC = () => {
                                 )}
                               </div>
                               <button
-                                onClick={(e) => {
+                                onClick={(e: React.MouseEvent) => {
                                   e.stopPropagation()
                                   
                                   // Pre-populate current assignments
