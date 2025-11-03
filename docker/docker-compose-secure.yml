@@ -108,6 +108,9 @@ services:
       - REDIS_PORT=6379
       - API_PORT=1501
       - API_HOST=0.0.0.0
+      - APP_VERSION=0.0.9
+    labels:
+      - "com.choreblimey.version=0.0.9"
     ports:
       - "1501:1501"
     networks:
@@ -139,6 +142,9 @@ services:
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - LC_CTYPE=C.UTF-8
+      - APP_VERSION=0.0.9
+    labels:
+      - "com.choreblimey.version=0.0.9"
     ports:
       - "1500:1500"
     networks:
@@ -165,6 +171,9 @@ services:
       - REDIS_URL=redis://redis:6379
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - APP_VERSION=0.0.9
+    labels:
+      - "com.choreblimey.version=0.0.9"
     networks:
       - user_network
       - database_network  # Database access only
@@ -202,6 +211,9 @@ services:
       - ADMIN_SMTP_PORT=${ADMIN_SMTP_PORT:-1025}
       - ADMIN_SMTP_FROM=${ADMIN_SMTP_FROM:-admin@choreblimey.com}
       - ADMIN_WEB_URL=http://localhost:1503
+      - APP_VERSION=0.0.9
+    labels:
+      - "com.choreblimey.version=0.0.9"
     ports:
       - "1502:1502"
     networks:
@@ -232,6 +244,9 @@ services:
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - LC_CTYPE=C.UTF-8
+      - APP_VERSION=0.0.9
+    labels:
+      - "com.choreblimey.version=0.0.9"
     ports:
       - "1503:1503"
     networks:
