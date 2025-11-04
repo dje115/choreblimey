@@ -260,6 +260,7 @@ const ParentDashboard: React.FC = () => {
   const [selectedGift, setSelectedGift] = useState<any>(null)
   const [showEditGiftModal, setShowEditGiftModal] = useState(false)
   const [giftFilters, setGiftFilters] = useState({ type: '', category: '', age: '', gender: '' })
+  const [giftCategory, setGiftCategory] = useState<string>('all') // For gift category tabs
   const [redemptions, setRedemptions] = useState<any[]>([]) // All redemptions (pending and fulfilled)
   const [showGiftModal, setShowGiftModal] = useState(false) // For browsing admin templates
 
@@ -5747,183 +5748,210 @@ const ParentDashboard: React.FC = () => {
 
       {/* Gifts Management Modal */}
       {showGiftModal && !showAddGiftModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 1000 }}>
-          <div className="cb-card w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="cb-card w-full max-w-4xl my-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="cb-heading-lg text-[var(--primary)]">🎁 Streak Rewards - Gift Management</h2>
+              <h3 className="cb-heading-lg text-[var(--primary)]">🎁 Gift Library</h3>
               <button
                 onClick={() => {
                   setShowGiftModal(false)
-                  // Don't clear selectedTemplate here - it might be needed for the add modal
-                  // Only clear if we're not opening the add modal
+                  setGiftCategory('all')
                   if (!showAddGiftModal) {
                     setSelectedTemplate(null)
                   }
                 }}
-                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl"
+                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                ×
+                ✕
               </button>
             </div>
 
-            {/* Browse Admin Templates */}
-            <div>
-              <div className="mb-4">
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Browse gift templates from the admin catalog. Select a template to add it to your family's gift list.
-                </p>
-              </div>
+            {/* Category Filter Tabs */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+              <button
+                onClick={() => setGiftCategory('all')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'all'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                ✨ All
+              </button>
+              <button
+                onClick={() => setGiftCategory('activity')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'activity'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                🎯 Activities & Experiences
+              </button>
+              <button
+                onClick={() => setGiftCategory('amazon_product')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'amazon_product'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                📦 Amazon Products
+              </button>
+              <button
+                onClick={() => setGiftCategory('toys')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'toys'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                🧸 Toys & Games
+              </button>
+              <button
+                onClick={() => setGiftCategory('books')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'books'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                📚 Books & Learning
+              </button>
+              <button
+                onClick={() => setGiftCategory('tech')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'tech'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                💻 Tech & Electronics
+              </button>
+              <button
+                onClick={() => setGiftCategory('sports')}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
+                  giftCategory === 'sports'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
+                }`}
+              >
+                ⚽ Sports & Outdoor
+              </button>
+            </div>
 
-              {/* Filters */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <select
-                  value={giftFilters.type}
-                  onChange={(e) => setGiftFilters({ ...giftFilters, type: e.target.value })}
-                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
-                >
-                  <option value="">All Types</option>
-                  <option value="amazon_product">Amazon Product</option>
-                  <option value="activity">Activity</option>
-                  <option value="custom">Custom</option>
-                </select>
-                <input
-                  type="text"
-                  value={giftFilters.category}
-                  onChange={(e) => setGiftFilters({ ...giftFilters, category: e.target.value })}
-                  placeholder="Category"
-                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
-                />
-                <select
-                  value={giftFilters.age}
-                  onChange={(e) => setGiftFilters({ ...giftFilters, age: e.target.value })}
-                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
-                >
-                  <option value="">All Ages</option>
-                  <option value="5-8">5-8 years</option>
-                  <option value="9-11">9-11 years</option>
-                  <option value="12-15">12-15 years</option>
-                </select>
-                <select
-                  value={giftFilters.gender}
-                  onChange={(e) => setGiftFilters({ ...giftFilters, gender: e.target.value })}
-                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
-                >
-                  <option value="">All Genders</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="both">Both</option>
-                  <option value="unisex">Unisex</option>
-                </select>
-              </div>
-
+            {/* Gift Templates Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[60vh] overflow-y-auto p-1">
               {loadingGifts ? (
-                <div className="text-center py-12">
+                <div className="col-span-full text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)] mx-auto"></div>
                   <p className="mt-4 text-[var(--text-secondary)]">Loading templates...</p>
                 </div>
               ) : (() => {
-                const availableTemplates = giftTemplates.filter((template: any) => {
-                  return !familyGifts.some((gift: any) => gift.giftTemplateId === template.id)
+                const filteredTemplates = giftTemplates.filter((template: any) => {
+                  // Filter by category
+                  const matchesCategory = giftCategory === 'all' || 
+                    (giftCategory === 'activity' && template.type === 'activity') ||
+                    (giftCategory === 'amazon_product' && template.type === 'amazon_product') ||
+                    (giftCategory === 'toys' && template.category?.toLowerCase().includes('toy')) ||
+                    (giftCategory === 'books' && template.category?.toLowerCase().includes('book')) ||
+                    (giftCategory === 'tech' && template.category?.toLowerCase().includes('tech')) ||
+                    (giftCategory === 'sports' && template.category?.toLowerCase().includes('sport'))
+                  
+                  // Exclude templates that are already in the family
+                  const alreadyExists = familyGifts.some((gift: any) => gift.giftTemplateId === template.id)
+                  
+                  return matchesCategory && !alreadyExists
                 })
-                
-                if (availableTemplates.length === 0) {
+
+                if (filteredTemplates.length === 0) {
                   return (
-                    <div className="text-center py-12">
-                      <div className="text-6xl mb-4">🎁</div>
-                      <p className="text-[var(--text-secondary)] font-medium">
-                        {giftTemplates.length === 0 ? 'No templates found' : 'All available templates have been added'}
-                      </p>
-                      <p className="text-sm text-[var(--text-secondary)] mt-2">
-                        {giftTemplates.length === 0 
-                          ? 'Try adjusting your filters or create a custom gift'
-                          : 'Create a custom gift or adjust your filters to see more options'}
+                    <div className="col-span-full text-center py-12">
+                      <div className="text-6xl mb-4">✅</div>
+                      <h4 className="font-bold text-[var(--text-primary)] mb-2">All set!</h4>
+                      <p className="text-[var(--text-secondary)]">
+                        You've already added all the gifts in this category.
+                        <br />
+                        Try a different category or create a custom gift below!
                       </p>
                     </div>
                   )
                 }
-                
-                return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {giftTemplates
-                    .filter((template: any) => {
-                      // Filter out templates that are already in the family
-                      return !familyGifts.some((gift: any) => gift.giftTemplateId === template.id)
-                    })
-                    .map((template: any) => (
-                      <div key={template.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4 hover:shadow-md transition-all">
-                        {template.imageUrl && (
-                          <a
-                            href={template.affiliateUrl || undefined}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="block"
-                          >
-                            <img src={template.imageUrl} alt={template.title} className="w-full h-32 object-cover rounded mb-3 hover:opacity-90 transition-opacity cursor-pointer" />
-                          </a>
-                        )}
-                        {template.featured && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full mb-2 inline-block">⭐ Featured</span>
-                        )}
-                        <h4 
-                          className={`font-bold text-[var(--text-primary)] mb-1 ${template.affiliateUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
-                          onClick={(e) => {
-                            if (template.affiliateUrl) {
-                              e.stopPropagation()
-                              window.open(template.affiliateUrl, '_blank', 'noopener,noreferrer')
-                            }
-                          }}
-                        >
+
+                return filteredTemplates.map((template: any) => (
+                  <button
+                    key={template.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      selectedTemplateRef.current = template
+                      setSelectedTemplate(template)
+                      setShowGiftModal(false)
+                      setTimeout(() => {
+                        setShowAddGiftModal(true)
+                      }, 150)
+                    }}
+                    className="text-left p-4 bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] hover:border-[var(--primary)] hover:shadow-lg transition-all"
+                  >
+                    <div className="flex items-start gap-3 mb-2">
+                      {template.imageUrl ? (
+                        <img 
+                          src={template.imageUrl} 
+                          alt={template.title} 
+                          className="w-16 h-16 object-cover rounded flex-shrink-0"
+                        />
+                      ) : (
+                        <span className="text-3xl flex-shrink-0">🎁</span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-[var(--text-primary)] text-sm mb-1">
                           {template.title}
                         </h4>
-                        {template.description && (
-                          <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">{template.description}</p>
-                        )}
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-[var(--primary)]">{template.suggestedStars} ⭐</span>
-                            {template.type === 'amazon_product' && template.pricePence && (
-                              <span className="text-sm font-semibold text-[var(--text-secondary)]">
-                                {formatCurrency(template.pricePence, family?.currency || 'GBP')}
-                              </span>
-                            )}
-                          </div>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">{template.type}</span>
-                        </div>
-                        {template.affiliateUrl && (
-                          <a
-                            href={template.affiliateUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="block mt-2 text-xs text-[var(--primary)] hover:underline text-center"
-                          >
-                            View on Amazon →
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            // Store in both state and ref for persistence
-                            selectedTemplateRef.current = template
-                            setSelectedTemplate(template)
-                            setShowGiftModal(false)
-                            // Small delay to ensure state updates
-                            setTimeout(() => {
-                              setShowAddGiftModal(true)
-                            }, 150)
-                          }}
-                          className="w-full mt-3 cb-button-primary text-sm"
-                        >
-                          Add to My Family
-                        </button>
+                        <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                          {template.description || 'A special reward for completing chores!'}
+                        </p>
+                      </div>
                     </div>
-                    ))}
-                </div>
-                )
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs cb-chip bg-yellow-100 text-yellow-700">
+                        ⭐ {template.suggestedStars}
+                      </span>
+                      {template.type === 'amazon_product' && template.pricePence && (
+                        <span className="text-xs cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                          💰 {formatCurrency(template.pricePence, family?.currency || 'GBP')}
+                        </span>
+                      )}
+                      <span className="text-xs cb-chip bg-blue-50 text-blue-700">
+                        {template.type === 'activity' ? '🎯 Activity' : template.type === 'amazon_product' ? '📦 Product' : '🎁 Custom'}
+                      </span>
+                      {template.featured && (
+                        <span className="text-xs cb-chip bg-purple-50 text-purple-700">
+                          ⭐ Featured
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))
               })()}
+            </div>
+
+            {/* Custom Gift Option */}
+            <div className="mt-6 p-4 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--secondary)]/10 rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--primary)]/30">
+              <button
+                onClick={() => {
+                  setShowGiftModal(false)
+                  setSelectedTemplate(null)
+                  selectedTemplateRef.current = null
+                  setShowAddGiftModal(true)
+                }}
+                className="w-full text-center"
+              >
+                <div className="text-4xl mb-2">➕</div>
+                <h4 className="font-bold text-[var(--text-primary)] mb-1">Create Custom Gift</h4>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Build your own gift from scratch
+                </p>
+              </button>
             </div>
           </div>
         </div>
