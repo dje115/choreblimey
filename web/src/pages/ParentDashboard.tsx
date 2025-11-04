@@ -247,6 +247,17 @@ const ParentDashboard: React.FC = () => {
 
   const [showHolidayModal, setShowHolidayModal] = useState(false)
 
+  // Gifts management
+  const [giftsTab, setGiftsTab] = useState<'all' | 'pending' | 'history'>('all')
+  const [familyGifts, setFamilyGifts] = useState<any[]>([])
+  const [giftTemplates, setGiftTemplates] = useState<any[]>([])
+  const [loadingGifts, setLoadingGifts] = useState(false)
+  const [showAddGiftModal, setShowAddGiftModal] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const [giftFilters, setGiftFilters] = useState({ type: '', category: '', age: '', gender: '' })
+  const [redemptions, setRedemptions] = useState<any[]>([]) // All redemptions (pending and fulfilled)
+  const [showGiftModal, setShowGiftModal] = useState(false) // For browsing admin templates
+
   const parentLoadingRef = useRef(false)
   const uiBusyRef = useRef(false)
   const debounce = (fn: (...args: any[]) => void, wait = 400) => {
@@ -532,6 +543,58 @@ const ParentDashboard: React.FC = () => {
       setLoading(false)
     }
   }
+
+  const loadFamilyGifts = async () => {
+    try {
+      setLoadingGifts(true)
+      const response = await apiClient.getFamilyGifts()
+      setFamilyGifts(response.gifts || [])
+    } catch (error) {
+      console.error('Failed to load family gifts:', error)
+      setToast({ message: 'Failed to load gifts', type: 'error' })
+    } finally {
+      setLoadingGifts(false)
+    }
+  }
+
+  const loadGiftTemplates = async () => {
+    try {
+      setLoadingGifts(true)
+      const params: any = {}
+      if (giftFilters.type) params.type = giftFilters.type
+      if (giftFilters.category) params.category = giftFilters.category
+      if (giftFilters.age) params.age = giftFilters.age
+      if (giftFilters.gender) params.gender = giftFilters.gender
+      
+      const response = await apiClient.getGiftTemplates(params)
+      setGiftTemplates(response.templates || [])
+    } catch (error) {
+      console.error('Failed to load gift templates:', error)
+      setToast({ message: 'Failed to load gift templates', type: 'error' })
+    } finally {
+      setLoadingGifts(false)
+    }
+  }
+
+  const loadRedemptions = async () => {
+    try {
+      const response = await apiClient.getRedemptions()
+      setRedemptions(response.redemptions || [])
+    } catch (error) {
+      console.error('Failed to load redemptions:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadFamilyGifts()
+    loadRedemptions()
+  }, [])
+
+  useEffect(() => {
+    if (showGiftModal) {
+      loadGiftTemplates()
+    }
+  }, [showGiftModal, giftFilters])
 
   // Handle real name change and autofill nickname
   const handleRealNameChange = (realName: string) => {
@@ -1553,6 +1616,244 @@ const ParentDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Streak Rewards Section */}
+            <div className="cb-card p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="cb-heading-lg text-[var(--primary)]">🎁 Streak Rewards</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      console.log('Add Custom Gift clicked, setting showAddGiftModal to true')
+                      setShowAddGiftModal(true)
+                      setSelectedTemplate(null)
+                      console.log('showAddGiftModal should now be:', true)
+                    }}
+                    className="px-4 py-2 text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md"
+                  >
+                    ➕ Add Custom Gift
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Close Add Gift Modal first to prevent flash
+                      if (showAddGiftModal) {
+                        setShowAddGiftModal(false)
+                        setSelectedTemplate(null)
+                        // Small delay to ensure modal closes before opening new one
+                        setTimeout(() => {
+                          setShowGiftModal(true)
+                        }, 100)
+                      } else {
+                        setShowGiftModal(true)
+                      }
+                    }}
+                    className="cb-button-primary text-sm"
+                    style={{ backgroundColor: '#FF8A00' }}
+                  >
+                    ➕ Browse Gifts
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6 flex-wrap">
+                {['all', 'pending', 'history'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setGiftsTab(tab as any)}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      giftsTab === tab
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                    }`}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* All Gifts Tab */}
+              {giftsTab === 'all' && (
+                <div>
+                  {loadingGifts ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)] mx-auto"></div>
+                      <p className="mt-4 text-[var(--text-secondary)]">Loading gifts...</p>
+                    </div>
+                  ) : familyGifts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">🎁</div>
+                      <p className="text-[var(--text-secondary)] font-medium mb-2">No gifts yet</p>
+                      <p className="text-sm text-[var(--text-secondary)] mb-4">
+                        Add gifts for children to redeem with their stars
+                      </p>
+                      <button
+                        onClick={() => setShowGiftModal(true)}
+                        className="cb-button-primary"
+                      >
+                        Add Your First Gift
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {familyGifts.filter((g: any) => g.active).map((gift: any) => (
+                        <div key={gift.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4 hover:shadow-md transition-all">
+                          {gift.imageUrl && (
+                            <img src={gift.imageUrl} alt={gift.title} className="w-full h-32 object-cover rounded mb-3" />
+                          )}
+                          <h4 className="font-bold text-[var(--text-primary)] mb-1">{gift.title}</h4>
+                          {gift.description && (
+                            <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">{gift.description}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-3">
+                            <span className="font-bold text-[var(--primary)]">{gift.starsRequired} ⭐</span>
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">{gift.type}</span>
+                          </div>
+                          <div className="mt-3 text-xs text-[var(--text-secondary)]">
+                            {gift.availableForAll ? (
+                              <span>Available for all children</span>
+                            ) : (
+                              <span>Available for {gift.availableForChildIds?.length || 0} child{((gift.availableForChildIds?.length || 0) !== 1) ? 'ren' : ''}</span>
+                            )}
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={async () => {
+                                // TODO: Implement edit functionality
+                                setToast({ message: 'Edit functionality coming soon', type: 'info' })
+                              }}
+                              className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Delete "${gift.title}"?`)) return
+                                try {
+                                  await apiClient.deleteFamilyGift(gift.id)
+                                  setToast({ message: 'Gift deleted', type: 'success' })
+                                  loadFamilyGifts()
+                                } catch (error: any) {
+                                  setToast({ message: error.message || 'Failed to delete gift', type: 'error' })
+                                }
+                              }}
+                              className="flex-1 px-3 py-2 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Redemptions Tab */}
+              {giftsTab === 'pending' && (
+                <div>
+                  {(() => {
+                    const pending = redemptions.filter((r: any) => r.status === 'pending' && r.familyGiftId)
+                    if (pending.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <div className="text-6xl mb-4">📦</div>
+                          <p className="text-[var(--text-secondary)] font-medium">No pending redemptions</p>
+                          <p className="text-sm text-[var(--text-secondary)] mt-2">Children's gift requests will appear here</p>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div className="space-y-3">
+                        {pending.map((redemption: any) => {
+                          const child = uniqueChildren.find((c: Child) => c.id === redemption.childId)
+                          const gift = familyGifts.find((g: any) => g.id === redemption.familyGiftId)
+                          return (
+                            <div key={redemption.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
+                              <div className="flex items-center gap-3">
+                                {gift?.imageUrl && (
+                                  <img src={gift.imageUrl} alt={gift.title} className="w-16 h-16 object-cover rounded" />
+                                )}
+                                <div className="flex-1">
+                                  <h4 className="font-bold text-[var(--text-primary)]">{gift?.title || 'Unknown Gift'}</h4>
+                                  <p className="text-sm text-[var(--text-secondary)]">
+                                    Requested by <span className="font-semibold">{child?.nickname || 'Unknown'}</span>
+                                  </p>
+                                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                    {new Date(redemption.createdAt).toLocaleDateString()} • {redemption.costPaid} ⭐ spent
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await apiClient.fulfillRedemption(redemption.id)
+                                        setToast({ message: 'Gift marked as fulfilled!', type: 'success' })
+                                        loadRedemptions()
+                                      } catch (error: any) {
+                                        setToast({ message: error.message || 'Failed to fulfill redemption', type: 'error' })
+                                      }
+                                    }}
+                                    className="px-4 py-2 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200"
+                                  >
+                                    Fulfill
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {/* Gift History Tab */}
+              {giftsTab === 'history' && (
+                <div>
+                  {(() => {
+                    const fulfilled = redemptions.filter((r: any) => r.status === 'fulfilled' && r.familyGiftId)
+                    if (fulfilled.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <div className="text-6xl mb-4">📜</div>
+                          <p className="text-[var(--text-secondary)] font-medium">No gift history</p>
+                          <p className="text-sm text-[var(--text-secondary)] mt-2">Fulfilled gift redemptions will appear here</p>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div className="space-y-3">
+                        {fulfilled.map((redemption: any) => {
+                          const child = uniqueChildren.find((c: Child) => c.id === redemption.childId)
+                          const gift = familyGifts.find((g: any) => g.id === redemption.familyGiftId)
+                          return (
+                            <div key={redemption.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
+                              <div className="flex items-center gap-3">
+                                {gift?.imageUrl && (
+                                  <img src={gift.imageUrl} alt={gift.title} className="w-16 h-16 object-cover rounded" />
+                                )}
+                                <div className="flex-1">
+                                  <h4 className="font-bold text-[var(--text-primary)]">{gift?.title || 'Unknown Gift'}</h4>
+                                  <p className="text-sm text-[var(--text-secondary)]">
+                                    Redeemed by <span className="font-semibold">{child?.nickname || 'Unknown'}</span>
+                                  </p>
+                                  <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                    {new Date(redemption.createdAt).toLocaleDateString()} • {redemption.costPaid} ⭐
+                                  </p>
+                                </div>
+                                <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">Fulfilled</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
           </div>
 
@@ -5364,6 +5665,418 @@ const ParentDashboard: React.FC = () => {
               >
                 Change Email
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gifts Management Modal */}
+      {showGiftModal && !showAddGiftModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 1000 }}>
+          <div className="cb-card w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="cb-heading-lg text-[var(--primary)]">🎁 Streak Rewards - Gift Management</h2>
+              <button
+                onClick={() => {
+                  setShowGiftModal(false)
+                  setSelectedTemplate(null)
+                  setShowAddGiftModal(false)
+                }}
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Browse Admin Templates */}
+            <div>
+              <div className="mb-4">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Browse gift templates from the admin catalog. Select a template to add it to your family's gift list.
+                </p>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <select
+                  value={giftFilters.type}
+                  onChange={(e) => setGiftFilters({ ...giftFilters, type: e.target.value })}
+                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
+                >
+                  <option value="">All Types</option>
+                  <option value="amazon_product">Amazon Product</option>
+                  <option value="activity">Activity</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <input
+                  type="text"
+                  value={giftFilters.category}
+                  onChange={(e) => setGiftFilters({ ...giftFilters, category: e.target.value })}
+                  placeholder="Category"
+                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
+                />
+                <select
+                  value={giftFilters.age}
+                  onChange={(e) => setGiftFilters({ ...giftFilters, age: e.target.value })}
+                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
+                >
+                  <option value="">All Ages</option>
+                  <option value="5-8">5-8 years</option>
+                  <option value="9-11">9-11 years</option>
+                  <option value="12-15">12-15 years</option>
+                </select>
+                <select
+                  value={giftFilters.gender}
+                  onChange={(e) => setGiftFilters({ ...giftFilters, gender: e.target.value })}
+                  className="px-3 py-2 border-2 border-[var(--card-border)] rounded"
+                >
+                  <option value="">All Genders</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="both">Both</option>
+                  <option value="unisex">Unisex</option>
+                </select>
+              </div>
+
+              {loadingGifts ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)] mx-auto"></div>
+                  <p className="mt-4 text-[var(--text-secondary)]">Loading templates...</p>
+                </div>
+              ) : giftTemplates.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🎁</div>
+                  <p className="text-[var(--text-secondary)] font-medium">No templates found</p>
+                  <p className="text-sm text-[var(--text-secondary)] mt-2">Try adjusting your filters or create a custom gift</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {giftTemplates.map((template: any) => (
+                    <div key={template.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4 hover:shadow-md transition-all">
+                      {template.imageUrl && (
+                        <img src={template.imageUrl} alt={template.title} className="w-full h-32 object-cover rounded mb-3" />
+                      )}
+                      {template.featured && (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full mb-2 inline-block">⭐ Featured</span>
+                      )}
+                      <h4 className="font-bold text-[var(--text-primary)] mb-1">{template.title}</h4>
+                      {template.description && (
+                        <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">{template.description}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-3">
+                        <span className="font-bold text-[var(--primary)]">{template.suggestedStars} ⭐</span>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">{template.type}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedTemplate(template)
+                          setShowAddGiftModal(true)
+                        }}
+                        className="w-full mt-3 cb-button-primary text-sm"
+                      >
+                        Add to My Family
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Gift Modal - From Template or Custom */}
+      {showAddGiftModal && !showGiftModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 1001 }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b-2 border-[var(--card-border)] px-6 py-4 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-[var(--text-primary)]">
+                  {selectedTemplate ? `Add "${selectedTemplate.title}"` : 'Create Custom Gift'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowAddGiftModal(false)
+                    setSelectedTemplate(null)
+                  }}
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--background)] transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+                  {selectedTemplate ? (
+                    // Add from template
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Star Cost *</label>
+                        <input
+                          type="number"
+                          defaultValue={selectedTemplate.suggestedStars}
+                          id="giftStars"
+                          className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded"
+                          min="1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3">
+                          Available For <span className="text-red-500">*</span>
+                        </label>
+                        <div className="space-y-3 p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
+                          <label className="flex items-center gap-3 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              id="giftAvailableForAll"
+                              defaultChecked={true}
+                              onChange={(e) => {
+                                const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="giftChildIds"]')
+                                checkboxes.forEach(cb => {
+                                  cb.disabled = e.target.checked
+                                  if (e.target.checked) cb.checked = false
+                                })
+                              }}
+                              className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
+                            />
+                            <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+                              All Children
+                            </span>
+                          </label>
+                          <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
+                            {uniqueChildren.map((child: Child) => (
+                              <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  name="giftChildIds"
+                                  value={child.id}
+                                  disabled={true}
+                                  className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:opacity-40"
+                                />
+                                <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                                  {child.nickname}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={async () => {
+                            const starsInput = document.getElementById('giftStars') as HTMLInputElement
+                            const allCheckbox = document.getElementById('giftAvailableForAll') as HTMLInputElement
+                            const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="giftChildIds"]:checked')
+                            const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
+                            
+                            if (!starsInput.value || parseInt(starsInput.value) < 1) {
+                              setToast({ message: 'Please enter a valid star cost', type: 'error' })
+                              return
+                            }
+                            
+                            if (!allCheckbox.checked && selectedChildIds.length === 0) {
+                              setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
+                              return
+                            }
+                            
+                            try {
+                              await apiClient.addGiftFromTemplate(selectedTemplate.id, {
+                                starsRequired: parseInt(starsInput.value),
+                                availableForAll: allCheckbox.checked,
+                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds
+                              })
+                              setToast({ message: 'Gift added to family!', type: 'success' })
+                              setShowAddGiftModal(false)
+                              setSelectedTemplate(null)
+                              loadFamilyGifts()
+                            } catch (error: any) {
+                              setToast({ message: error.message || 'Failed to add gift', type: 'error' })
+                            }
+                          }}
+                          className="flex-1 cb-button-primary"
+                        >
+                          Add Gift
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowAddGiftModal(false)
+                            setSelectedTemplate(null)
+                          }}
+                          className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-lg text-[var(--text-primary)] font-semibold hover:bg-[var(--background)] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Create custom gift form
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                            Gift Type <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            id="customGiftType"
+                            defaultValue="activity"
+                            className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg bg-white focus:border-[var(--primary)] focus:outline-none transition-colors"
+                          >
+                            <option value="activity">Activity</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                            Star Cost <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            id="customGiftStars"
+                            className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
+                            min="1"
+                            placeholder="e.g., 50"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                          Title <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="customGiftTitle"
+                          className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
+                          placeholder="e.g., Movie Night, Pizza Night"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          id="customGiftDescription"
+                          rows={3}
+                          className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors resize-none"
+                          placeholder="Describe the gift or activity..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
+                          Image URL <span className="text-xs font-normal text-[var(--text-secondary)]">(optional)</span>
+                        </label>
+                        <input
+                          type="url"
+                          id="customGiftImageUrl"
+                          className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3">
+                          Available For <span className="text-red-500">*</span>
+                        </label>
+                        <div className="space-y-3 p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
+                          <label className="flex items-center gap-3 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              id="customGiftAvailableForAll"
+                              defaultChecked={true}
+                              onChange={(e) => {
+                                const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]')
+                                checkboxes.forEach(cb => {
+                                  cb.disabled = e.target.checked
+                                  if (e.target.checked) cb.checked = false
+                                })
+                              }}
+                              className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
+                            />
+                            <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+                              All Children
+                            </span>
+                          </label>
+                          <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
+                            {uniqueChildren.map((child: Child) => (
+                              <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  name="customGiftChildIds"
+                                  value={child.id}
+                                  disabled={true}
+                                  className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:opacity-40"
+                                />
+                                <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                                  {child.nickname}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={async () => {
+                            const typeInput = document.getElementById('customGiftType') as HTMLSelectElement
+                            const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement
+                            const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement
+                            const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement
+                            const starsInput = document.getElementById('customGiftStars') as HTMLInputElement
+                            const allCheckbox = document.getElementById('customGiftAvailableForAll') as HTMLInputElement
+                            const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]:checked')
+                            const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
+                            
+                            if (!titleInput.value.trim() || !starsInput.value || parseInt(starsInput.value) < 1) {
+                              setToast({ message: 'Title and star cost are required', type: 'error' })
+                              return
+                            }
+                            
+                            if (!allCheckbox.checked && selectedChildIds.length === 0) {
+                              setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
+                              return
+                            }
+                            
+                            try {
+                              const giftData: any = {
+                                type: typeInput.value as 'amazon_product' | 'activity' | 'custom',
+                                title: titleInput.value.trim(),
+                                starsRequired: parseInt(starsInput.value),
+                                availableForAll: allCheckbox.checked,
+                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds
+                              }
+                              
+                              if (descriptionInput.value.trim()) giftData.description = descriptionInput.value.trim()
+                              if (imageUrlInput.value.trim()) giftData.imageUrl = imageUrlInput.value.trim()
+                              
+                              await apiClient.createFamilyGift(giftData)
+                              setToast({ message: 'Custom gift created!', type: 'success' })
+                              setShowAddGiftModal(false)
+                              loadFamilyGifts()
+                            } catch (error: any) {
+                              setToast({ message: error.message || 'Failed to create gift', type: 'error' })
+                            }
+                          }}
+                          className="flex-1 px-6 py-3 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          Create Gift
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowAddGiftModal(false)
+                            setSelectedTemplate(null)
+                          }}
+                          className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-lg text-[var(--text-primary)] font-semibold hover:bg-[var(--background)] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
             </div>
           </div>
         </div>

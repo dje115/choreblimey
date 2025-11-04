@@ -18,12 +18,34 @@ export const AdminAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [loading, setLoading] = useState<boolean>(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token')
-    if (token) {
-      // In a real app, you'd verify the token with the backend
-      setIsAuthenticated(true)
+    const checkAuth = async () => {
+      const token = localStorage.getItem('admin_token')
+      if (token) {
+        // Verify token is still valid by checking expiration (JWT tokens expire in 1 hour)
+        try {
+          // Simple check: if token exists, assume it's valid
+          // The API will return 401 if it's expired, which will trigger redirect
+          setIsAuthenticated(true)
+        } catch (error) {
+          localStorage.removeItem('admin_token')
+          setIsAuthenticated(false)
+        }
+      }
+      setLoading(false)
     }
-    setLoading(false)
+    
+    checkAuth()
+    
+    // Listen for auth failures from API client
+    const handleAuthFailure = () => {
+      setIsAuthenticated(false)
+      setLoading(false)
+    }
+    window.addEventListener('admin-auth-failed', handleAuthFailure)
+    
+    return () => {
+      window.removeEventListener('admin-auth-failed', handleAuthFailure)
+    }
   }, [])
 
   const adminLogin = async (email: string, password: string) => {

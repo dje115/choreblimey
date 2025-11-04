@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminCleanup from './pages/AdminCleanup'
 import AdminEmail from './pages/AdminEmail'
 import AdminAffiliate from './pages/AdminAffiliate'
+import AdminGiftTemplates from './pages/AdminGiftTemplates'
 import AdminMonitoring from './pages/AdminMonitoring'
 import AdminSecurity from './pages/AdminSecurity'
 import AdminSettings from './pages/AdminSettings'
@@ -64,6 +65,11 @@ function App() {
                     <Route path="/admin/affiliate" element={
                       <ProtectedRoute>
                         <AdminAffiliate />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/admin/gift-templates" element={
+                      <ProtectedRoute>
+                        <AdminGiftTemplates />
                       </ProtectedRoute>
                     } />
                     <Route path="/admin/monitoring" element={

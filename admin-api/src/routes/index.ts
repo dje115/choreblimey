@@ -3,6 +3,7 @@ import * as adminAuth from '../controllers/adminAuth.js'
 import * as adminCleanup from '../controllers/adminCleanup.js'
 import * as adminMonitoring from '../controllers/adminMonitoring.js'
 import * as adminSecurity from '../controllers/adminSecurity.js'
+import * as adminGiftTemplates from '../controllers/adminGiftTemplates.js'
 
 export async function routes(app: FastifyInstance) {
   // Health check (no auth required)
@@ -39,6 +40,14 @@ export async function routes(app: FastifyInstance) {
   app.post('/admin/security/revoke-session', adminSecurity.revokeSession)
   app.get('/admin/security/audit', adminSecurity.getAuditLogs)
   app.post('/admin/security/block-ip', adminSecurity.blockIPAddress)
+
+  // Gift Template Management (admin auth required)
+  app.get('/admin/gift-templates', adminGiftTemplates.listGiftTemplates)
+  app.post('/admin/gift-templates', adminGiftTemplates.createGiftTemplate)
+  app.get('/admin/gift-templates/:id', adminGiftTemplates.getGiftTemplate)
+  app.patch('/admin/gift-templates/:id', adminGiftTemplates.updateGiftTemplate)
+  app.delete('/admin/gift-templates/:id', adminGiftTemplates.deleteGiftTemplate)
+  app.post('/admin/gift-templates/generate-affiliate-url', adminGiftTemplates.generateAffiliateUrl)
 
   // Admin Management (super admin only) - TODO: Implement admin management
   // app.get('/admin/admins', adminAuth.listAdmins)

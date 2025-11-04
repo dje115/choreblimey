@@ -322,6 +322,63 @@ class ApiClient {
     return this.get(`/payouts/unpaid/${childId}`)
   }
 
+  // Gift Templates (browse available templates - read-only)
+  async getGiftTemplates(params?: { type?: string; category?: string; age?: string; gender?: string; featured?: string }) {
+    const queryString = params ? '?' + new URLSearchParams(params as any).toString() : ''
+    return this.get(`/gift-templates${queryString}`)
+  }
+
+  // Family Gifts (parent manages gifts for their family)
+  async getFamilyGifts(params?: { type?: string; active?: string; childId?: string }) {
+    const queryString = params ? '?' + new URLSearchParams(params as any).toString() : ''
+    return this.get(`/family/gifts${queryString}`)
+  }
+
+  async getFamilyGift(id: string) {
+    return this.get(`/family/gifts/${id}`)
+  }
+
+  async createFamilyGift(data: {
+    title: string
+    description?: string
+    type: 'amazon_product' | 'activity' | 'custom'
+    provider?: 'amazon_associates' | 'amazon_sitestripe'
+    amazonAsin?: string
+    affiliateUrl?: string
+    sitestripeUrl?: string
+    imageUrl?: string
+    category?: string
+    starsRequired: number
+    availableForAll?: boolean
+    availableForChildIds?: string[]
+    ageTag?: string
+    genderTag?: string
+  }) {
+    return this.post('/family/gifts', data)
+  }
+
+  async addGiftFromTemplate(templateId: string, data: {
+    starsRequired: number
+    availableForAll?: boolean
+    availableForChildIds?: string[]
+  }) {
+    return this.post(`/family/gifts/${templateId}/add`, data)
+  }
+
+  async updateFamilyGift(id: string, data: {
+    starsRequired?: number
+    availableForAll?: boolean
+    availableForChildIds?: string[]
+    active?: boolean
+    title?: string
+    description?: string
+  }) {
+    return this.patch(`/family/gifts/${id}`, data)
+  }
+
+  async deleteFamilyGift(id: string) {
+    return this.delete(`/family/gifts/${id}`)
+  }
 }
 
 export const apiClient = new ApiClient()

@@ -211,7 +211,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Product Management */}
+          {/* Gift Templates */}
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-6">
               <div className="flex items-center">
@@ -221,16 +221,16 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="ml-4">
-                  <h3 className="text-lg font-medium text-gray-900">Product Management</h3>
-                  <p className="text-sm text-gray-500">Manage rewards and products</p>
+                  <h3 className="text-lg font-medium text-gray-900">Gift Templates</h3>
+                  <p className="text-sm text-gray-500">Manage gift templates for streak rewards</p>
                 </div>
               </div>
               <div className="mt-4">
                 <a
-                  href="/admin/products"
+                  href="/admin/gift-templates"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200"
                 >
-                  Manage Products
+                  Manage Gift Templates
                 </a>
               </div>
             </div>

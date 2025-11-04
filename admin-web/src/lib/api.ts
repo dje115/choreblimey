@@ -35,6 +35,16 @@ class AdminApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+      // Handle 401 Unauthorized - redirect to login
+      if (response.status === 401) {
+        localStorage.removeItem('admin_token')
+        // Dispatch a custom event that the auth context can listen to
+        window.dispatchEvent(new CustomEvent('admin-auth-failed'))
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          window.location.href = '/admin/login'
+        }, 100)
+      }
       const errorData = await response.json().catch(() => ({}))
       throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`)
     }
@@ -173,6 +183,42 @@ class AdminApiClient {
 
   async blockIPAddress(ipAddress: string, reason: string) {
     return this.post('/v1/admin/security/block-ip', { ipAddress, reason })
+  }
+
+  // Gift Template Management
+  async listGiftTemplates(params?: {
+    type?: string
+    category?: string
+    active?: string
+    featured?: string
+    limit?: string
+    offset?: string
+  }) {
+    const queryString = params ? '?' + new URLSearchParams(params as any).toString() : ''
+    return this.get(`/v1/admin/gift-templates${queryString}`)
+  }
+
+  async getGiftTemplate(id: string) {
+    return this.get(`/v1/admin/gift-templates/${id}`)
+  }
+
+  async createGiftTemplate(data: any) {
+    return this.post('/v1/admin/gift-templates', data)
+  }
+
+  async updateGiftTemplate(id: string, data: any) {
+    return this.patch(`/v1/admin/gift-templates/${id}`, data)
+  }
+
+  async deleteGiftTemplate(id: string) {
+    return this.delete(`/v1/admin/gift-templates/${id}`)
+  }
+
+  async generateAffiliateUrl(amazonAsin: string, affiliateTag: string) {
+    return this.post('/v1/admin/gift-templates/generate-affiliate-url', {
+      amazonAsin,
+      affiliateTag
+    })
   }
 }
 

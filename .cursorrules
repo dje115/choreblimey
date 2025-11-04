@@ -47,7 +47,8 @@
     "Never leak data across families; include server-side guards.",
     "CRITICAL: ALWAYS use docker-compose-secure.yml and dev-secure.env. NEVER use docker-compose.yml (legacy/deprecated).",
     "For Docker commands: use 'docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env'",
-    "For exec commands: use 'docker exec choreblimey-secure-api-1' (not 'docker compose exec api')"
+    "For exec commands: use 'docker exec choreblimey-secure-api-1' (not 'docker compose exec api')",
+    "CRITICAL: Admin Portal and Admin API are SEPARATE services from the main user app. Admin runs on ports 1502 (API) and 1503 (web), while user app runs on ports 1501 (API) and 1500 (web). Admin has separate authentication (admin_token vs auth_token), separate Prisma schemas, and separate routes. Never confuse admin-api with api, or admin-web with web."
   ],
   "runbook": {
     "startStack": "docker compose -f docker/docker-compose-secure.yml --env-file docker/dev-secure.env up --build -d",
