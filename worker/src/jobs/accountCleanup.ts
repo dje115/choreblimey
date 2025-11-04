@@ -43,10 +43,11 @@ export async function accountCleanup(job: any) {
         createdAt: {
           lt: fiveMonthsAgo
         },
-        // No login activity in last 5 months
-        lastLoginAt: {
-          lt: fiveMonthsAgo
-        },
+        // No login activity in last 5 months (or never logged in)
+        OR: [
+          { lastLoginAt: null },
+          { lastLoginAt: { lt: fiveMonthsAgo } }
+        ],
         // Not suspended (suspended accounts have different timeline)
         suspendedAt: null
       },
@@ -118,10 +119,11 @@ export async function accountCleanup(job: any) {
         createdAt: {
           lt: sixMonthsAgo
         },
-        // No login activity in last 6 months
-        lastLoginAt: {
-          lt: sixMonthsAgo
-        },
+        // No login activity in last 6 months (or never logged in)
+        OR: [
+          { lastLoginAt: null },
+          { lastLoginAt: { lt: sixMonthsAgo } }
+        ],
         // Not suspended (suspended accounts have different timeline)
         suspendedAt: null
       }
@@ -143,6 +145,7 @@ export async function accountCleanup(job: any) {
           await tx.wallet.deleteMany({ where: { familyId: family.id } })
           await tx.transaction.deleteMany({ where: { familyId: family.id } })
           await tx.streak.deleteMany({ where: { familyId: family.id } })
+          await tx.familyGift.deleteMany({ where: { familyId: family.id } })
           await tx.reward.deleteMany({ where: { familyId: family.id } })
           await tx.redemption.deleteMany({ where: { familyId: family.id } })
           await tx.payout.deleteMany({ where: { familyId: family.id } })
@@ -261,6 +264,7 @@ export async function accountCleanup(job: any) {
           await tx.wallet.deleteMany({ where: { familyId: family.id } })
           await tx.transaction.deleteMany({ where: { familyId: family.id } })
           await tx.streak.deleteMany({ where: { familyId: family.id } })
+          await tx.familyGift.deleteMany({ where: { familyId: family.id } })
           await tx.reward.deleteMany({ where: { familyId: family.id } })
           await tx.redemption.deleteMany({ where: { familyId: family.id } })
           await tx.payout.deleteMany({ where: { familyId: family.id } })
