@@ -352,6 +352,7 @@ class ApiClient {
     starsRequired: number
     availableForAll?: boolean
     availableForChildIds?: string[]
+    recurring?: boolean
     ageTag?: string
     genderTag?: string
   }) {
@@ -362,6 +363,7 @@ class ApiClient {
     starsRequired: number
     availableForAll?: boolean
     availableForChildIds?: string[]
+    recurring?: boolean
   }) {
     return this.post(`/family/gifts/${templateId}/add`, data)
   }
@@ -371,6 +373,7 @@ class ApiClient {
     availableForAll?: boolean
     availableForChildIds?: string[]
     active?: boolean
+    recurring?: boolean
     title?: string
     description?: string
   }) {

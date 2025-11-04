@@ -26,6 +26,7 @@ interface CreateFamilyGiftBody {
   availableForAll?: boolean
   availableForChildIds?: string[]
   active?: boolean
+  recurring?: boolean
 }
 
 /**
@@ -36,6 +37,7 @@ interface UpdateFamilyGiftBody {
   availableForAll?: boolean
   availableForChildIds?: string[]
   active?: boolean
+  recurring?: boolean
   title?: string
   description?: string
 }
@@ -185,6 +187,27 @@ export const listFamilyGifts = async (
         const childIds = gift.availableForChildIds as string[] | null
         return childIds && childIds.includes(childId)
       })
+      
+      // Filter out non-recurring gifts that have already been redeemed by this child
+      const redeemedGiftIds = await prisma.redemption.findMany({
+        where: {
+          childId,
+          familyGiftId: { in: gifts.map(g => g.id) },
+          status: { in: ['pending', 'fulfilled'] } // Count both pending and fulfilled
+        },
+        select: {
+          familyGiftId: true
+        }
+      })
+      
+      const redeemedIds = new Set(redeemedGiftIds.map(r => r.familyGiftId).filter(Boolean))
+      
+      gifts = gifts.filter(gift => {
+        // If gift is recurring, always show it
+        if (gift.recurring) return true
+        // If gift is not recurring, only show if not redeemed
+        return !redeemedIds.has(gift.id)
+      })
     }
     
     return { gifts }
@@ -259,7 +282,7 @@ export const create = async (
       affiliateUrl = `https://amazon.co.uk/dp/${body.amazonAsin}?tag=${body.affiliateTag}`
     }
     
-    const { userId } = req.claims!
+    const { sub: userId } = req.claims!
     
     const gift = await prisma.familyGift.create({
       data: {
@@ -283,7 +306,16 @@ export const create = async (
         availableForAll: body.availableForAll !== undefined ? body.availableForAll : true,
         availableForChildIds: body.availableForChildIds || null,
         active: body.active !== undefined ? body.active : true,
+        recurring: body.recurring !== undefined ? body.recurring : false,
         createdBy: userId
+      },
+      include: {
+        createdByUser: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
       }
     })
     
@@ -312,14 +344,15 @@ export const addFromTemplate = async (
       starsRequired?: number
       availableForAll?: boolean
       availableForChildIds?: string[]
+      recurring?: boolean
     } 
   }>,
   reply: FastifyReply
 ) => {
   try {
-    const { familyId, userId } = req.claims!
+    const { familyId, sub: userId } = req.claims!
     const { templateId } = req.params
-    const { starsRequired, availableForAll, availableForChildIds } = req.body
+    const { starsRequired, availableForAll, availableForChildIds, recurring } = req.body
     
     // Get the template
     const template = await prisma.giftTemplate.findUnique({
@@ -370,7 +403,16 @@ export const addFromTemplate = async (
         availableForAll: availableForAll !== undefined ? availableForAll : true,
         availableForChildIds: availableForChildIds || null,
         active: true,
+        recurring: recurring !== undefined ? recurring : (template.recurring || false), // Use provided value or template default
         createdBy: userId
+      },
+      include: {
+        createdByUser: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
       }
     })
     
@@ -425,6 +467,7 @@ export const update = async (
     if (body.availableForAll !== undefined) updateData.availableForAll = body.availableForAll
     if (body.availableForChildIds !== undefined) updateData.availableForChildIds = body.availableForChildIds
     if (body.active !== undefined) updateData.active = body.active
+    if (body.recurring !== undefined) updateData.recurring = body.recurring
     if (body.title !== undefined) updateData.title = body.title
     if (body.description !== undefined) updateData.description = body.description
     

@@ -139,18 +139,15 @@ export const adminVerifyTwoFactor = async (req: FastifyRequest<{ Body: AdminTwoF
 /**
  * POST /admin/auth/logout
  * Admin logout endpoint
+ * Note: Logout should work even if token is expired/invalid
  */
 export const adminLogout = async (req: FastifyRequest, reply: FastifyReply) => {
   try {
-    const { adminClaims } = req
-    if (!adminClaims) {
-      return reply.status(401).send({ error: 'Unauthorized' })
-    }
-
-    // Mock logout
-    reply.send({ success: true, message: 'Admin logged out successfully' })
+    // Logout should always succeed, even if token is expired/invalid
+    // This allows users to logout even if their session has expired
+    return reply.status(200).send({ success: true, message: 'Admin logged out successfully' })
   } catch (error) {
     console.error('Admin logout error:', error)
-    reply.status(500).send({ error: 'Admin logout failed' })
+    return reply.status(200).send({ success: true, message: 'Admin logged out successfully' })
   }
 }

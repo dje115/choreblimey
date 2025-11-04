@@ -457,6 +457,7 @@ model GiftTemplate {
   // Admin controls
   active          Boolean  @default(true)
   featured        Boolean  @default(false)
+  recurring       Boolean  @default(false) // Can be purchased multiple times (e.g., activity gifts)
   createdBy       String?  // Admin user ID (if we track admin users)
   
   createdAt       DateTime @default(now())
@@ -508,6 +509,9 @@ model FamilyGift {
   
   // Active status
   active          Boolean  @default(true)
+  
+  // Recurring purchase (can be bought multiple times)
+  recurring       Boolean  @default(false) // If false, gift is hidden after first redemption per child
   
   // Who created this gift (for future multi-adult support)
   createdBy       String?  // UserId who created this gift

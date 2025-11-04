@@ -222,6 +222,16 @@ export const listRedemptions = async (req: FastifyRequest<{ Querystring: { statu
       where: whereClause,
       include: {
         reward: true,
+        familyGift: {
+          include: {
+            createdByUser: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          }
+        },
         child: {
           select: {
             id: true,
@@ -267,6 +277,16 @@ export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: stri
       },
       include: {
         reward: true,
+        familyGift: {
+          include: {
+            createdByUser: {
+              select: {
+                id: true,
+                email: true
+              }
+            }
+          }
+        },
         child: {
           select: {
             id: true,

@@ -34,6 +34,18 @@ class AdminApiClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
+    // Read response body once (can only be read once)
+    const contentType = response.headers.get('content-type')
+    const isJson = contentType && contentType.includes('application/json')
+    
+    let text = ''
+    try {
+      text = await response.text()
+    } catch (e) {
+      // If reading fails, text remains empty
+      text = ''
+    }
+
     if (!response.ok) {
       // Handle 401 Unauthorized - redirect to login
       if (response.status === 401) {
@@ -45,11 +57,33 @@ class AdminApiClient {
           window.location.href = '/admin/login'
         }, 100)
       }
-      const errorData = await response.json().catch(() => ({}))
+      
+      // Try to parse JSON error, but handle empty responses gracefully
+      let errorData: any = {}
+      if (isJson && text && text.trim()) {
+        try {
+          errorData = JSON.parse(text)
+        } catch (e) {
+          // If parsing fails, use empty object
+          errorData = {}
+        }
+      }
+      
       throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`)
     }
 
-    return response.json()
+    // Success response - parse JSON if available
+    if (!isJson || !text || text.trim() === '') {
+      // Non-JSON or empty response
+      return {} as T
+    }
+
+    try {
+      return JSON.parse(text) as T
+    } catch (e) {
+      // If parsing fails, return empty object
+      return {} as T
+    }
   }
 
   async get<T = any>(endpoint: string, includeAuth: boolean = true): Promise<T> {

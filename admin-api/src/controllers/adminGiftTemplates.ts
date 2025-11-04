@@ -22,6 +22,7 @@ interface CreateGiftTemplateBody {
   suggestedStars: number
   active?: boolean
   featured?: boolean
+  recurring?: boolean
 }
 
 /**
@@ -44,6 +45,7 @@ interface UpdateGiftTemplateBody {
   suggestedStars?: number
   active?: boolean
   featured?: boolean
+  recurring?: boolean
 }
 
 /**
@@ -196,6 +198,7 @@ export const createGiftTemplate = async (
         suggestedStars: body.suggestedStars,
         active: body.active !== undefined ? body.active : true,
         featured: body.featured !== undefined ? body.featured : false,
+        recurring: body.recurring !== undefined ? body.recurring : false,
         createdBy: adminClaims?.adminId || null
       }
     })
@@ -265,6 +268,7 @@ export const updateGiftTemplate = async (
     if (body.suggestedStars !== undefined) updateData.suggestedStars = body.suggestedStars
     if (body.active !== undefined) updateData.active = body.active
     if (body.featured !== undefined) updateData.featured = body.featured
+    if (body.recurring !== undefined) updateData.recurring = body.recurring
     
     const template = await prisma.giftTemplate.update({
       where: { id },

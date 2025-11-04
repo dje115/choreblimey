@@ -1844,9 +1844,26 @@ const ParentDashboard: React.FC = () => {
                       <div className="space-y-3">
                         {pending.map((redemption: any) => {
                           const child = uniqueChildren.find((c: Child) => c.id === redemption.childId)
-                          const gift = familyGifts.find((g: any) => g.id === redemption.familyGiftId)
+                          const gift = familyGifts.find((g: any) => g.id === redemption.familyGiftId) || redemption.familyGift
+                          const giftCreator = gift?.createdByUser || redemption.familyGift?.createdByUser
+                          const isMyGift = giftCreator && user?.id === giftCreator.id
+                          
                           return (
-                            <div key={redemption.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
+                            <div 
+                              key={redemption.id} 
+                              className={`border-2 rounded-lg p-4 ${
+                                isMyGift 
+                                  ? 'bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-300 shadow-md' 
+                                  : 'bg-[var(--background)] border-[var(--card-border)]'
+                              }`}
+                            >
+                              {isMyGift && (
+                                <div className="mb-2 flex items-center gap-2">
+                                  <span className="px-2 py-1 bg-orange-500 text-white text-xs font-semibold rounded-full">
+                                    ✨ Your Gift
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-3">
                                 {gift?.imageUrl && (
                                   <img src={gift.imageUrl} alt={gift.title} className="w-16 h-16 object-cover rounded" />
@@ -1856,6 +1873,11 @@ const ParentDashboard: React.FC = () => {
                                   <p className="text-sm text-[var(--text-secondary)]">
                                     Requested by <span className="font-semibold">{child?.nickname || 'Unknown'}</span>
                                   </p>
+                                  {giftCreator && (
+                                    <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                      Added by <span className={isMyGift ? 'font-semibold text-orange-600' : 'font-medium'}>{giftCreator.email?.split('@')[0] || 'Unknown'}</span>
+                                    </p>
+                                  )}
                                   <p className="text-xs text-[var(--text-secondary)] mt-1">
                                     {new Date(redemption.createdAt).toLocaleDateString()} • {redemption.costPaid} ⭐ spent
                                   </p>
@@ -1904,7 +1926,8 @@ const ParentDashboard: React.FC = () => {
                       <div className="space-y-3">
                         {fulfilled.map((redemption: any) => {
                           const child = uniqueChildren.find((c: Child) => c.id === redemption.childId)
-                          const gift = familyGifts.find((g: any) => g.id === redemption.familyGiftId)
+                          const gift = familyGifts.find((g: any) => g.id === redemption.familyGiftId) || redemption.familyGift
+                          const giftCreator = gift?.createdByUser || redemption.familyGift?.createdByUser
                           return (
                             <div key={redemption.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
                               <div className="flex items-center gap-3">
@@ -1916,6 +1939,11 @@ const ParentDashboard: React.FC = () => {
                                   <p className="text-sm text-[var(--text-secondary)]">
                                     Redeemed by <span className="font-semibold">{child?.nickname || 'Unknown'}</span>
                                   </p>
+                                  {giftCreator && (
+                                    <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                      Added by <span className="font-medium">{giftCreator.email?.split('@')[0] || 'Unknown'}</span>
+                                    </p>
+                                  )}
                                   <p className="text-xs text-[var(--text-secondary)] mt-1">
                                     {new Date(redemption.createdAt).toLocaleDateString()} • {redemption.costPaid} ⭐
                                   </p>
@@ -6057,6 +6085,24 @@ const ParentDashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                      <div>
+                        <label className="flex items-center gap-3 cursor-pointer group p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
+                          <input
+                            type="checkbox"
+                            id="giftRecurring"
+                            defaultChecked={template?.recurring || false}
+                            className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
+                          />
+                          <div>
+                            <div className="font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+                              🔄 Recurring Gift
+                            </div>
+                            <p className="text-sm text-[var(--text-secondary)] mt-1">
+                              Allow this gift to be purchased multiple times (e.g., activity gifts like "Movie Night")
+                            </p>
+                          </div>
+                        </label>
+                      </div>
                       <div className="flex gap-3">
                         <button
                           onClick={async () => {
@@ -6069,6 +6115,7 @@ const ParentDashboard: React.FC = () => {
 
                             const starsInput = document.getElementById('giftStars') as HTMLInputElement
                             const allCheckbox = document.getElementById('giftAvailableForAll') as HTMLInputElement
+                            const recurringCheckbox = document.getElementById('giftRecurring') as HTMLInputElement
                             const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="giftChildIds"]:checked')
                             const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
                             
@@ -6086,7 +6133,8 @@ const ParentDashboard: React.FC = () => {
                               await apiClient.addGiftFromTemplate(template.id, {
                                 starsRequired: parseInt(starsInput.value),
                                 availableForAll: allCheckbox.checked,
-                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds
+                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds,
+                                recurring: recurringCheckbox.checked
                               })
                               setToast({ message: 'Gift added to family!', type: 'success' })
                               setShowAddGiftModal(false)
@@ -6224,6 +6272,25 @@ const ParentDashboard: React.FC = () => {
                         </div>
                       </div>
 
+                      <div>
+                        <label className="flex items-center gap-3 cursor-pointer group p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
+                          <input
+                            type="checkbox"
+                            id="customGiftRecurring"
+                            defaultChecked={false}
+                            className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
+                          />
+                          <div>
+                            <div className="font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+                              🔄 Recurring Gift
+                            </div>
+                            <p className="text-sm text-[var(--text-secondary)] mt-1">
+                              Allow this gift to be purchased multiple times (e.g., activity gifts like "Movie Night")
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+
                       <div className="flex gap-3 pt-2">
                         <button
                           onClick={async () => {
@@ -6233,6 +6300,7 @@ const ParentDashboard: React.FC = () => {
                             const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement
                             const starsInput = document.getElementById('customGiftStars') as HTMLInputElement
                             const allCheckbox = document.getElementById('customGiftAvailableForAll') as HTMLInputElement
+                            const recurringCheckbox = document.getElementById('customGiftRecurring') as HTMLInputElement
                             const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]:checked')
                             const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
                             
@@ -6252,7 +6320,8 @@ const ParentDashboard: React.FC = () => {
                                 title: titleInput.value.trim(),
                                 starsRequired: parseInt(starsInput.value),
                                 availableForAll: allCheckbox.checked,
-                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds
+                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds,
+                                recurring: recurringCheckbox.checked
                               }
                               
                               if (descriptionInput.value.trim()) giftData.description = descriptionInput.value.trim()
@@ -6369,11 +6438,30 @@ const ParentDashboard: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                <div>
+                  <label className="flex items-center gap-3 cursor-pointer group p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="editGiftRecurring"
+                      defaultChecked={selectedGift.recurring || false}
+                      className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
+                        🔄 Recurring Gift
+                      </div>
+                      <p className="text-sm text-[var(--text-secondary)] mt-1">
+                        Allow this gift to be purchased multiple times (e.g., activity gifts like "Movie Night")
+                      </p>
+                    </div>
+                  </label>
+                </div>
                 <div className="flex gap-3 pt-4 border-t border-[var(--card-border)]">
                   <button
                     onClick={async () => {
                       const starsInput = document.getElementById('editGiftStars') as HTMLInputElement
                       const allCheckbox = document.getElementById('editGiftAvailableForAll') as HTMLInputElement
+                      const recurringCheckbox = document.getElementById('editGiftRecurring') as HTMLInputElement
                       const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="editGiftChildIds"]:checked')
                       const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
                       
@@ -6391,7 +6479,8 @@ const ParentDashboard: React.FC = () => {
                         await apiClient.updateFamilyGift(selectedGift.id, {
                           starsRequired: parseInt(starsInput.value),
                           availableForAll: allCheckbox.checked,
-                          availableForChildIds: allCheckbox.checked ? [] : selectedChildIds
+                          availableForChildIds: allCheckbox.checked ? [] : selectedChildIds,
+                          recurring: recurringCheckbox.checked
                         })
                         setToast({ message: 'Gift updated!', type: 'success' })
                         setShowEditGiftModal(false)

@@ -20,6 +20,7 @@ interface GiftTemplate {
   suggestedStars: number
   active: boolean
   featured: boolean
+  recurring: boolean
   createdAt: string
   updatedAt: string
 }
@@ -61,7 +62,8 @@ const AdminGiftTemplates: React.FC = () => {
     pricePence: '',
     suggestedStars: '',
     active: true,
-    featured: false
+    featured: false,
+    recurring: false
   })
 
   useEffect(() => {
@@ -99,7 +101,8 @@ const AdminGiftTemplates: React.FC = () => {
         title: formData.title,
         suggestedStars: parseInt(formData.suggestedStars),
         active: formData.active,
-        featured: formData.featured
+        featured: formData.featured,
+        recurring: formData.recurring
       }
 
       if (formData.type === 'amazon_product') {
@@ -150,7 +153,8 @@ const AdminGiftTemplates: React.FC = () => {
       pricePence: template.pricePence ? template.pricePence.toString() : '',
       suggestedStars: template.suggestedStars.toString(),
       active: template.active,
-      featured: template.featured
+      featured: template.featured,
+      recurring: template.recurring
     })
     setShowCreateModal(true)
   }
@@ -177,6 +181,22 @@ const AdminGiftTemplates: React.FC = () => {
       ))
     } catch (error) {
       alert('Failed to update gift template status: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      // Reload templates on error to revert UI
+      loadTemplates()
+    }
+  }
+
+  const handleToggleRecurring = async (template: GiftTemplate) => {
+    try {
+      await adminApiClient.updateGiftTemplate(template.id, {
+        recurring: !template.recurring
+      })
+      // Update local state immediately for better UX
+      setTemplates(templates.map(t => 
+        t.id === template.id ? { ...t, recurring: !t.recurring } : t
+      ))
+    } catch (error) {
+      alert('Failed to update recurring status: ' + (error instanceof Error ? error.message : 'Unknown error'))
       // Reload templates on error to revert UI
       loadTemplates()
     }
@@ -213,7 +233,8 @@ const AdminGiftTemplates: React.FC = () => {
       pricePence: '',
       suggestedStars: '',
       active: true,
-      featured: false
+      featured: false,
+      recurring: false
     })
   }
 
@@ -462,6 +483,18 @@ const AdminGiftTemplates: React.FC = () => {
                           Visible
                         </span>
                       </label>
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={template.recurring || false}
+                          onChange={() => handleToggleRecurring(template)}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                          title={template.recurring ? "Disable recurring (one-time purchase only)" : "Enable recurring (can be purchased multiple times)"}
+                        />
+                        <span className="ml-2 text-sm text-gray-700 whitespace-nowrap">
+                          Recurring
+                        </span>
+                      </label>
                       {template.featured && (
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 w-fit">
                           Featured
@@ -705,7 +738,7 @@ const AdminGiftTemplates: React.FC = () => {
                     required
                   />
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -723,6 +756,15 @@ const AdminGiftTemplates: React.FC = () => {
                       className="mr-2"
                     />
                     Featured
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.recurring}
+                      onChange={(e) => setFormData({ ...formData, recurring: e.target.checked })}
+                      className="mr-2"
+                    />
+                    Recurring (can be purchased multiple times)
                   </label>
                 </div>
               </div>

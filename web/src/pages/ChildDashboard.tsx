@@ -59,6 +59,11 @@ interface FamilyGift {
   sitestripeUrl?: string
   availableForAll?: boolean
   availableForChildIds?: string[]
+  recurring?: boolean
+  createdByUser?: {
+    id: string
+    email: string
+  }
   [key: string]: any
 }
 
@@ -1503,9 +1508,14 @@ const ChildDashboard: React.FC = () => {
                       >
                         {gift.title}
                       </h3>
-                      <p className="text-sm text-[var(--text-secondary)] mb-4 line-clamp-2">
+                      <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">
                         {gift.description || 'A special reward just for you!'}
                       </p>
+                      {gift.createdByUser && (
+                        <p className="text-xs text-[var(--text-secondary)] mb-4 italic">
+                          Added by {gift.createdByUser.email?.split('@')[0] || 'Unknown'}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-2xl font-bold text-[var(--bonus-stars)]">
@@ -1593,7 +1603,12 @@ const ChildDashboard: React.FC = () => {
                     )}
                     <h4 className="text-xl font-bold text-[var(--text-primary)] mb-2">{selectedGiftForRedemption.title}</h4>
                     {selectedGiftForRedemption.description && (
-                      <p className="text-[var(--text-secondary)] mb-4">{selectedGiftForRedemption.description}</p>
+                      <p className="text-[var(--text-secondary)] mb-2">{selectedGiftForRedemption.description}</p>
+                    )}
+                    {selectedGiftForRedemption.createdByUser && (
+                      <p className="text-sm text-[var(--text-secondary)] mb-4 italic">
+                        Added by {selectedGiftForRedemption.createdByUser.email?.split('@')[0] || 'Unknown'}
+                      </p>
                     )}
                   </div>
                   
@@ -2081,10 +2096,15 @@ const ChildDashboard: React.FC = () => {
                         description = metaJson.note || 'From parent'
                       }
                     } else {
-                      if (metaJson.redemptionId) {
+                      if (metaJson.redemptionId || metaJson.familyGiftId) {
                         icon = '🎁'
                         label = 'Reward Claimed'
-                        description = metaJson.rewardTitle || 'Prize redeemed'
+                        const gift = metaJson.familyGiftId 
+                          ? familyGifts.find((g: FamilyGift) => g.id === metaJson.familyGiftId)
+                          : null
+                        const giftTitle = metaJson.giftTitle || gift?.title || metaJson.rewardTitle || 'Prize redeemed'
+                        const addedBy = gift?.createdByUser?.email?.split('@')[0]
+                        description = giftTitle + (addedBy ? ` • Added by ${addedBy}` : '')
                       } else if (metaJson.payoutId) {
                         icon = '💸'
                         label = 'Paid Out'
