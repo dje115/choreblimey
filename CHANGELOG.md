@@ -2,6 +2,33 @@
 
 All notable changes to ChoreBlimey! will be documented in this file.
 
+## [0.1.1] - 2025-01-23
+
+### Added
+- **Recurring Gifts Feature**
+  - Added `recurring` field to GiftTemplate and FamilyGift models
+  - Recurring gifts can be purchased multiple times (e.g., activity gifts like "Movie Night")
+  - Non-recurring gifts are hidden from child shop after first redemption
+  - Admin can set recurring status when creating/editing gift templates
+  - Parent can toggle recurring status when adding/editing family gifts
+  - Quick recurring toggle checkbox in admin gift templates list for easy management
+
+### Fixed
+- **Gift Creation User Attribution**
+  - Fixed bug where "Added by" information was not showing for gifts added via "Browse Gifts"
+  - Fixed `createdBy` field to properly use `sub` from JWT claims instead of `userId`
+  - Added `createdByUser` relation to gift creation responses
+  - Now correctly displays who added each gift to the family
+
+- **Admin Dashboard Logout Error**
+  - Fixed `FST_ERR_CTP_EMPTY_JSON_BODY` error when logging out from admin dashboard
+  - Improved response handling to gracefully handle empty/non-JSON responses
+  - Logout now works even with expired/invalid tokens
+
+### Changed
+- Improved error handling in admin API client for empty response bodies
+- Enhanced gift creation endpoints to include user information in responses
+
 ## [Unreleased] - 2025-10-28
 
 ### Fixed

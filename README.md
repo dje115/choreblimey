@@ -110,7 +110,7 @@ docker exec choreblimey-secure-api-1 npm run seed
 curl http://localhost:1501/v1/health
 ```
 
-**Version**: v0.0.8 (as of latest commit)
+**Version**: v0.1.1 (as of latest commit)
 
 ### 📖 Docker Development Guide
 For detailed Docker setup, troubleshooting, and development workflow, see [DOCKER_DEVELOPMENT.md](./DOCKER_DEVELOPMENT.md).
@@ -383,6 +383,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **ChoreBlimey!** - Making chores fun for the whole family! 🧹⭐
 
-**Last Updated**: October 2025  
-**Version**: 1.6.0  
+**Last Updated**: January 2025  
+**Version**: 0.1.1  
 **Maintainer**: Development Team
