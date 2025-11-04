@@ -220,6 +220,29 @@ class AdminApiClient {
       affiliateTag
     })
   }
+
+  // Image Upload
+  async uploadImage(file: File): Promise<{ success: boolean; imageUrl: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch(`${this.baseUrl}/v1/admin/images/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.getAdminToken()}`
+      },
+      body: formData
+    })
+    
+    return this.handleResponse(response)
+  }
+
+  async uploadImageFromUrl(imageUrl: string, fileName?: string): Promise<{ success: boolean; imageUrl: string }> {
+    return this.post('/v1/admin/images/upload', {
+      imageUrl,
+      fileName
+    })
+  }
 }
 
 export const adminApiClient = new AdminApiClient()

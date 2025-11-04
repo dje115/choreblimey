@@ -4,6 +4,7 @@ import * as adminCleanup from '../controllers/adminCleanup.js'
 import * as adminMonitoring from '../controllers/adminMonitoring.js'
 import * as adminSecurity from '../controllers/adminSecurity.js'
 import * as adminGiftTemplates from '../controllers/adminGiftTemplates.js'
+import * as adminImageUpload from '../controllers/adminImageUpload.js'
 
 export async function routes(app: FastifyInstance) {
   // Health check (no auth required)
@@ -40,6 +41,9 @@ export async function routes(app: FastifyInstance) {
   app.post('/admin/security/revoke-session', adminSecurity.revokeSession)
   app.get('/admin/security/audit', adminSecurity.getAuditLogs)
   app.post('/admin/security/block-ip', adminSecurity.blockIPAddress)
+
+  // Image Upload (admin auth required)
+  app.post('/admin/images/upload', adminImageUpload.uploadImageHandler)
 
   // Gift Template Management (admin auth required)
   app.get('/admin/gift-templates', adminGiftTemplates.listGiftTemplates)

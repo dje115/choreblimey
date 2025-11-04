@@ -256,6 +256,7 @@ const ParentDashboard: React.FC = () => {
   const [loadingGifts, setLoadingGifts] = useState(false)
   const [showAddGiftModal, setShowAddGiftModal] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
+  const selectedTemplateRef = useRef<any>(null) // Ref to persist template during modal transition
   const [selectedGift, setSelectedGift] = useState<any>(null)
   const [showEditGiftModal, setShowEditGiftModal] = useState(false)
   const [giftFilters, setGiftFilters] = useState({ type: '', category: '', age: '', gender: '' })
@@ -1655,13 +1656,12 @@ const ParentDashboard: React.FC = () => {
                     />
                   </button>
                 </div>
-                <button
-                  onClick={() => {
-                    console.log('Add Custom Gift clicked, setting showAddGiftModal to true')
-                    setShowAddGiftModal(true)
-                    setSelectedTemplate(null)
-                    console.log('showAddGiftModal should now be:', true)
-                  }}
+                        <button
+                          onClick={() => {
+                            setSelectedTemplate(null)
+                            selectedTemplateRef.current = null
+                            setShowAddGiftModal(true)
+                          }}
                   className="px-4 py-2 text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md whitespace-nowrap"
                 >
                   ➕ Add Custom Gift
@@ -5754,8 +5754,11 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={() => {
                   setShowGiftModal(false)
-                  setSelectedTemplate(null)
-                  setShowAddGiftModal(false)
+                  // Don't clear selectedTemplate here - it might be needed for the add modal
+                  // Only clear if we're not opening the add modal
+                  if (!showAddGiftModal) {
+                    setSelectedTemplate(null)
+                  }
                 }}
                 className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl"
               >
@@ -5899,9 +5902,18 @@ const ParentDashboard: React.FC = () => {
                           </a>
                         )}
                         <button
-                          onClick={() => {
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            // Store in both state and ref for persistence
+                            selectedTemplateRef.current = template
                             setSelectedTemplate(template)
-                            setShowAddGiftModal(true)
+                            setShowGiftModal(false)
+                            // Small delay to ensure state updates
+                            setTimeout(() => {
+                              setShowAddGiftModal(true)
+                            }, 150)
                           }}
                           className="w-full mt-3 cb-button-primary text-sm"
                         >
@@ -5918,7 +5930,7 @@ const ParentDashboard: React.FC = () => {
       )}
 
       {/* Add Gift Modal - From Template or Custom */}
-      {showAddGiftModal && !showGiftModal && (
+      {showAddGiftModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 1001 }}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b-2 border-[var(--card-border)] px-6 py-4 rounded-t-xl">
@@ -5938,14 +5950,38 @@ const ParentDashboard: React.FC = () => {
               </div>
             </div>
             <div className="p-6">
-                  {selectedTemplate ? (
+                  {(() => {
+                    // Use ref as fallback if state is null (during transition)
+                    const template = selectedTemplate || selectedTemplateRef.current
+                    if (!template) {
+                      return (
+                        <div className="text-center py-8">
+                          <p className="text-red-500 mb-4">Error: No template selected</p>
+                          <button
+                            onClick={() => {
+                              setShowAddGiftModal(false)
+                              setSelectedTemplate(null)
+                              selectedTemplateRef.current = null
+                            }}
+                            className="cb-button-primary"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      )
+                    }
+                    // Update state if we're using ref
+                    if (!selectedTemplate && selectedTemplateRef.current) {
+                      setSelectedTemplate(selectedTemplateRef.current)
+                    }
+                    return template ? (
                     // Add from template
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium mb-1">Star Cost *</label>
                         <input
                           type="number"
-                          defaultValue={selectedTemplate.suggestedStars}
+                          defaultValue={(selectedTemplate || selectedTemplateRef.current)?.suggestedStars}
                           id="giftStars"
                           className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded"
                           min="1"
@@ -5996,23 +6032,30 @@ const ParentDashboard: React.FC = () => {
                       <div className="flex gap-3">
                         <button
                           onClick={async () => {
+                            const template = selectedTemplate || selectedTemplateRef.current
+                            if (!template) {
+                              console.error('❌ No template available when trying to add gift')
+                              setToast({ message: 'No template selected', type: 'error' })
+                              return
+                            }
+
                             const starsInput = document.getElementById('giftStars') as HTMLInputElement
                             const allCheckbox = document.getElementById('giftAvailableForAll') as HTMLInputElement
                             const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="giftChildIds"]:checked')
                             const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
                             
-                            if (!starsInput.value || parseInt(starsInput.value) < 1) {
+                            if (!starsInput?.value || parseInt(starsInput.value) < 1) {
                               setToast({ message: 'Please enter a valid star cost', type: 'error' })
                               return
                             }
                             
-                            if (!allCheckbox.checked && selectedChildIds.length === 0) {
+                            if (!allCheckbox?.checked && selectedChildIds.length === 0) {
                               setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
                               return
                             }
                             
                             try {
-                              await apiClient.addGiftFromTemplate(selectedTemplate.id, {
+                              await apiClient.addGiftFromTemplate(template.id, {
                                 starsRequired: parseInt(starsInput.value),
                                 availableForAll: allCheckbox.checked,
                                 availableForChildIds: allCheckbox.checked ? [] : selectedChildIds
@@ -6020,8 +6063,10 @@ const ParentDashboard: React.FC = () => {
                               setToast({ message: 'Gift added to family!', type: 'success' })
                               setShowAddGiftModal(false)
                               setSelectedTemplate(null)
-                              loadFamilyGifts()
+                              selectedTemplateRef.current = null
+                              await loadFamilyGifts()
                             } catch (error: any) {
+                              console.error('Error adding gift:', error)
                               setToast({ message: error.message || 'Failed to add gift', type: 'error' })
                             }
                           }}
@@ -6208,7 +6253,8 @@ const ParentDashboard: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  )}
+                  )
+                  })()}
             </div>
           </div>
         </div>
@@ -6275,7 +6321,7 @@ const ParentDashboard: React.FC = () => {
                     <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
                       {uniqueChildren.map((child: Child) => {
                         const childIds = selectedGift.availableForChildIds as string[] | null
-                        const isChecked = childIds && childIds.includes(child.id)
+                        const isChecked = !!(childIds && childIds.includes(child.id))
                         return (
                           <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
                             <input

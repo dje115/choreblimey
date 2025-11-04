@@ -36,6 +36,13 @@ const AdminGiftTemplates: React.FC = () => {
     active: '',
     featured: ''
   })
+  const [sortConfig, setSortConfig] = useState<{
+    key: 'title' | 'type' | 'suggestedStars' | 'active' | null
+    direction: 'asc' | 'desc'
+  }>({
+    key: null,
+    direction: 'asc'
+  })
 
   // Form state
   const [formData, setFormData] = useState({
@@ -159,6 +166,22 @@ const AdminGiftTemplates: React.FC = () => {
     }
   }
 
+  const handleToggleActive = async (template: GiftTemplate) => {
+    try {
+      await adminApiClient.updateGiftTemplate(template.id, {
+        active: !template.active
+      })
+      // Update local state immediately for better UX
+      setTemplates(templates.map(t => 
+        t.id === template.id ? { ...t, active: !t.active } : t
+      ))
+    } catch (error) {
+      alert('Failed to update gift template status: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      // Reload templates on error to revert UI
+      loadTemplates()
+    }
+  }
+
   const handleGenerateAffiliateUrl = async () => {
     if (!formData.amazonAsin || !formData.affiliateTag) {
       alert('ASIN and affiliate tag are required to generate URL')
@@ -205,6 +228,51 @@ const AdminGiftTemplates: React.FC = () => {
 
   const handleLogout = async () => {
     await adminLogout()
+  }
+
+  const handleSort = (key: 'title' | 'type' | 'suggestedStars' | 'active') => {
+    setSortConfig({
+      key,
+      direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+    })
+  }
+
+  const getSortedTemplates = () => {
+    if (!sortConfig.key) return templates
+
+    const sorted = [...templates].sort((a, b) => {
+      let aValue: any = a[sortConfig.key!]
+      let bValue: any = b[sortConfig.key!]
+
+      // Handle string comparison (title, type)
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase()
+        bValue = bValue.toLowerCase()
+      }
+
+      // Handle boolean comparison (active)
+      if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        aValue = aValue ? 1 : 0
+        bValue = bValue ? 1 : 0
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1
+      }
+      return 0
+    })
+
+    return sorted
+  }
+
+  const getSortIcon = (columnKey: 'title' | 'type' | 'suggestedStars' | 'active') => {
+    if (sortConfig.key !== columnKey) {
+      return <span className="text-gray-400">↕️</span>
+    }
+    return sortConfig.direction === 'asc' ? <span>↑</span> : <span>↓</span>
   }
 
   if (loading) {
@@ -315,15 +383,47 @@ const AdminGiftTemplates: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stars</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('title')}
+                >
+                  <div className="flex items-center gap-2">
+                    Title
+                    {getSortIcon('title')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('type')}
+                >
+                  <div className="flex items-center gap-2">
+                    Type
+                    {getSortIcon('type')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('suggestedStars')}
+                >
+                  <div className="flex items-center gap-2">
+                    Stars
+                    {getSortIcon('suggestedStars')}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('active')}
+                >
+                  <div className="flex items-center gap-2">
+                    Status
+                    {getSortIcon('active')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {templates.map((template) => (
+              {getSortedTemplates().map((template) => (
                 <tr key={template.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {template.imageUrl ? (
@@ -349,18 +449,21 @@ const AdminGiftTemplates: React.FC = () => {
                     {template.suggestedStars} ⭐
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col gap-1">
-                      {template.active ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Active
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={template.active}
+                          onChange={() => handleToggleActive(template)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          title={template.active ? "Disable to hide from users" : "Enable to show to users"}
+                        />
+                        <span className="ml-2 text-sm text-gray-700 whitespace-nowrap">
+                          Visible
                         </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                          Inactive
-                        </span>
-                      )}
+                      </label>
                       {template.featured && (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 w-fit">
                           Featured
                         </span>
                       )}
@@ -506,13 +609,52 @@ const AdminGiftTemplates: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                  <input
-                    type="text"
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Upload Image File</label>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            try {
+                              const result = await adminApiClient.uploadImage(file)
+                              setFormData({ ...formData, imageUrl: result.imageUrl })
+                              alert('Image uploaded successfully!')
+                            } catch (error) {
+                              alert('Failed to upload image: ' + (error instanceof Error ? error.message : 'Unknown error'))
+                            }
+                          }
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500 text-center">or</div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Image URL (will be downloaded and stored)</label>
+                      <input
+                        type="text"
+                        value={formData.imageUrl}
+                        onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      />
+                    </div>
+                  </div>
+                  {formData.imageUrl && (
+                    <div className="mt-2">
+                      <img 
+                        src={formData.imageUrl} 
+                        alt="Preview" 
+                        className="h-32 w-32 object-cover rounded border"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>

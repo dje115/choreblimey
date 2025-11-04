@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
+import multipart from '@fastify/multipart'
 import rateLimit from '@fastify/rate-limit'
 import { routes } from './routes/index.js'
 import { adminAuthPlugin } from './utils/auth.js'
@@ -26,6 +27,12 @@ await app.register(rateLimit, {
 await app.register(cors, { 
   origin: '*', // Admin API can be accessed from anywhere, but will be behind Nginx
   credentials: true
+})
+
+await app.register(multipart, {
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB max file size
+  }
 })
 
 // Register error handlers
@@ -58,6 +65,15 @@ const start = async () => {
     
     // Initialize email service
     await emailService.initialize()
+
+    // Initialize S3 bucket (create if needed)
+    try {
+      const { ensureBucketExists } = await import('./services/s3Service.js')
+      await ensureBucketExists()
+      console.log('✅ S3/MinIO storage initialized')
+    } catch (error) {
+      console.error('⚠️ Failed to initialize S3 bucket:', error)
+    }
 
   } catch (err) {
     app.log.error(err)

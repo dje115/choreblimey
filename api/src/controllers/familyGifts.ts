@@ -317,7 +317,7 @@ export const addFromTemplate = async (
   reply: FastifyReply
 ) => {
   try {
-    const { familyId } = req.claims!
+    const { familyId, userId } = req.claims!
     const { templateId } = req.params
     const { starsRequired, availableForAll, availableForChildIds } = req.body
     
@@ -342,7 +342,10 @@ export const addFromTemplate = async (
       return reply.status(400).send({ error: 'This gift is already in your family' })
     }
     
-    const { userId } = req.claims!
+    // Prepare gift data - handle imageUrl length if it's too long
+    const imageUrl = template.imageUrl && template.imageUrl.length > 2048 
+      ? template.imageUrl.substring(0, 2048) // Truncate if too long
+      : template.imageUrl
     
     // Create family gift from template
     const gift = await prisma.familyGift.create({
@@ -359,7 +362,7 @@ export const addFromTemplate = async (
         pricePence: template.pricePence || null,
         title: template.title,
         description: template.description,
-        imageUrl: template.imageUrl,
+        imageUrl: imageUrl || null, // Ensure it's null if empty
         category: template.category,
         starsRequired: starsRequired || template.suggestedStars,
         ageTag: template.suggestedGender ? null : null, // Can be set later
@@ -375,9 +378,18 @@ export const addFromTemplate = async (
     await cache.invalidateFamily(familyId)
     
     return { gift }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error adding gift from template:', error)
-    sendError(reply, ErrorCode.SYSTEM_DATABASE_ERROR, 'Failed to add gift', 500)
+    
+    // Return more specific error messages
+    if (error.code === 'P2002') {
+      return reply.status(400).send({ error: 'This gift already exists in your family' })
+    }
+    if (error.code === 'P2003') {
+      return reply.status(400).send({ error: 'Invalid family or template reference' })
+    }
+    
+    sendError(reply, ErrorCode.SYSTEM_DATABASE_ERROR, error.message || 'Failed to add gift', 500)
   }
 }
 

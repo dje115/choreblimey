@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
+import { fetchAndUploadImage } from '../services/s3Service.js'
 
 /**
  * Request body for creating a gift template
@@ -163,6 +164,19 @@ export const createGiftTemplate = async (
     if (body.type === 'amazon_product' && body.provider === 'amazon_associates' && body.amazonAsin && body.affiliateTag) {
       affiliateUrl = `https://amazon.co.uk/dp/${body.amazonAsin}?tag=${body.affiliateTag}`
     }
+
+    // Fetch and store image if imageUrl is provided
+    let storedImageUrl = body.imageUrl || null
+    if (body.imageUrl && !body.imageUrl.startsWith('http://minio:') && !body.imageUrl.includes('/gift-images/')) {
+      try {
+        // Only fetch if it's not already stored in S3
+        storedImageUrl = await fetchAndUploadImage(body.imageUrl, `${body.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`)
+        console.log(`✅ Stored image for gift template: ${storedImageUrl}`)
+      } catch (error) {
+        console.error('⚠️ Failed to fetch and store image, using original URL:', error)
+        // Continue with original URL if fetch fails
+      }
+    }
     
     const template = await prisma.giftTemplate.create({
       data: {
@@ -174,7 +188,7 @@ export const createGiftTemplate = async (
         sitestripeUrl: body.sitestripeUrl || null,
         title: body.title,
         description: body.description || null,
-        imageUrl: body.imageUrl || null,
+        imageUrl: storedImageUrl,
         category: body.category || null,
         suggestedAgeRanges: body.suggestedAgeRanges && body.suggestedAgeRanges.length > 0 ? body.suggestedAgeRanges : undefined,
         suggestedGender: body.suggestedGender || null,
@@ -227,7 +241,23 @@ export const updateGiftTemplate = async (
     if (body.sitestripeUrl !== undefined) updateData.sitestripeUrl = body.sitestripeUrl
     if (body.title !== undefined) updateData.title = body.title
     if (body.description !== undefined) updateData.description = body.description
-    if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl
+    
+    // Fetch and store image if imageUrl is provided and not already in S3
+    if (body.imageUrl !== undefined) {
+      if (body.imageUrl && !body.imageUrl.startsWith('http://minio:') && !body.imageUrl.includes('/gift-images/')) {
+        try {
+          // Fetch and store the image
+          const storedImageUrl = await fetchAndUploadImage(body.imageUrl, `${updateData.title || existing.title || 'image'}.jpg`)
+          updateData.imageUrl = storedImageUrl
+          console.log(`✅ Stored updated image for gift template: ${storedImageUrl}`)
+        } catch (error) {
+          console.error('⚠️ Failed to fetch and store image, using original URL:', error)
+          updateData.imageUrl = body.imageUrl
+        }
+      } else {
+        updateData.imageUrl = body.imageUrl
+      }
+    }
     if (body.category !== undefined) updateData.category = body.category
     if (body.suggestedAgeRanges !== undefined) updateData.suggestedAgeRanges = body.suggestedAgeRanges
     if (body.suggestedGender !== undefined) updateData.suggestedGender = body.suggestedGender
