@@ -2,6 +2,45 @@
 
 All notable changes to ChoreBlimey! will be documented in this file.
 
+## [0.1.3] - 2025-11-25
+
+### Changed
+- **Gift Visibility Control**
+  - Removed automatic filtering of non-recurring gifts after redemption
+  - Parents now have full control over gift visibility via `availableForChildIds`
+  - Non-recurring gifts remain visible in parent dashboard until manually removed from child's list
+  - Parents can choose to offer gifts again by re-adding them to a child's available gifts
+
+### Added
+- **Purchased Badge on Parent Dashboard**
+  - Added green "✓ Purchased" badge on gift cards that have been redeemed
+  - Shows on both pending and fulfilled redemptions
+  - Helps parents quickly identify which gifts have been purchased
+
+- **Redemption Analytics in Admin Dashboard**
+  - Added redemption count tracking for gift templates
+  - Shows total number of times each template has been redeemed across all families
+  - Displayed as "X purchases" in the gift templates table
+  - Helps identify which gifts are popular and working well
+
+### Fixed
+- Optimized admin API redemption count queries to use single batch query instead of per-template queries
+
+## [0.1.2] - 2025-11-24
+
+### Added
+- **Gift Redemption Workflow**
+  - Full redemption approval workflow on parent dashboard
+  - Children can see pending redemptions and order history
+  - Real-time updates when redemptions are approved/rejected
+  - Star refunds when redemptions are rejected
+  - Amazon affiliate links for easy parent purchasing
+
+### Fixed
+- Removed price display from child dashboard (children only see star costs)
+- Added real-time refresh for redemption status updates
+- Fixed redemption history to show Amazon links for approved products
+
 ## [0.1.1] - 2025-11-23
 
 ### Added

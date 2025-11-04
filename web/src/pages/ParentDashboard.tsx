@@ -98,6 +98,36 @@ const ParentDashboard: React.FC = () => {
       console.log('📢 Second localStorage trigger sent')
     }, 100)
   }
+
+  const notifyChildDashboardsOfRedemption = () => {
+    console.log('📢 Notifying child dashboards of redemption update...')
+    
+    // Method 1: Custom event
+    const event = new CustomEvent('redemptionUpdated', { 
+      detail: { timestamp: Date.now() } 
+    })
+    window.dispatchEvent(event)
+    console.log('📢 Redemption custom event dispatched')
+    
+    // Method 2: localStorage change (works across tabs)
+    const timestamp = Date.now().toString()
+    localStorage.setItem('redemption_updated', timestamp)
+    console.log('📢 Redemption localStorage updated with timestamp:', timestamp)
+    
+    // Method 3: BroadcastChannel (modern browsers)
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('choreblimey-updates')
+      channel.postMessage({ type: 'redemptionUpdated', timestamp })
+      console.log('📢 Redemption BroadcastChannel message sent')
+      channel.close()
+    }
+    
+    // Method 4: Direct localStorage trigger (force storage event)
+    setTimeout(() => {
+      localStorage.setItem('redemption_updated', (Date.now() + 1).toString())
+      console.log('📢 Second redemption localStorage trigger sent')
+    }, 100)
+  }
   const [family, setFamily] = useState<Family | null>(null)
   const [holidayOptimisticUntil, setHolidayOptimisticUntil] = useState<number>(0)
   const [members, setMembers] = useState<any[]>([])
@@ -430,7 +460,7 @@ const ParentDashboard: React.FC = () => {
         apiClient.listAssignments(),
         apiClient.listCompletions('pending'), // For approval section
         apiClient.listCompletions(), // All recent for activity feed
-        apiClient.getRedemptions('pending'),
+        apiClient.getRedemptions(), // Get all redemptions (pending and fulfilled) for history tab
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
         apiClient.getFamilyJoinCodes(),
@@ -529,7 +559,11 @@ const ParentDashboard: React.FC = () => {
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.assignments || [])
       if (pendingCompletionsRes.status === 'fulfilled') setPendingCompletions(pendingCompletionsRes.value.completions || [])
       if (allCompletionsRes.status === 'fulfilled') setRecentCompletions(allCompletionsRes.value.completions || [])
-      if (redemptionsRes.status === 'fulfilled') setPendingRedemptions(redemptionsRes.value.redemptions || [])
+      if (redemptionsRes.status === 'fulfilled') {
+        const allRedemptions = redemptionsRes.value.redemptions || []
+        setRedemptions(allRedemptions) // Store all redemptions for history tab
+        setPendingRedemptions(allRedemptions.filter((r: any) => r.status === 'pending')) // Only pending for approval section
+      }
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
         const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: any) => ({
@@ -891,6 +925,41 @@ const ParentDashboard: React.FC = () => {
       await loadDashboard()
     } catch (error) {
       console.error('Error rejecting completion:', error)
+      setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
+    }
+  }
+
+  const handleApproveRedemption = async (redemptionId: string) => {
+    try {
+      await apiClient.fulfillRedemption(redemptionId)
+      setToast({ message: '✅ Gift approved!', type: 'success' })
+      
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
+      
+      // Notify child dashboards of the redemption update
+      notifyChildDashboardsOfRedemption()
+    } catch (error) {
+      console.error('Error approving redemption:', error)
+      setToast({ message: 'Failed to approve. Please try again.', type: 'error' })
+    }
+  }
+
+  const handleRejectRedemption = async (redemptionId: string) => {
+    const reason = prompt('Why are you rejecting this gift redemption? (optional)')
+    try {
+      await apiClient.rejectRedemption(redemptionId)
+      setToast({ message: 'Gift redemption rejected. Stars refunded to child.', type: 'warning' })
+      
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
+      
+      // Notify child dashboards of the redemption update (stars refunded)
+      notifyChildDashboardsOfRedemption()
+    } catch (error) {
+      console.error('Error rejecting redemption:', error)
       setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
     }
   }
@@ -1415,10 +1484,11 @@ const ParentDashboard: React.FC = () => {
             </div>
 
             {/* Pending Approvals Section */}
-            {pendingCompletions.length > 0 && (
+            {(pendingCompletions.length > 0 || pendingRedemptions.length > 0) && (
               <div className="cb-card p-6 border-4 border-[var(--warning)]">
-                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length})</h2>
+                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length + pendingRedemptions.length})</h2>
                 <div className="space-y-4">
+                  {/* Chore Completions */}
                   {pendingCompletions.map((completion: any) => (
                     <div
                       key={completion.id}
@@ -1481,81 +1551,78 @@ const ParentDashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* Pending Rewards Section */}
-            {pendingRedemptions.length > 0 && (
-              <div className="cb-card p-6 border-4 border-purple-400">
-                <h2 className="cb-heading-lg text-purple-600 mb-6">🎁 Pending Rewards ({pendingRedemptions.length})</h2>
-                <div className="space-y-4">
-                  {pendingRedemptions.map((redemption: any) => (
-                    <div
-                      key={redemption.id}
-                      className="bg-[var(--background)] border-2 border-purple-200 rounded-[var(--radius-lg)] p-4"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                          🎁
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
-                                {redemption.reward?.title || 'Reward'}
-                              </h4>
-                              <p className="text-sm text-[var(--text-secondary)] mb-2">
-                                Claimed by <span className="font-semibold text-purple-600">{redemption.child?.nickname || 'Unknown'}</span>
-                              </p>
-                              {redemption.reward?.description && (
-                                <p className="text-xs text-[var(--text-secondary)] mb-2">
-                                  {redemption.reward.description}
-                                </p>
-                              )}
-                              {redemption.reward?.amazonUrl && (
-                                <a 
-                                  href={redemption.reward.amazonUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline"
-                                >
-                                  🔗 View on Amazon
-                                </a>
-                              )}
-                              {redemption.reward?.daysOutUrl && (
-                                <a 
-                                  href={redemption.reward.daysOutUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline"
-                                >
-                                  🔗 View Details
-                                </a>
-                              )}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-xl font-bold text-[var(--bonus-stars)]">
-                                ⭐ {redemption.reward?.starsRequired || 0} stars
-                              </div>
-                              <div className="text-xs text-[var(--text-secondary)]">
-                                {new Date(redemption.redeemedAt).toLocaleString()}
-                              </div>
-                            </div>
+                  
+                  {/* Gift Redemptions */}
+                  {pendingRedemptions.map((redemption: any) => {
+                    const gift = redemption.familyGift || redemption.reward
+                    const addedBy = redemption.familyGift?.createdByUser
+                    
+                    return (
+                      <div
+                        key={redemption.id}
+                        className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                            🎁
                           </div>
-                          
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              onClick={() => handleFulfillRedemption(redemption.id)}
-                              className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                            >
-                              ✅ Mark as Delivered
-                            </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                  {gift?.title || 'Gift'}
+                                </h4>
+                                <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                  Redeemed by <span className="font-semibold text-[var(--primary)]">{redemption.child?.nickname || 'Unknown'}</span>
+                                  {addedBy && (
+                                    <> • Added by <span className="font-semibold text-purple-600">{addedBy.email?.split('@')[0] || 'Unknown'}</span></>
+                                  )}
+                                </p>
+                                {gift?.description && (
+                                  <p className="text-xs text-[var(--text-secondary)] mb-2">
+                                    {gift.description}
+                                  </p>
+                                )}
+                                {(gift?.affiliateUrl || gift?.sitestripeUrl) && (
+                                  <a 
+                                    href={gift.affiliateUrl || gift.sitestripeUrl || '#'} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-block mt-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
+                                  >
+                                    🔗 Purchase on Amazon
+                                  </a>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-xl font-bold text-[var(--bonus-stars)]">
+                                  ⭐ {redemption.costPaid || 0} stars
+                                </div>
+                                <div className="text-xs text-[var(--text-secondary)]">
+                                  {new Date(redemption.createdAt).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2 mt-4">
+                              <button
+                                onClick={() => handleApproveRedemption(redemption.id)}
+                                className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              >
+                                ✅ Approve & Purchase
+                              </button>
+                              <button
+                                onClick={() => handleRejectRedemption(redemption.id)}
+                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              >
+                                ❌ Reject
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -1739,6 +1806,18 @@ const ParentDashboard: React.FC = () => {
                             setShowEditGiftModal(true)
                           }}
                         >
+                          {/* Purchased Badge */}
+                          {(() => {
+                            const hasBeenRedeemed = redemptions.some((r: any) => 
+                              r.familyGiftId === gift.id && 
+                              (r.status === 'pending' || r.status === 'fulfilled')
+                            )
+                            return hasBeenRedeemed && (
+                              <div className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full z-10 shadow-md">
+                                ✓ Purchased
+                              </div>
+                            )
+                          })()}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -1947,6 +2026,19 @@ const ParentDashboard: React.FC = () => {
                                   <p className="text-xs text-[var(--text-secondary)] mt-1">
                                     {new Date(redemption.createdAt).toLocaleDateString()} • {redemption.costPaid} ⭐
                                   </p>
+                                  {/* Show Amazon link for approved Amazon products */}
+                                  {gift && (gift.affiliateUrl || gift.sitestripeUrl) && (
+                                    <div className="mt-2">
+                                      <a 
+                                        href={gift.affiliateUrl || gift.sitestripeUrl || '#'} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-block px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
+                                      >
+                                        🔗 Purchase on Amazon
+                                      </a>
+                                    </div>
+                                  )}
                                 </div>
                                 <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">Fulfilled</span>
                               </div>

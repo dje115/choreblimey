@@ -208,14 +208,17 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
   }
 }
 
-export const listRedemptions = async (req: FastifyRequest<{ Querystring: { status?: string } }>, reply: FastifyReply) => {
+export const listRedemptions = async (req: FastifyRequest<{ Querystring: { status?: string; childId?: string } }>, reply: FastifyReply) => {
   try {
     const { familyId } = req.claims!
-    const { status } = req.query
+    const { status, childId } = req.query
 
     const whereClause: any = { familyId }
     if (status) {
       whereClause.status = status
+    }
+    if (childId) {
+      whereClause.childId = childId
     }
 
     const redemptions = await prisma.redemption.findMany({
@@ -238,10 +241,22 @@ export const listRedemptions = async (req: FastifyRequest<{ Querystring: { statu
             nickname: true,
             ageGroup: true
           }
+        },
+        approvedByUser: {
+          select: {
+            id: true,
+            email: true
+          }
+        },
+        rejectedByUser: {
+          select: {
+            id: true,
+            email: true
+          }
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: 50
+      take: 100
     })
 
     return { redemptions }
@@ -251,9 +266,13 @@ export const listRedemptions = async (req: FastifyRequest<{ Querystring: { statu
   }
 }
 
+/**
+ * Approve/fulfill a redemption
+ * @route POST /redemptions/:id/fulfill
+ */
 export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
   try {
-    const { familyId } = req.claims!
+    const { familyId, sub: userId } = req.claims!
     const { id } = req.params
 
     // Find redemption
@@ -273,7 +292,9 @@ export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: stri
     const updatedRedemption = await prisma.redemption.update({
       where: { id },
       data: { 
-        status: 'fulfilled'
+        status: 'fulfilled',
+        approvedBy: userId,
+        processedAt: new Date()
       },
       include: {
         reward: true,
@@ -293,6 +314,12 @@ export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: stri
             nickname: true,
             ageGroup: true
           }
+        },
+        approvedByUser: {
+          select: {
+            id: true,
+            email: true
+          }
         }
       }
     })
@@ -301,5 +328,106 @@ export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: stri
   } catch (error) {
     console.error('Failed to fulfill redemption:', error)
     reply.status(500).send({ error: 'Failed to fulfill redemption' })
+  }
+}
+
+/**
+ * Reject a redemption (refund stars to child)
+ * @route POST /redemptions/:id/reject
+ */
+export const rejectRedemption = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  try {
+    const { familyId, sub: userId } = req.claims!
+    const { id } = req.params
+
+    // Find redemption
+    const redemption = await prisma.redemption.findFirst({
+      where: { id, familyId }
+    })
+
+    if (!redemption) {
+      return reply.status(404).send({ error: 'Redemption not found' })
+    }
+
+    if (redemption.status !== 'pending') {
+      return reply.status(400).send({ error: 'Redemption has already been processed' })
+    }
+
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Refund stars to child's wallet
+      const wallet = await tx.wallet.findFirst({
+        where: { childId: redemption.childId, familyId }
+      })
+
+      if (wallet) {
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            stars: { increment: redemption.costPaid }
+          }
+        })
+
+        // Create transaction record for refund
+        await tx.transaction.create({
+          data: {
+            walletId: wallet.id,
+            familyId,
+            type: 'credit',
+            amountPence: 0, // Stars-only transaction
+            source: 'system',
+            metaJson: {
+              redemptionId: redemption.id,
+              type: 'redemption_refund',
+              starsRefunded: redemption.costPaid,
+              reason: 'Redemption rejected'
+            }
+          }
+        })
+      }
+
+      // Update redemption status
+      const updatedRedemption = await tx.redemption.update({
+        where: { id },
+        data: {
+          status: 'rejected',
+          rejectedBy: userId,
+          processedAt: new Date()
+        },
+        include: {
+          reward: true,
+          familyGift: {
+            include: {
+              createdByUser: {
+                select: {
+                  id: true,
+                  email: true
+                }
+              }
+            }
+          },
+          child: {
+            select: {
+              id: true,
+              nickname: true,
+              ageGroup: true
+            }
+          },
+          rejectedByUser: {
+            select: {
+              id: true,
+              email: true
+            }
+          }
+        }
+      })
+
+      return updatedRedemption
+    })
+
+    return { redemption: result }
+  } catch (error) {
+    console.error('Failed to reject redemption:', error)
+    reply.status(500).send({ error: 'Failed to reject redemption' })
   }
 }

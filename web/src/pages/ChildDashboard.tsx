@@ -92,6 +92,28 @@ interface Completion {
   [key: string]: any
 }
 
+interface Redemption {
+  id: string
+  familyGiftId?: string
+  rewardId?: string
+  childId: string
+  costPaid: number
+  status: 'pending' | 'fulfilled' | 'rejected'
+  createdAt: string
+  processedAt?: string
+  familyGift?: FamilyGift
+  reward?: Reward
+  approvedByUser?: {
+    id: string
+    email: string
+  }
+  rejectedByUser?: {
+    id: string
+    email: string
+  }
+  [key: string]: any
+}
+
 interface FamilyMember {
   id: string
   role: string
@@ -185,6 +207,9 @@ const ChildDashboard: React.FC = () => {
   const [completions, setCompletions] = useState<Completion[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
   const [familyGifts, setFamilyGifts] = useState<FamilyGift[]>([])
+  const [redemptions, setRedemptions] = useState<Redemption[]>([])
+  const [pendingRedemptions, setPendingRedemptions] = useState<Redemption[]>([])
+  const [redemptionHistory, setRedemptionHistory] = useState<Redemption[]>([])
   const [selectedGiftForRedemption, setSelectedGiftForRedemption] = useState<FamilyGift | null>(null)
   const [showRedemptionModal, setShowRedemptionModal] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -279,19 +304,58 @@ const ChildDashboard: React.FC = () => {
         if (event.data.type === 'choreUpdated') {
           console.log('🔄 Chore update detected via BroadcastChannel, refreshing child dashboard...', event.data)
           loadDashboard()
+        } else if (event.data.type === 'redemptionUpdated') {
+          console.log('🔄 Redemption update detected via BroadcastChannel, refreshing child dashboard...', event.data)
+          loadDashboard()
         }
       }
       console.log('👂 Child dashboard listening for BroadcastChannel messages')
     }
 
-    // Method 4: Polling fallback (every 5 seconds)
+    // Method 4: Listen for redemption updates from parent dashboard
+    const handleRedemptionUpdate = (event?: CustomEvent | Event) => {
+      console.log('🔄 Redemption update detected, refreshing child dashboard...', event?.detail || event)
+      loadDashboard()
+    }
+    window.addEventListener('redemptionUpdated', handleRedemptionUpdate)
+    console.log('👂 Child dashboard listening for redemptionUpdated events')
+    
+    // Method 5: Listen for redemption updates via localStorage (works across tabs)
+    const handleRedemptionStorageChange = (e: StorageEvent) => {
+      if (e.key === 'redemption_updated' && e.newValue) {
+        console.log('🔄 Redemption update detected via localStorage, refreshing child dashboard...', e.newValue)
+        loadDashboard()
+        localStorage.removeItem('redemption_updated')
+      }
+    }
+    window.addEventListener('storage', handleRedemptionStorageChange)
+    console.log('👂 Child dashboard listening for redemption localStorage changes')
+    
+    // Method 6: Polling fallback (every 5 seconds) - also checks for redemption updates
     const pollInterval = setInterval(() => {
-      console.log('🔄 Polling for updates...')
+      console.log('🔄 Polling for updates (chores, redemptions, etc.)...')
       loadDashboard()
     }, 5000)
     console.log('👂 Child dashboard polling every 5 seconds as fallback')
     
-    // Method 5: Test localStorage detection
+    // Method 7: Test localStorage detection for redemptions
+    const testRedemptionLocalStorage = () => {
+      const redemptionValue = localStorage.getItem('redemption_updated')
+      if (redemptionValue) {
+        console.log('🔄 Found redemption localStorage value, triggering refresh...')
+        loadDashboard()
+        localStorage.removeItem('redemption_updated')
+      }
+    }
+    
+    // Test redemption localStorage on load
+    testRedemptionLocalStorage()
+    
+    // Test redemption localStorage every 2 seconds
+    const redemptionLocalStorageTestInterval = setInterval(testRedemptionLocalStorage, 2000)
+    console.log('👂 Child dashboard testing redemption localStorage every 2 seconds')
+    
+    // Method 8: Test localStorage detection for chores
     const testLocalStorage = () => {
       const currentValue = localStorage.getItem('chore_updated')
       console.log('🔍 Current localStorage chore_updated value:', currentValue)
@@ -311,12 +375,15 @@ const ChildDashboard: React.FC = () => {
 
     return () => {
       window.removeEventListener('choreUpdated', handleChoreUpdate)
+      window.removeEventListener('redemptionUpdated', handleRedemptionUpdate)
       window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('storage', handleRedemptionStorageChange)
       if (broadcastChannel) {
         broadcastChannel.close()
       }
       clearInterval(pollInterval)
       clearInterval(localStorageTestInterval)
+      clearInterval(redemptionLocalStorageTestInterval)
     }
   }, [])
 
@@ -353,7 +420,7 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes, redemptionsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.getWalletStats(childId),
         apiClient.getFamily(),
@@ -365,7 +432,8 @@ const ChildDashboard: React.FC = () => {
         apiClient.getLeaderboard(),
         apiClient.getStreakStats(childId),
         apiClient.getTransactions(childId, 50),
-        apiClient.getPayouts(childId) // Get payouts to show who paid
+        apiClient.getPayouts(childId), // Get payouts to show who paid
+        apiClient.getRedemptions(undefined, childId) // Get all redemptions for this child
       ])
 
       if (walletRes.status === 'fulfilled') {
@@ -506,6 +574,14 @@ const ChildDashboard: React.FC = () => {
         setFamilyGifts(familyGiftsRes.value.gifts || [])
       }
       
+      // Handle redemptions
+      if (redemptionsRes.status === 'fulfilled') {
+        const allRedemptions = redemptionsRes.value.redemptions || []
+        setRedemptions(allRedemptions)
+        setPendingRedemptions(allRedemptions.filter((r: Redemption) => r.status === 'pending'))
+        setRedemptionHistory(allRedemptions.filter((r: Redemption) => r.status === 'fulfilled' || r.status === 'rejected'))
+      }
+      
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
         const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: LeaderboardEntry) => ({
@@ -620,15 +696,21 @@ const ChildDashboard: React.FC = () => {
     
     try {
       setClaimingReward(selectedGiftForRedemption.id)
+      
+      // Optimistically update stars immediately (before API call)
+      if (wallet) {
+        setWallet({
+          ...wallet,
+          stars: Math.max(0, wallet.stars - selectedGiftForRedemption.starsRequired)
+        })
+      }
+      
       await apiClient.redeemReward({
         familyGiftId: selectedGiftForRedemption.id,
         childId
       })
 
-      // Reload dashboard to update wallet and gifts
-      await loadDashboard()
-      
-      // Close modal
+      // Close modal first
       setShowRedemptionModal(false)
       setSelectedGiftForRedemption(null)
       
@@ -636,8 +718,20 @@ const ChildDashboard: React.FC = () => {
       setShowConfetti(true)
       setToast({ message: `🎉 ${selectedGiftForRedemption.title} redeemed! Ask your parent to get it for you`, type: 'success' })
       setTimeout(() => setShowConfetti(false), 2000)
+      
+      // Reload dashboard to sync with server (get updated wallet, redemptions, etc.)
+      await loadDashboard()
     } catch (error: any) {
       console.error('Failed to redeem gift:', error)
+      
+      // Revert optimistic update on error
+      if (wallet) {
+        setWallet({
+          ...wallet,
+          stars: wallet.stars + selectedGiftForRedemption.starsRequired
+        })
+      }
+      
       const errorMsg = error.response?.data?.error || 'Failed to redeem gift'
       setToast({ message: errorMsg, type: 'error' })
     } finally {
@@ -1521,11 +1615,6 @@ const ChildDashboard: React.FC = () => {
                           <span className="text-2xl font-bold text-[var(--bonus-stars)]">
                             {gift.starsRequired}⭐
                           </span>
-                          {gift.type === 'amazon_product' && gift.pricePence && (
-                            <span className="text-sm font-semibold text-[var(--text-secondary)]">
-                              {formatCurrency(gift.pricePence, familySettings?.currency || 'GBP')}
-                            </span>
-                          )}
                         </div>
                         <button
                           onClick={(e) => {
@@ -1619,14 +1708,6 @@ const ChildDashboard: React.FC = () => {
                         {selectedGiftForRedemption.starsRequired} ⭐
                       </span>
                     </div>
-                    {selectedGiftForRedemption.type === 'amazon_product' && selectedGiftForRedemption.pricePence && (
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[var(--text-secondary)]">Price:</span>
-                        <span className="font-semibold text-[var(--text-primary)]">
-                          {formatCurrency(selectedGiftForRedemption.pricePence, familySettings?.currency || 'GBP')}
-                        </span>
-                      </div>
-                    )}
                     <div className="flex justify-between items-center pt-2 border-t border-[var(--card-border)]">
                       <span className="text-[var(--text-secondary)]">Your Stars:</span>
                       <span className="font-bold text-[var(--text-primary)]">
@@ -1657,6 +1738,120 @@ const ChildDashboard: React.FC = () => {
                       {claimingReward === selectedGiftForRedemption.id ? '⏳ Redeeming...' : 'Confirm Redeem'}
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Pending Redemptions Section */}
+            {pendingRedemptions.length > 0 && (
+              <div className="mt-8">
+                <h3 className="cb-heading-md text-[var(--primary)] mb-4">⏳ Waiting for Approval ({pendingRedemptions.length})</h3>
+                <div className="space-y-3">
+                  {pendingRedemptions.map((redemption: Redemption) => (
+                    <div
+                      key={redemption.id}
+                      className="bg-white border-2 border-yellow-300 rounded-[var(--radius-lg)] p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                          ⏳
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                            {redemption.familyGift?.title || redemption.reward?.title || 'Gift'}
+                          </h4>
+                          <p className="text-xs text-[var(--text-secondary)] mb-2">
+                            Redeemed {new Date(redemption.createdAt).toLocaleString()}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className="cb-chip bg-yellow-100 text-yellow-700">
+                              -{redemption.costPaid} ⭐
+                            </span>
+                            <span className="text-sm text-[var(--text-secondary)]">
+                              Waiting for parent approval...
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Redemption History Section */}
+            {redemptionHistory.length > 0 && (
+              <div className="mt-8">
+                <h3 className="cb-heading-md text-[var(--primary)] mb-4">📜 Order History</h3>
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {redemptionHistory.map((redemption: Redemption) => {
+                    const isApproved = redemption.status === 'fulfilled'
+                    const isRejected = redemption.status === 'rejected'
+                    const icon = isApproved ? '✅' : isRejected ? '❌' : '⏳'
+                    const processedBy = isApproved ? redemption.approvedByUser : redemption.rejectedByUser
+                    
+                    return (
+                      <div
+                        key={redemption.id}
+                        className={`bg-white border-2 ${
+                          isApproved ? 'border-green-300' : isRejected ? 'border-red-300' : 'border-yellow-300'
+                        } rounded-[var(--radius-lg)] p-4`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0 ${
+                            isApproved ? 'bg-gradient-to-br from-green-400 to-green-600' : 
+                            isRejected ? 'bg-gradient-to-br from-red-400 to-red-600' : 
+                            'bg-gradient-to-br from-yellow-400 to-orange-500'
+                          }`}>
+                            {icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                              {redemption.familyGift?.title || redemption.reward?.title || 'Gift'}
+                            </h4>
+                            <p className="text-xs text-[var(--text-secondary)] mb-2">
+                              {new Date(redemption.createdAt).toLocaleString()}
+                              {redemption.processedAt && (
+                                <> • Processed {new Date(redemption.processedAt).toLocaleString()}</>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`cb-chip ${
+                                isApproved ? 'bg-green-100 text-green-700' : 
+                                isRejected ? 'bg-red-100 text-red-700' : 
+                                'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {isRejected ? '+' : '-'}{redemption.costPaid} ⭐
+                              </span>
+                              {processedBy && (
+                                <span className="text-sm text-[var(--text-secondary)]">
+                                  {isApproved ? '✅ Approved' : '❌ Rejected'} by {processedBy.email?.split('@')[0] || 'Unknown'}
+                                </span>
+                              )}
+                            </div>
+                            {/* Show Amazon link for approved Amazon products */}
+                            {isApproved && redemption.familyGift && (redemption.familyGift.affiliateUrl || redemption.familyGift.sitestripeUrl) && (
+                              <div className="mt-2">
+                                <a 
+                                  href={redemption.familyGift.affiliateUrl || redemption.familyGift.sitestripeUrl || '#'} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-block px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
+                                >
+                                  🔗 View on Amazon
+                                </a>
+                              </div>
+                            )}
+                            {isRejected && (
+                              <p className="text-sm text-red-600 mt-2 italic">
+                                Stars have been refunded to your account
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

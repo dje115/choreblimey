@@ -86,8 +86,10 @@ model User {
   lastLoginAt DateTime? // Track last login time for stats
   createdAt   DateTime @default(now())
 
-  members   FamilyMember[]
-  createdGifts FamilyGift[] @relation("GiftCreatedBy")
+  members        FamilyMember[]
+  createdGifts   FamilyGift[] @relation("GiftCreatedBy")
+  approvedRedemptions Redemption[] @relation("RedemptionApprovedBy")
+  rejectedRedemptions Redemption[] @relation("RedemptionRejectedBy")
 }
 
 enum Role {
@@ -408,7 +410,10 @@ model Redemption {
   familyId       String
   childId        String
   costPaid       Int      // Stars spent
-  status         String   @default("pending")
+  status         String   @default("pending") // "pending" | "fulfilled" | "rejected"
+  approvedBy     String?  // UserId who approved the redemption
+  rejectedBy     String?  // UserId who rejected the redemption
+  processedAt    DateTime? // When the redemption was approved or rejected
   createdAt      DateTime @default(now())
 
   reward          Reward?     @relation(fields: [rewardId], references: [id])
@@ -416,6 +421,8 @@ model Redemption {
   familyGift      FamilyGift? @relation(fields: [familyGiftId], references: [id])
   family          Family      @relation(fields: [familyId], references: [id])
   child           Child       @relation(fields: [childId], references: [id])
+  approvedByUser  User?       @relation("RedemptionApprovedBy", fields: [approvedBy], references: [id])
+  rejectedByUser  User?       @relation("RedemptionRejectedBy", fields: [rejectedBy], references: [id])
   
   @@index([familyId, status])
   @@index([childId, createdAt])

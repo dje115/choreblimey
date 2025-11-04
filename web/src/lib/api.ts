@@ -295,13 +295,20 @@ class ApiClient {
     return this.post('/redemptions', data)
   }
 
-  async getRedemptions(status?: string) {
-    const url = status ? `/redemptions?status=${status}` : '/redemptions'
+  async getRedemptions(status?: string, childId?: string) {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    if (childId) params.append('childId', childId)
+    const url = params.toString() ? `/redemptions?${params.toString()}` : '/redemptions'
     return this.get(url)
   }
 
   async fulfillRedemption(redemptionId: string) {
     return this.post(`/redemptions/${redemptionId}/fulfill`, {})
+  }
+
+  async rejectRedemption(redemptionId: string) {
+    return this.post(`/redemptions/${redemptionId}/reject`, {})
   }
 
   // Streaks

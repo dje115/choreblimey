@@ -21,6 +21,7 @@ interface GiftTemplate {
   active: boolean
   featured: boolean
   recurring: boolean
+  redemptionCount?: number // Number of times this template has been redeemed
   createdAt: string
   updatedAt: string
 }
@@ -440,6 +441,9 @@ const AdminGiftTemplates: React.FC = () => {
                     {getSortIcon('active')}
                   </div>
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Redemptions
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -500,6 +504,12 @@ const AdminGiftTemplates: React.FC = () => {
                           Featured
                         </span>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900">{template.redemptionCount || 0}</span>
+                      <span className="text-xs text-gray-500">purchases</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

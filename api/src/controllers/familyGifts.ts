@@ -188,26 +188,9 @@ export const listFamilyGifts = async (
         return childIds && childIds.includes(childId)
       })
       
-      // Filter out non-recurring gifts that have already been redeemed by this child
-      const redeemedGiftIds = await prisma.redemption.findMany({
-        where: {
-          childId,
-          familyGiftId: { in: gifts.map(g => g.id) },
-          status: { in: ['pending', 'fulfilled'] } // Count both pending and fulfilled
-        },
-        select: {
-          familyGiftId: true
-        }
-      })
-      
-      const redeemedIds = new Set(redeemedGiftIds.map(r => r.familyGiftId).filter(Boolean))
-      
-      gifts = gifts.filter(gift => {
-        // If gift is recurring, always show it
-        if (gift.recurring) return true
-        // If gift is not recurring, only show if not redeemed
-        return !redeemedIds.has(gift.id)
-      })
+      // Note: We no longer automatically filter out non-recurring gifts that have been redeemed.
+      // Parents control visibility via availableForChildIds - if they want to hide a purchased
+      // non-recurring gift, they should manually remove it from the child's available gifts list.
     }
     
     return { gifts }

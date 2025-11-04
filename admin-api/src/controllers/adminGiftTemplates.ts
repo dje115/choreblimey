@@ -102,7 +102,66 @@ export const listGiftTemplates = async (
       prisma.giftTemplate.count({ where: whereClause })
     ])
     
-    return { templates, count }
+    // Get redemption counts for each template
+    // Count redemptions where the familyGift's giftTemplateId matches the template
+    const templateIds = templates.map(t => t.id)
+    const familyGiftsByTemplate = await prisma.familyGift.findMany({
+      where: {
+        giftTemplateId: { in: templateIds }
+      },
+      select: {
+        id: true,
+        giftTemplateId: true
+      }
+    })
+    
+    // Group family gifts by template ID
+    const familyGiftIdsByTemplate = new Map<string, string[]>()
+    for (const fg of familyGiftsByTemplate) {
+      if (!fg.giftTemplateId) continue
+      const existing = familyGiftIdsByTemplate.get(fg.giftTemplateId) || []
+      existing.push(fg.id)
+      familyGiftIdsByTemplate.set(fg.giftTemplateId, existing)
+    }
+    
+    // Get all redemptions for all family gifts in one query (optimized)
+    const allFamilyGiftIds = Array.from(familyGiftIdsByTemplate.values()).flat()
+    const redemptions = await prisma.redemption.findMany({
+      where: {
+        familyGiftId: { in: allFamilyGiftIds },
+        status: { in: ['pending', 'fulfilled'] } // Count both pending and fulfilled as purchases
+      },
+      select: {
+        familyGiftId: true
+      }
+    })
+    
+    // Build a map of familyGiftId -> giftTemplateId
+    const familyGiftToTemplate = new Map<string, string>()
+    for (const [templateId, familyGiftIds] of familyGiftIdsByTemplate.entries()) {
+      for (const fgId of familyGiftIds) {
+        familyGiftToTemplate.set(fgId, templateId)
+      }
+    }
+    
+    // Count redemptions per template
+    const redemptionCounts = new Map<string, number>()
+    for (const redemption of redemptions) {
+      if (!redemption.familyGiftId) continue
+      const templateId = familyGiftToTemplate.get(redemption.familyGiftId)
+      if (templateId) {
+        const current = redemptionCounts.get(templateId) || 0
+        redemptionCounts.set(templateId, current + 1)
+      }
+    }
+    
+    // Add redemption counts to templates
+    const templatesWithCounts = templates.map(template => ({
+      ...template,
+      redemptionCount: redemptionCounts.get(template.id) || 0
+    }))
+    
+    return { templates: templatesWithCounts, count }
   } catch (error) {
     req.log.error(error, 'Failed to list gift templates')
     reply.status(500).send({ error: 'Failed to fetch gift templates' })
