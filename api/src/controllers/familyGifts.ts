@@ -164,6 +164,12 @@ export const listFamilyGifts = async (
             title: true,
             featured: true
           }
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            email: true
+          }
         }
       },
       orderBy: [
@@ -252,6 +258,8 @@ export const create = async (
       affiliateUrl = `https://amazon.co.uk/dp/${body.amazonAsin}?tag=${body.affiliateTag}`
     }
     
+    const { userId } = req.claims!
+    
     const gift = await prisma.familyGift.create({
       data: {
         familyId,
@@ -272,7 +280,8 @@ export const create = async (
         genderTag: body.genderTag || null,
         availableForAll: body.availableForAll !== undefined ? body.availableForAll : true,
         availableForChildIds: body.availableForChildIds || null,
-        active: body.active !== undefined ? body.active : true
+        active: body.active !== undefined ? body.active : true,
+        createdBy: userId
       }
     })
     
@@ -331,6 +340,8 @@ export const addFromTemplate = async (
       return reply.status(400).send({ error: 'This gift is already in your family' })
     }
     
+    const { userId } = req.claims!
+    
     // Create family gift from template
     const gift = await prisma.familyGift.create({
       data: {
@@ -352,7 +363,8 @@ export const addFromTemplate = async (
         genderTag: template.suggestedGender || null,
         availableForAll: availableForAll !== undefined ? availableForAll : true,
         availableForChildIds: availableForChildIds || null,
-        active: true
+        active: true,
+        createdBy: userId
       }
     })
     

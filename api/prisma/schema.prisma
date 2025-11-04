@@ -84,6 +84,7 @@ model User {
   createdAt   DateTime @default(now())
 
   members   FamilyMember[]
+  createdGifts FamilyGift[] @relation("GiftCreatedBy")
 }
 
 enum Role {
@@ -504,12 +505,16 @@ model FamilyGift {
   // Active status
   active          Boolean  @default(true)
   
+  // Who created this gift (for future multi-adult support)
+  createdBy       String?  // UserId who created this gift
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
   // Relations
   family          Family   @relation(fields: [familyId], references: [id])
   giftTemplate    GiftTemplate? @relation(fields: [giftTemplateId], references: [id])
+  createdByUser   User?    @relation("GiftCreatedBy", fields: [createdBy], references: [id])
   redemptions     Redemption[]
   
   @@index([familyId, active])
