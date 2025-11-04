@@ -47,6 +47,7 @@ export class ChoreService {
         frequency: validatedData.frequency,
         proof: validatedData.proof,
         baseRewardPence: validatedData.baseRewardPence,
+        starsOverride: validatedData.starsOverride ?? null,
         minBidPence: validatedData.minBidPence || Math.floor(validatedData.baseRewardPence * 0.5),
         maxBidPence: validatedData.maxBidPence || Math.floor(validatedData.baseRewardPence * 1.5),
         startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,

@@ -74,6 +74,7 @@ model Family {
   audit         AuditLog[]
   childJoinCodes ChildJoinCode[]
   authTokens    AuthToken[]
+  familyGifts   FamilyGift[]
 }
 
 model User {
@@ -365,6 +366,12 @@ enum RewardType {
   custom
 }
 
+enum GiftType {
+  amazon_product
+  activity
+  custom
+}
+
 model Reward {
   id           String    @id @default(uuid())
   familyId     String
@@ -391,8 +398,9 @@ model Reward {
 
 model Redemption {
   id             String   @id @default(uuid())
-  rewardId       String?  // Custom reward (parent-created)
-  affiliateRewardId String?  // Affiliate reward (from providers)
+  rewardId       String?  // Custom reward (parent-created) - DEPRECATED: use familyGiftId
+  affiliateRewardId String?  // Affiliate reward (from providers) - DEPRECATED: use familyGiftId
+  familyGiftId   String?  // New: References FamilyGift (streak rewards system)
   familyId       String
   childId        String
   costPaid       Int      // Stars spent
@@ -401,11 +409,112 @@ model Redemption {
 
   reward          Reward?     @relation(fields: [rewardId], references: [id])
   affiliateReward RewardItem? @relation(fields: [affiliateRewardId], references: [id])
+  familyGift      FamilyGift? @relation(fields: [familyGiftId], references: [id])
   family          Family      @relation(fields: [familyId], references: [id])
   child           Child       @relation(fields: [childId], references: [id])
   
   @@index([familyId, status])
   @@index([childId, createdAt])
+  @@index([familyGiftId])
+}
+
+// Global gift catalog (admin-managed)
+model GiftTemplate {
+  id              String   @id @default(uuid())
+  
+  // Gift type
+  type            GiftType // "amazon_product" | "activity" | "custom"
+  
+  // Affiliate product fields
+  // Note: provider field distinguishes between affiliate systems:
+  // - "amazon_associates": Standard affiliate links with tracking IDs
+  // - "amazon_sitestripe": SiteStripe unique product URLs (NOT a payment gateway)
+  // - "amazon_paapi": Future - automated via PA-API
+  provider        String?  // "amazon_associates" | "amazon_sitestripe" | "future_provider"
+  amazonAsin      String?  // For Amazon products
+  affiliateUrl    String?  // Full affiliate link (Amazon Associates, SiteStripe, or other)
+  affiliateTag    String?  // Tracking ID for Amazon Associates
+  sitestripeUrl   String?  // SiteStripe unique product URL (if using SiteStripe)
+  
+  // Common fields
+  title           String
+  description     String?  @db.Text
+  imageUrl        String?
+  category        String?  // "toys", "books", "activities", "experiences", etc.
+  
+  // Age/Gender suggestions (stored as JSON array for flexibility)
+  suggestedAgeRanges Json?  // ["5-8", "9-11", "12-15"]
+  suggestedGender    String?  // "male" | "female" | "both" | "unisex"
+  
+  // Pricing
+  pricePence      Int?     // For Amazon products
+  suggestedStars  Int      // Default star cost
+  
+  // Admin controls
+  active          Boolean  @default(true)
+  featured        Boolean  @default(false)
+  createdBy       String?  // Admin user ID (if we track admin users)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  familyGifts     FamilyGift[]
+  
+  @@index([type, active])
+  @@index([category, active])
+  @@index([featured, active])
+}
+
+// Family-specific gift selection (parent creates this from templates or custom)
+model FamilyGift {
+  id              String   @id @default(uuid())
+  familyId        String
+  
+  // Source tracking
+  giftTemplateId  String?  // If created from admin template
+  isCustom        Boolean  @default(false) // If parent created custom
+  
+  // Gift details (copied from template or custom)
+  type            GiftType
+  title           String
+  description     String?  @db.Text
+  imageUrl        String?
+  
+  // Affiliate fields (if type = amazon_product)
+  provider        String?  // "amazon_associates" | "amazon_sitestripe" | "future_provider"
+  amazonAsin      String?
+  affiliateUrl    String?  // Full affiliate link
+  affiliateTag    String?  // Amazon Associates tracking ID
+  sitestripeUrl   String?  // SiteStripe unique URL
+  
+  category        String?
+  
+  // Star cost (parent can customize)
+  starsRequired   Int
+  
+  // Age/Gender (for filtering)
+  ageTag          String?
+  genderTag       String?
+  
+  // Per-child availability (stored as JSON array)
+  availableForAll Boolean  @default(true)
+  availableForChildIds Json? // Array of child IDs if not all
+  
+  // Active status
+  active          Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  family          Family   @relation(fields: [familyId], references: [id])
+  giftTemplate    GiftTemplate? @relation(fields: [giftTemplateId], references: [id])
+  redemptions     Redemption[]
+  
+  @@index([familyId, active])
+  @@index([familyId, type])
+  @@index([giftTemplateId])
 }
 
 model RivalryEvent {

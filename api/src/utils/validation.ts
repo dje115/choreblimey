@@ -17,7 +17,7 @@ export const ChoreCreateSchema = z.object({
     errorMap: () => ({ message: 'Proof type must be none, photo, or note' })
   }),
   baseRewardPence: z.number().int().min(0, 'Base reward must be 0 or greater').max(10000, 'Base reward must be 10000 pence or less'),
-  starsOverride: z.number().int().min(1, 'Stars override must be at least 1').max(1000, 'Stars override must be 1000 or less').optional(),
+  starsOverride: z.number().int().min(1, 'Stars override must be at least 1').max(1000, 'Stars override must be 1000 or less').nullish(),
   minBidPence: z.number().int().min(0).max(10000).optional(),
   maxBidPence: z.number().int().min(0).max(10000).optional(),
   startDate: z.string().datetime().optional(),
@@ -42,7 +42,7 @@ export const ChoreUpdateSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'once']).optional(),
   proof: z.enum(['none', 'photo', 'note']).optional(),
   baseRewardPence: z.number().int().min(0).max(10000).optional(),
-  starsOverride: z.number().int().min(1).max(1000).optional(),
+  starsOverride: z.number().int().min(1).max(1000).nullish(),
   minBidPence: z.number().int().min(0).max(10000).optional(),
   maxBidPence: z.number().int().min(0).max(10000).optional(),
   startDate: z.string().datetime().optional(),

@@ -705,9 +705,15 @@ const ParentDashboard: React.FC = () => {
     console.log('👨‍👩‍👧‍👦 choreAssignments:', choreAssignments)
     
     try {
+      // Prepare chore data - convert null to undefined for optional fields
+      const choreData = {
+        ...newChore,
+        starsOverride: newChore.starsOverride ?? undefined
+      }
+      
       // Create the chore first
       console.log('📡 Creating chore...')
-      const result = await apiClient.createChore(newChore)
+      const result = await apiClient.createChore(choreData)
       const choreId = result.chore.id
       console.log('✅ Chore created with ID:', choreId)
 

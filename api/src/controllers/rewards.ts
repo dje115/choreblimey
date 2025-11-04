@@ -2,7 +2,8 @@ import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 
 interface RedemptionBody {
-  rewardId: string
+  rewardId?: string // Legacy reward ID (deprecated)
+  familyGiftId?: string // New: Family gift ID
   childId: string
 }
 
@@ -68,7 +69,7 @@ export const list = async (req: FastifyRequest<{ Querystring: { childId?: string
 export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, reply: FastifyReply) => {
   try {
     const { familyId, childId: jwtChildId } = req.claims!
-    const { rewardId, childId } = req.body
+    const { rewardId, familyGiftId, childId } = req.body
 
     // Use childId from JWT if available (child accessing their own rewards)
     const actualChildId = childId || jwtChildId
@@ -77,13 +78,47 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
       return reply.status(400).send({ error: 'Child ID is required' })
     }
 
-    // Verify reward belongs to family
-    const reward = await prisma.reward.findFirst({
-      where: { id: rewardId, familyId }
-    })
+    // Support both old Reward system and new FamilyGift system
+    if (!rewardId && !familyGiftId) {
+      return reply.status(400).send({ error: 'Either rewardId or familyGiftId is required' })
+    }
 
-    if (!reward) {
-      return reply.status(404).send({ error: 'Reward not found' })
+    let starsRequired = 0
+    let giftTitle = ''
+
+    // New system: FamilyGift
+    if (familyGiftId) {
+      const familyGift = await prisma.familyGift.findFirst({
+        where: { id: familyGiftId, familyId, active: true }
+      })
+
+      if (!familyGift) {
+        return reply.status(404).send({ error: 'Gift not found or inactive' })
+      }
+
+      // Check if gift is available for this child
+      if (!familyGift.availableForAll) {
+        const childIds = familyGift.availableForChildIds as string[] | null
+        if (!childIds || !childIds.includes(actualChildId)) {
+          return reply.status(403).send({ error: 'This gift is not available for this child' })
+        }
+      }
+
+      starsRequired = familyGift.starsRequired
+      giftTitle = familyGift.title
+    } 
+    // Legacy system: Reward
+    else if (rewardId) {
+      const reward = await prisma.reward.findFirst({
+        where: { id: rewardId, familyId }
+      })
+
+      if (!reward) {
+        return reply.status(404).send({ error: 'Reward not found' })
+      }
+
+      starsRequired = reward.starsRequired
+      giftTitle = reward.title
     }
 
     // Verify child belongs to family
@@ -104,43 +139,38 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
       return reply.status(404).send({ error: 'Wallet not found' })
     }
 
-    // Calculate stars (10 pence = 1 star)
-    const currentStars = Math.floor(wallet.balancePence / 10)
-
-    // Check if child has enough stars
-    if (currentStars < reward.starsRequired) {
+    // Check if child has enough stars (use wallet.stars field directly)
+    if (wallet.stars < starsRequired) {
       return reply.status(400).send({ 
         error: 'Not enough stars',
-        required: reward.starsRequired,
-        current: currentStars
+        required: starsRequired,
+        current: wallet.stars
       })
     }
 
-    // Calculate pence to deduct (stars * 10)
-    const penceToDeduct = reward.starsRequired * 10
-
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // Deduct from wallet
+      // Deduct stars from wallet
       const updatedWallet = await tx.wallet.update({
         where: { id: wallet.id },
         data: {
-          balancePence: { decrement: penceToDeduct }
+          stars: { decrement: starsRequired }
         }
       })
 
-      // Create transaction record
+      // Create transaction record (optional - for audit trail)
       await tx.transaction.create({
         data: {
           walletId: wallet.id,
           familyId,
           type: 'debit',
-          amountPence: penceToDeduct,
+          amountPence: 0, // Stars-only transaction (no money deducted)
           source: 'system',
           metaJson: { 
-            rewardId,
-            rewardTitle: reward.title,
-            starsSpent: reward.starsRequired
+            rewardId: rewardId || null,
+            familyGiftId: familyGiftId || null,
+            giftTitle: giftTitle,
+            starsSpent: starsRequired
           }
         }
       })
@@ -148,13 +178,16 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
       // Create redemption
       const redemption = await tx.redemption.create({
         data: {
-          rewardId,
+          rewardId: rewardId || null, // Legacy support
+          familyGiftId: familyGiftId || null, // New system
           familyId,
           childId: actualChildId,
+          costPaid: starsRequired,
           status: 'pending'
         },
         include: {
-          reward: true,
+          reward: rewardId ? { select: { id: true, title: true, starsRequired: true } } : false,
+          familyGift: familyGiftId ? { select: { id: true, title: true, starsRequired: true } } : false,
           child: {
             select: {
               id: true,

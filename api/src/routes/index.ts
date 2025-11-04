@@ -93,4 +93,23 @@ export async function routes(app: FastifyInstance) {
   app.delete('/affiliate-rewards/preferences/pin/:id', ctrl.affiliateRewards.unpinReward)
   app.post('/affiliate-rewards/preferences/block/:id', ctrl.affiliateRewards.blockReward)
   app.delete('/affiliate-rewards/preferences/block/:id', ctrl.affiliateRewards.unblockReward)
+  
+  // Gift Templates (Admin - protected by role check in controller)
+  app.get('/admin/gift-templates', ctrl.giftTemplates.adminList)
+  app.post('/admin/gift-templates', ctrl.giftTemplates.adminCreate)
+  app.get('/admin/gift-templates/:id', ctrl.giftTemplates.adminGet)
+  app.patch('/admin/gift-templates/:id', ctrl.giftTemplates.adminUpdate)
+  app.delete('/admin/gift-templates/:id', ctrl.giftTemplates.adminDelete)
+  app.post('/admin/gift-templates/generate-affiliate-url', ctrl.giftTemplates.adminGenerateAffiliateUrl)
+  
+  // Gift Templates (User - browse available templates, read-only)
+  app.get('/gift-templates', ctrl.giftTemplates.userList)
+  
+  // Family Gifts (User - parent selects/customizes gifts for their family)
+  app.get('/family/gifts', ctrl.familyGifts.listFamilyGifts)
+  app.post('/family/gifts', ctrl.familyGifts.create)
+  app.post('/family/gifts/:templateId/add', ctrl.familyGifts.addFromTemplate)
+  app.get('/family/gifts/:id', ctrl.familyGifts.get)
+  app.patch('/family/gifts/:id', ctrl.familyGifts.update)
+  app.delete('/family/gifts/:id', ctrl.familyGifts.remove)
 }
