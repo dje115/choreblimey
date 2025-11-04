@@ -28,6 +28,9 @@ model Family {
   budgetStartDate DateTime?      // When the current budget period started
   showLifetimeEarnings Boolean @default(true) // Toggle to show/hide lifetime earnings on child portal
   
+  // Gift shop control
+  giftsEnabled   Boolean        @default(true) // Toggle to enable/disable gift shop on child dashboard
+  
   // Login tracking for auto-delete
   lastLoginAt   DateTime?       // When ANY family member last logged in
   suspendedAt   DateTime?       // When account was suspended (for 12-month deletion)
@@ -488,6 +491,7 @@ model FamilyGift {
   affiliateUrl    String?  // Full affiliate link
   affiliateTag    String?  // Amazon Associates tracking ID
   sitestripeUrl   String?  // SiteStripe unique URL
+  pricePence      Int?     // Product price (copied from template if available)
   
   category        String?
   

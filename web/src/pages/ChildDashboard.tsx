@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
+import { formatCurrency } from '../utils/currency'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 import { childThemes, getTheme, applyTheme, type ChildTheme } from '../themes/childThemes'
@@ -42,6 +43,23 @@ interface Reward {
   category?: string
   pricePence?: number
   active?: boolean
+}
+
+interface FamilyGift {
+  id: string
+  title: string
+  description?: string
+  type: 'amazon_product' | 'activity' | 'custom'
+  starsRequired: number
+  imageUrl?: string
+  category?: string
+  pricePence?: number
+  active?: boolean
+  affiliateUrl?: string
+  sitestripeUrl?: string
+  availableForAll?: boolean
+  availableForChildIds?: string[]
+  [key: string]: any
 }
 
 interface LeaderboardEntry {
@@ -161,6 +179,9 @@ const ChildDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [completions, setCompletions] = useState<Completion[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
+  const [familyGifts, setFamilyGifts] = useState<FamilyGift[]>([])
+  const [selectedGiftForRedemption, setSelectedGiftForRedemption] = useState<FamilyGift | null>(null)
+  const [showRedemptionModal, setShowRedemptionModal] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [streakStats, setStreakStats] = useState<{ individualStreaks: StreakStat[]; [key: string]: any } | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -327,14 +348,15 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.getWalletStats(childId),
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listAssignments(childId),
         apiClient.listCompletions(), // Get all completions to filter out submitted chores
-        apiClient.getRewards(childId),
+        apiClient.getRewards(childId), // Keep for backward compatibility
+        apiClient.getFamilyGifts({ childId, active: 'true' }), // New: Get family gifts
         apiClient.getLeaderboard(),
         apiClient.getStreakStats(childId),
         apiClient.getTransactions(childId, 50),
@@ -350,6 +372,11 @@ const ChildDashboard: React.FC = () => {
       if (familyRes.status === 'fulfilled') {
         const family = familyRes.value.family
         setFamilySettings(family)
+        
+        // If shop is disabled and user is on shop tab, switch to today tab
+        if (family && family.giftsEnabled === false && activeTab === 'shop') {
+          setActiveTab('today')
+        }
 
         if (family) {
           const wasActive = holidayPrevActiveRef.current
@@ -468,6 +495,12 @@ const ChildDashboard: React.FC = () => {
       if (rewardsRes.status === 'fulfilled') {
         setRewards(rewardsRes.value.rewards || [])
       }
+      
+      // Handle family gifts
+      if (familyGiftsRes.status === 'fulfilled') {
+        setFamilyGifts(familyGiftsRes.value.gifts || [])
+      }
+      
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
         const transformedLeaderboard = (leaderboardRes.value.leaderboard || []).map((entry: LeaderboardEntry) => ({
@@ -569,6 +602,38 @@ const ChildDashboard: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to claim reward:', error)
       const errorMsg = error.response?.data?.error || 'Failed to claim reward'
+      setToast({ message: errorMsg, type: 'error' })
+    } finally {
+      setClaimingReward(null)
+    }
+  }
+
+  const handleRedeemGift = async () => {
+    if (!selectedGiftForRedemption || !user?.childId && !user?.id) return
+    
+    const childId = user.childId || user.id
+    
+    try {
+      setClaimingReward(selectedGiftForRedemption.id)
+      await apiClient.redeemReward({
+        familyGiftId: selectedGiftForRedemption.id,
+        childId
+      })
+
+      // Reload dashboard to update wallet and gifts
+      await loadDashboard()
+      
+      // Close modal
+      setShowRedemptionModal(false)
+      setSelectedGiftForRedemption(null)
+      
+      // Show success with confetti celebration!
+      setShowConfetti(true)
+      setToast({ message: `🎉 ${selectedGiftForRedemption.title} redeemed! Ask your parent to get it for you`, type: 'success' })
+      setTimeout(() => setShowConfetti(false), 2000)
+    } catch (error: any) {
+      console.error('Failed to redeem gift:', error)
+      const errorMsg = error.response?.data?.error || 'Failed to redeem gift'
       setToast({ message: errorMsg, type: 'error' })
     } finally {
       setClaimingReward(null)
@@ -737,7 +802,7 @@ const ChildDashboard: React.FC = () => {
             {[
               { id: 'today' as Tab, label: 'Today', icon: '📅' },
               { id: 'streaks' as Tab, label: 'Streaks', icon: '🔥' },
-              { id: 'shop' as Tab, label: 'Shop', icon: '🛍️' },
+              ...(familySettings?.giftsEnabled !== false ? [{ id: 'shop' as Tab, label: 'Shop', icon: '🛍️' }] : []),
               { id: 'showdown' as Tab, label: 'Showdown', icon: '⚔️' },
               { id: 'bank' as Tab, label: 'Bank', icon: '🏦' }
             ].map((tab) => (
@@ -1385,7 +1450,15 @@ const ChildDashboard: React.FC = () => {
         {activeTab === 'shop' && (
           <div className="space-y-6">
             <h2 className="cb-heading-lg text-[var(--primary)]">🛍️ Rewards Shop</h2>
-            {rewards.length === 0 ? (
+            
+            {/* Check if gifts are enabled */}
+            {familySettings?.giftsEnabled === false ? (
+              <div className="text-center py-16">
+                <div className="text-8xl mb-4">🔒</div>
+                <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Shop is Temporarily Closed</h3>
+                <p className="text-[var(--text-secondary)]">The gift shop is currently disabled. Ask your parents to enable it!</p>
+              </div>
+            ) : familyGifts.length === 0 && rewards.length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-8xl mb-4">🎁</div>
                 <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">No rewards yet!</h3>
@@ -1393,6 +1466,78 @@ const ChildDashboard: React.FC = () => {
               </div>
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Display Family Gifts (new system) */}
+                {familyGifts.map((gift) => (
+                  <div
+                    key={gift.id}
+                    className="bg-white border-2 border-[var(--card-border)] rounded-3xl overflow-hidden hover:shadow-2xl transition-all cursor-pointer"
+                    onClick={() => {
+                      setSelectedGiftForRedemption(gift)
+                      setShowRedemptionModal(true)
+                    }}
+                  >
+                    <div className="aspect-video bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-6xl relative">
+                      {gift.imageUrl ? (
+                        <a
+                          href={gift.affiliateUrl || gift.sitestripeUrl || undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="block w-full h-full"
+                        >
+                          <img src={gift.imageUrl} alt={gift.title} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+                        </a>
+                      ) : (
+                        '🎁'
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 
+                        className={`font-bold text-lg text-[var(--text-primary)] mb-2 ${gift.affiliateUrl || gift.sitestripeUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
+                        onClick={(e) => {
+                          if (gift.affiliateUrl || gift.sitestripeUrl) {
+                            e.stopPropagation()
+                            window.open(gift.affiliateUrl || gift.sitestripeUrl, '_blank', 'noopener,noreferrer')
+                          }
+                        }}
+                      >
+                        {gift.title}
+                      </h3>
+                      <p className="text-sm text-[var(--text-secondary)] mb-4 line-clamp-2">
+                        {gift.description || 'A special reward just for you!'}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-bold text-[var(--bonus-stars)]">
+                            {gift.starsRequired}⭐
+                          </span>
+                          {gift.type === 'amazon_product' && gift.pricePence && (
+                            <span className="text-sm font-semibold text-[var(--text-secondary)]">
+                              {formatCurrency(gift.pricePence, familySettings?.currency || 'GBP')}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedGiftForRedemption(gift)
+                            setShowRedemptionModal(true)
+                          }}
+                          disabled={totalStars < gift.starsRequired || claimingReward === gift.id}
+                          className={`px-4 py-2 rounded-full font-bold text-sm ${
+                            totalStars >= gift.starsRequired
+                              ? 'bg-[var(--primary)] text-white hover:scale-105'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          } transition-all`}
+                        >
+                          {claimingReward === gift.id ? '⏳ Redeeming...' : totalStars >= gift.starsRequired ? '🎉 Redeem' : `🔒 Need ${gift.starsRequired - totalStars} more`}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Display old Rewards (backward compatibility) */}
                 {rewards.map((reward) => (
                   <div
                     key={reward.id}
@@ -1429,6 +1574,75 @@ const ChildDashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            
+            {/* Redemption Confirmation Modal */}
+            {showRedemptionModal && selectedGiftForRedemption && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+                  <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Confirm Redemption</h3>
+                  
+                  <div className="mb-6">
+                    {selectedGiftForRedemption.imageUrl && (
+                      <img 
+                        src={selectedGiftForRedemption.imageUrl} 
+                        alt={selectedGiftForRedemption.title} 
+                        className="w-full h-48 object-cover rounded-xl mb-4"
+                      />
+                    )}
+                    <h4 className="text-xl font-bold text-[var(--text-primary)] mb-2">{selectedGiftForRedemption.title}</h4>
+                    {selectedGiftForRedemption.description && (
+                      <p className="text-[var(--text-secondary)] mb-4">{selectedGiftForRedemption.description}</p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-[var(--card-border)]/20 rounded-xl p-4 mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[var(--text-secondary)]">Cost:</span>
+                      <span className="text-2xl font-bold text-[var(--bonus-stars)]">
+                        {selectedGiftForRedemption.starsRequired} ⭐
+                      </span>
+                    </div>
+                    {selectedGiftForRedemption.type === 'amazon_product' && selectedGiftForRedemption.pricePence && (
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[var(--text-secondary)]">Price:</span>
+                        <span className="font-semibold text-[var(--text-primary)]">
+                          {formatCurrency(selectedGiftForRedemption.pricePence, familySettings?.currency || 'GBP')}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-[var(--card-border)]">
+                      <span className="text-[var(--text-secondary)]">Your Stars:</span>
+                      <span className="font-bold text-[var(--text-primary)]">
+                        {totalStars} ⭐ → {totalStars - selectedGiftForRedemption.starsRequired} ⭐
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowRedemptionModal(false)
+                        setSelectedGiftForRedemption(null)
+                      }}
+                      className="flex-1 px-4 py-3 rounded-full font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRedeemGift}
+                      disabled={totalStars < selectedGiftForRedemption.starsRequired || claimingReward === selectedGiftForRedemption.id}
+                      className={`flex-1 px-4 py-3 rounded-full font-bold text-white transition-all ${
+                        totalStars >= selectedGiftForRedemption.starsRequired
+                          ? 'bg-[var(--primary)] hover:scale-105'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {claimingReward === selectedGiftForRedemption.id ? '⏳ Redeeming...' : 'Confirm Redeem'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1977,7 +2191,7 @@ const ChildDashboard: React.FC = () => {
             { id: 'today' as Tab, icon: '📅', label: 'Today' },
             { id: 'bank' as Tab, icon: '🏦', label: 'Bank' },
             { id: 'streaks' as Tab, icon: '🔥', label: 'Streak' },
-            { id: 'shop' as Tab, icon: '🛍️', label: 'Shop' },
+            ...(familySettings?.giftsEnabled !== false ? [{ id: 'shop' as Tab, icon: '🛍️', label: 'Shop' }] : []),
             { id: 'showdown' as Tab, icon: '⚔️', label: 'Fight' }
           ].map((tab) => (
             <button

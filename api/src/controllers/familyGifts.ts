@@ -15,6 +15,7 @@ interface CreateFamilyGiftBody {
   affiliateUrl?: string
   affiliateTag?: string
   sitestripeUrl?: string
+  pricePence?: number
   title: string
   description?: string
   imageUrl?: string
@@ -271,6 +272,7 @@ export const create = async (
         affiliateUrl: affiliateUrl || body.affiliateUrl || null,
         affiliateTag: body.affiliateTag || null,
         sitestripeUrl: body.sitestripeUrl || null,
+        pricePence: body.pricePence || null,
         title: body.title,
         description: body.description || null,
         imageUrl: body.imageUrl || null,
@@ -354,6 +356,7 @@ export const addFromTemplate = async (
         affiliateUrl: template.affiliateUrl,
         affiliateTag: template.affiliateTag,
         sitestripeUrl: template.sitestripeUrl,
+        pricePence: template.pricePence || null,
         title: template.title,
         description: template.description,
         imageUrl: template.imageUrl,

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTemplate } from '../data/choreTemplates'
+import { formatCurrency } from '../utils/currency'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 
@@ -12,6 +13,7 @@ interface Family {
   holidayMode?: boolean | null
   holidayStartDate?: string | null
   holidayEndDate?: string | null
+  giftsEnabled?: boolean | null
   [key: string]: any
 }
 
@@ -1622,41 +1624,69 @@ const ParentDashboard: React.FC = () => {
 
             {/* Streak Rewards Section */}
             <div className="cb-card p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="cb-heading-lg text-[var(--primary)]">🎁 Streak Rewards</h2>
-                <div className="flex gap-2">
+            <div className="flex justify-between items-center mb-6 gap-4">
+              <h2 className="cb-heading-lg text-[var(--primary)]">🎁 Streak Rewards</h2>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  <span className="text-sm font-medium text-[var(--text-secondary)]">Enable Shop</span>
                   <button
+                    type="button"
+                    role="switch"
+                    aria-checked={family?.giftsEnabled !== false}
                     onClick={() => {
-                      console.log('Add Custom Gift clicked, setting showAddGiftModal to true')
-                      setShowAddGiftModal(true)
-                      setSelectedTemplate(null)
-                      console.log('showAddGiftModal should now be:', true)
+                      const newValue = !(family?.giftsEnabled !== false)
+                      apiClient.updateFamily({ giftsEnabled: newValue })
+                        .then(() => {
+                          setFamily({ ...family!, giftsEnabled: newValue })
+                          setToast({ message: 'Gift shop setting updated', type: 'success' })
+                        })
+                        .catch(() => {
+                          setToast({ message: 'Failed to update gift shop setting', type: 'error' })
+                        })
                     }}
-                    className="px-4 py-2 text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md"
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 ${
+                      family?.giftsEnabled !== false ? 'bg-[var(--primary)]' : 'bg-gray-300'
+                    }`}
                   >
-                    ➕ Add Custom Gift
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Close Add Gift Modal first to prevent flash
-                      if (showAddGiftModal) {
-                        setShowAddGiftModal(false)
-                        setSelectedTemplate(null)
-                        // Small delay to ensure modal closes before opening new one
-                        setTimeout(() => {
-                          setShowGiftModal(true)
-                        }, 100)
-                      } else {
-                        setShowGiftModal(true)
-                      }
-                    }}
-                    className="cb-button-primary text-sm"
-                    style={{ backgroundColor: '#FF8A00' }}
-                  >
-                    ➕ Browse Gifts
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        family?.giftsEnabled !== false ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
                   </button>
                 </div>
+                <button
+                  onClick={() => {
+                    console.log('Add Custom Gift clicked, setting showAddGiftModal to true')
+                    setShowAddGiftModal(true)
+                    setSelectedTemplate(null)
+                    console.log('showAddGiftModal should now be:', true)
+                  }}
+                  className="px-4 py-2 text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md whitespace-nowrap"
+                >
+                  ➕ Add Custom Gift
+                </button>
+                <button
+                  onClick={() => {
+                    // Close Add Gift Modal first to prevent flash
+                    if (showAddGiftModal) {
+                      setShowAddGiftModal(false)
+                      setSelectedTemplate(null)
+                      // Small delay to ensure modal closes before opening new one
+                      setTimeout(() => {
+                        setShowGiftModal(true)
+                      }, 100)
+                    } else {
+                      setShowGiftModal(true)
+                    }
+                  }}
+                  className="cb-button-primary text-sm whitespace-nowrap"
+                  style={{ backgroundColor: '#FF8A00' }}
+                >
+                  ➕ Browse Gifts
+                </button>
               </div>
+            </div>
 
               {/* Tabs */}
               <div className="flex gap-2 mb-6 flex-wrap">
@@ -1720,22 +1750,68 @@ const ParentDashboard: React.FC = () => {
                             ⚙️
                           </button>
                           {gift.imageUrl && (
-                            <img src={gift.imageUrl} alt={gift.title} className="w-full h-32 object-cover rounded mb-3" />
+                            <a
+                              href={gift.affiliateUrl || gift.sitestripeUrl || undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="block"
+                            >
+                              <img src={gift.imageUrl} alt={gift.title} className="w-full h-32 object-cover rounded mb-3 hover:opacity-90 transition-opacity cursor-pointer" />
+                            </a>
                           )}
-                          <h4 className="font-bold text-[var(--text-primary)] mb-1 pr-6">{gift.title}</h4>
+                          <h4 
+                            className={`font-bold text-[var(--text-primary)] mb-1 pr-6 ${gift.affiliateUrl || gift.sitestripeUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
+                            onClick={(e) => {
+                              if (gift.affiliateUrl || gift.sitestripeUrl) {
+                                e.stopPropagation()
+                                window.open(gift.affiliateUrl || gift.sitestripeUrl, '_blank', 'noopener,noreferrer')
+                              }
+                            }}
+                          >
+                            {gift.title}
+                          </h4>
                           {gift.description && (
                             <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">{gift.description}</p>
                           )}
-                          <div className="flex items-center justify-between mt-3">
-                            <span className="font-bold text-[var(--primary)]">{gift.starsRequired} ⭐</span>
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">{gift.type}</span>
-                          </div>
-                          <div className="mt-3 text-xs text-[var(--text-secondary)]">
-                            {gift.availableForAll ? (
-                              <span>Available for all children</span>
-                            ) : (
-                              <span>Available for {gift.availableForChildIds?.length || 0} child{((gift.availableForChildIds?.length || 0) !== 1) ? 'ren' : ''}</span>
-                            )}
+                          {/* Assigned Children */}
+                          {(() => {
+                            const assignedChildren = gift.availableForAll 
+                              ? children 
+                              : children.filter((child: Child) => 
+                                  gift.availableForChildIds && Array.isArray(gift.availableForChildIds) 
+                                    ? gift.availableForChildIds.includes(child.id)
+                                    : false
+                                )
+                            
+                            return assignedChildren.length > 0 && (
+                              <div className="mb-3 flex flex-wrap gap-2">
+                                {assignedChildren.map((child: Child) => (
+                                  <span
+                                    key={child.id}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                                  >
+                                    👤 {child.nickname}
+                                  </span>
+                                ))}
+                              </div>
+                            )
+                          })()}
+
+                          <div className="flex items-center justify-between pt-3 border-t border-[var(--card-border)]">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {gift.type === 'amazon_product' && gift.pricePence && (
+                                <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                  💰 {formatCurrency(gift.pricePence, family?.currency || 'GBP')}
+                                </span>
+                              )}
+                              <span className="cb-chip bg-yellow-100 text-yellow-700">
+                                ⭐ {gift.starsRequired}
+                              </span>
+                              <span className="cb-chip bg-blue-100 text-blue-700">
+                                {gift.type}
+                              </span>
+                            </div>
                           </div>
                           {gift.createdByUser && (
                             <div className="mt-2 text-xs text-[var(--text-secondary)] italic">
@@ -5773,19 +5849,55 @@ const ParentDashboard: React.FC = () => {
                     .map((template: any) => (
                       <div key={template.id} className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4 hover:shadow-md transition-all">
                         {template.imageUrl && (
-                          <img src={template.imageUrl} alt={template.title} className="w-full h-32 object-cover rounded mb-3" />
+                          <a
+                            href={template.affiliateUrl || undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="block"
+                          >
+                            <img src={template.imageUrl} alt={template.title} className="w-full h-32 object-cover rounded mb-3 hover:opacity-90 transition-opacity cursor-pointer" />
+                          </a>
                         )}
                         {template.featured && (
                           <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full mb-2 inline-block">⭐ Featured</span>
                         )}
-                        <h4 className="font-bold text-[var(--text-primary)] mb-1">{template.title}</h4>
+                        <h4 
+                          className={`font-bold text-[var(--text-primary)] mb-1 ${template.affiliateUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
+                          onClick={(e) => {
+                            if (template.affiliateUrl) {
+                              e.stopPropagation()
+                              window.open(template.affiliateUrl, '_blank', 'noopener,noreferrer')
+                            }
+                          }}
+                        >
+                          {template.title}
+                        </h4>
                         {template.description && (
                           <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">{template.description}</p>
                         )}
                         <div className="flex items-center justify-between mt-3">
-                          <span className="font-bold text-[var(--primary)]">{template.suggestedStars} ⭐</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[var(--primary)]">{template.suggestedStars} ⭐</span>
+                            {template.type === 'amazon_product' && template.pricePence && (
+                              <span className="text-sm font-semibold text-[var(--text-secondary)]">
+                                {formatCurrency(template.pricePence, family?.currency || 'GBP')}
+                              </span>
+                            )}
+                          </div>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">{template.type}</span>
                         </div>
+                        {template.affiliateUrl && (
+                          <a
+                            href={template.affiliateUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="block mt-2 text-xs text-[var(--primary)] hover:underline text-center"
+                          >
+                            View on Amazon →
+                          </a>
+                        )}
                         <button
                           onClick={() => {
                             setSelectedTemplate(template)
@@ -5793,8 +5905,8 @@ const ParentDashboard: React.FC = () => {
                           }}
                           className="w-full mt-3 cb-button-primary text-sm"
                         >
-                        Add to My Family
-                      </button>
+                          Add to My Family
+                        </button>
                     </div>
                     ))}
                 </div>

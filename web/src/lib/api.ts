@@ -105,6 +105,7 @@ class ApiClient {
     maxBudgetPence?: number
     budgetPeriod?: 'weekly' | 'monthly'
     showLifetimeEarnings?: boolean
+    giftsEnabled?: boolean
     // Streak Settings
     streakProtectionDays?: number
     bonusEnabled?: boolean
@@ -290,7 +291,7 @@ class ApiClient {
     return this.get(url)
   }
 
-  async redeemReward(data: { rewardId: string; childId?: string }) {
+  async redeemReward(data: { rewardId?: string; familyGiftId?: string; childId?: string }) {
     return this.post('/redemptions', data)
   }
 

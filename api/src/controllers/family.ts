@@ -26,6 +26,7 @@ interface FamilyUpdateBody {
   maxBudgetPence?: number
   budgetPeriod?: 'weekly' | 'monthly'
   showLifetimeEarnings?: boolean
+  giftsEnabled?: boolean
   // Streak Settings
   streakProtectionDays?: number
   bonusEnabled?: boolean
@@ -260,6 +261,7 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
         maxBudgetPence: true,
         budgetPeriod: true,
         showLifetimeEarnings: true,
+        giftsEnabled: true,
         holidayMode: true,
         holidayStartDate: true,
         holidayEndDate: true,
@@ -343,7 +345,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
   try {
     const { familyId: jwtFamilyId, sub: userId } = req.claims!
     const { 
-      nameCipher, region, maxBudgetPence, budgetPeriod, showLifetimeEarnings,
+      nameCipher, region, maxBudgetPence, budgetPeriod, showLifetimeEarnings, giftsEnabled,
       streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
       penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
       minBalancePence, minBalanceStars,
@@ -417,6 +419,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     if (maxBudgetPence !== undefined) updateData.maxBudgetPence = maxBudgetPence
     if (budgetPeriod !== undefined) updateData.budgetPeriod = budgetPeriod
     if (showLifetimeEarnings !== undefined) updateData.showLifetimeEarnings = showLifetimeEarnings
+    if (giftsEnabled !== undefined) updateData.giftsEnabled = giftsEnabled
     
     // Streak settings
     if (streakProtectionDays !== undefined) updateData.streakProtectionDays = streakProtectionDays
@@ -474,6 +477,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
         maxBudgetPence: true,
         budgetPeriod: true,
         showLifetimeEarnings: true,
+        giftsEnabled: true,
         holidayMode: true,
         holidayStartDate: true,
         holidayEndDate: true,
