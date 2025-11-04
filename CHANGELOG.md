@@ -2,7 +2,7 @@
 
 All notable changes to ChoreBlimey! will be documented in this file.
 
-## [0.1.1] - 2024-11-23
+## [0.1.1] - 2025-11-23
 
 ### Added
 - **Recurring Gifts Feature**
