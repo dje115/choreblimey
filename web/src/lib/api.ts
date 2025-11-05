@@ -136,7 +136,13 @@ class ApiClient {
     return this.get('/family/members')
   }
 
-  async updateFamilyMember(memberId: string, data: { displayName?: string; birthMonth?: number | null; birthYear?: number | null }) {
+  async updateFamilyMember(memberId: string, data: { 
+    displayName?: string
+    birthMonth?: number | null
+    birthYear?: number | null
+    giftStarsEnabled?: boolean
+    giftMoneyEnabled?: boolean
+  }) {
     return this.patch(`/family/members/${memberId}`, data)
   }
 
@@ -319,7 +325,13 @@ class ApiClient {
   }
 
   // Payouts
-  async createPayout(data: { childId: string; amountPence: number; method?: string; note?: string }) {
+  async createPayout(data: { 
+    childId: string
+    amountPence: number
+    method?: 'cash' | 'bank_transfer' | 'other'
+    note?: string
+    giftIds?: string[]
+  }) {
     return this.post('/payouts', data)
   }
 
@@ -412,6 +424,37 @@ class ApiClient {
 
   async deleteFamilyGift(id: string) {
     return this.delete(`/family/gifts/${id}`)
+  }
+
+  // Gifts (adults gifting stars and/or money to children)
+  async createGift(data: {
+    childId: string
+    starsAmount?: number
+    moneyPence?: number
+    note?: string
+  }) {
+    return this.post('/gifts', data)
+  }
+
+  async listGifts(params?: { childId?: string; status?: string }) {
+    const query = new URLSearchParams()
+    if (params?.childId) query.append('childId', params.childId)
+    if (params?.status) query.append('status', params.status)
+    const queryString = query.toString()
+    return this.get(`/gifts${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async updateGift(id: string, data: {
+    starsAmount?: number
+    moneyPence?: number
+    note?: string
+    status?: string
+  }) {
+    return this.patch(`/gifts/${id}`, data)
+  }
+
+  async deleteGift(id: string) {
+    return this.delete(`/gifts/${id}`)
   }
 }
 

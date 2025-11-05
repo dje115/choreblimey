@@ -6,6 +6,7 @@ interface CreatePayoutBody {
   amountPence: number
   method?: 'cash' | 'bank_transfer' | 'other'
   note?: string
+  giftIds?: string[] // IDs of gifts to mark as paid out
 }
 
 export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, reply: FastifyReply) => {
@@ -44,44 +45,88 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
       return reply.status(400).send({ error: 'Insufficient balance' })
     }
 
-    // Create payout record
-    const payout = await prisma.payout.create({
-      data: {
-        familyId,
-        childId,
-        amountPence,
-        paidBy: sub,
-        method: method || 'cash',
-        note: note || null
-      }
-    })
-
-    // Debit from wallet
-    await prisma.wallet.update({
-      where: { id: wallet.id },
-      data: {
-        balancePence: { decrement: amountPence }
-      }
-    })
-
-    // Create transaction record
-    await prisma.transaction.create({
-      data: {
-        walletId: wallet.id,
-        familyId,
-        type: 'debit',
-        amountPence,
-        source: 'parent',
-        metaJson: {
-          payoutId: payout.id,
-          method: method || 'cash',
-          note: note || null
+    // Validate gift IDs if provided
+    const giftIds = req.body.giftIds || []
+    if (giftIds.length > 0) {
+      const gifts = await prisma.gift.findMany({
+        where: {
+          id: { in: giftIds },
+          familyId,
+          childId,
+          status: 'pending'
         }
+      })
+
+      if (gifts.length !== giftIds.length) {
+        return reply.status(400).send({ error: 'One or more gift IDs are invalid or already paid out' })
       }
+
+      // Calculate total from selected gifts
+      const totalFromGifts = gifts.reduce((sum, g) => sum + g.moneyPence, 0)
+      if (amountPence !== totalFromGifts) {
+        return reply.status(400).send({ error: `Amount must match total of selected gifts (${totalFromGifts} pence)` })
+      }
+    }
+
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Create payout record
+      const payout = await tx.payout.create({
+        data: {
+          familyId,
+          childId,
+          amountPence,
+          paidBy: sub,
+          method: method || 'cash',
+          note: note || null,
+          giftIds: giftIds
+        }
+      })
+
+      // Update gift statuses if gifts were selected
+      if (giftIds.length > 0) {
+        await tx.gift.updateMany({
+          where: {
+            id: { in: giftIds }
+          },
+          data: {
+            status: 'paid_out',
+            paidOutAt: new Date(),
+            payoutId: payout.id
+          }
+        })
+      }
+
+      // Debit from wallet
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: {
+          balancePence: { decrement: amountPence }
+        }
+      })
+
+      // Create transaction record
+      await tx.transaction.create({
+        data: {
+          walletId: wallet.id,
+          familyId,
+          type: 'debit',
+          amountPence,
+          source: 'parent',
+          metaJson: {
+            payoutId: payout.id,
+            method: method || 'cash',
+            note: note || null,
+            giftIds: giftIds
+          }
+        }
+      })
+
+      return payout
     })
 
     return {
-      payout,
+      payout: result,
       message: 'Payout successful'
     }
   } catch (error) {

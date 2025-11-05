@@ -83,6 +83,7 @@ model Family {
   authTokens    AuthToken[]
   familyGifts   FamilyGift[]
   starPurchases StarPurchase[]
+  gifts         Gift[]
 }
 
 model User {
@@ -119,11 +120,14 @@ model FamilyMember {
   birthMonth  Int?     // 1-12, optional birthday month for adults
   birthYear   Int?     // e.g., 1980, optional birthday year for adults
   paused      Boolean  @default(false) // Pause account access
+  giftStarsEnabled Boolean @default(false) // Can this adult gift stars to children?
+  giftMoneyEnabled Boolean @default(false) // Can this adult gift pocket money to children?
   createdAt   DateTime @default(now())
   scopeJson   Json?
 
   family    Family  @relation(fields: [familyId], references: [id])
   user      User    @relation(fields: [userId], references: [id])
+  gifts     Gift[]  // Gifts given by this adult
 
   @@index([familyId, role])
 }
@@ -169,6 +173,7 @@ model Child {
   assignments  Assignment[]
   bids         Bid[]
   completions  Completion[]
+  gifts        Gift[]
   redemptions  Redemption[]
   payouts      Payout[]
   starPurchases StarPurchase[]
@@ -367,12 +372,36 @@ model Payout {
   paidBy      String?  // userId of parent who paid
   method      String?  // "cash", "bank_transfer", "other"
   note        String?
+  giftIds     String[] @default([]) // IDs of gifts that were paid out in this payout
   createdAt   DateTime @default(now())
 
   family  Family @relation(fields: [familyId], references: [id])
   child   Child  @relation(fields: [childId], references: [id])
 
   @@index([familyId, childId, createdAt])
+}
+
+// Gift model for adults to gift stars and/or pocket money to children
+model Gift {
+  id          String   @id @default(uuid())
+  familyId    String
+  childId     String
+  givenBy     String   // FamilyMember ID who gave the gift
+  starsAmount Int      @default(0) // Number of stars gifted (0 if money only)
+  moneyPence  Int      @default(0) // Amount of money gifted in pence (0 if stars only)
+  note        String?  // Optional note/message with the gift
+  status      String   @default("pending") // "pending" | "paid_out" | "cancelled"
+  paidOutAt   DateTime? // When the money was paid out (if applicable)
+  payoutId    String?  // Link to Payout if money was paid out
+  createdAt   DateTime @default(now())
+
+  family    Family       @relation(fields: [familyId], references: [id])
+  child     Child        @relation(fields: [childId], references: [id])
+  giver     FamilyMember @relation(fields: [givenBy], references: [id])
+
+  @@index([familyId, childId, status])
+  @@index([familyId, createdAt])
+  @@index([childId, status])
 }
 
 enum RewardType {

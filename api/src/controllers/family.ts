@@ -18,6 +18,8 @@ interface FamilyInviteBody {
   birthYear?: number
   birthMonth?: number
   sendEmail?: boolean
+  giftStarsEnabled?: boolean
+  giftMoneyEnabled?: boolean
 }
 
 interface FamilyUpdateBody {
@@ -290,6 +292,12 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
           select: {
             id: true,
             role: true,
+            displayName: true,
+            birthMonth: true,
+            birthYear: true,
+            giftStarsEnabled: true,
+            giftMoneyEnabled: true,
+            paused: true,
             createdAt: true,
             user: {
               select: {
@@ -631,6 +639,8 @@ interface UpdateMemberBody {
   displayName?: string
   birthMonth?: number | null
   birthYear?: number | null
+  giftStarsEnabled?: boolean
+  giftMoneyEnabled?: boolean
 }
 
 /**
@@ -648,7 +658,7 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
   try {
     const { familyId, sub: userId } = req.claims!
     const { id } = req.params
-    const { displayName, birthMonth, birthYear } = req.body
+    const { displayName, birthMonth, birthYear, giftStarsEnabled, giftMoneyEnabled } = req.body
 
     if (!familyId) {
       return reply.status(401).send({ error: 'Unauthorized' })
@@ -673,6 +683,12 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
     }
     if (birthYear !== undefined) {
       updateData.birthYear = birthYear || null
+    }
+    if (giftStarsEnabled !== undefined) {
+      updateData.giftStarsEnabled = giftStarsEnabled
+    }
+    if (giftMoneyEnabled !== undefined) {
+      updateData.giftMoneyEnabled = giftMoneyEnabled
     }
 
     // Update member
@@ -700,6 +716,8 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
         displayName: updated.displayName,
         birthMonth: updated.birthMonth,
         birthYear: updated.birthYear,
+        giftStarsEnabled: updated.giftStarsEnabled,
+        giftMoneyEnabled: updated.giftMoneyEnabled,
         joinedAt: updated.createdAt,
         user: updated.user
       }

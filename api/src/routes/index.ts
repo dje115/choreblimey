@@ -70,6 +70,12 @@ export async function routes(app: FastifyInstance) {
   app.get('/payouts', ctrl.payouts.list)
   app.get('/payouts/unpaid/:childId', ctrl.payouts.getUnpaidBalance)
 
+  // Gifts (adults gifting stars and/or money to children)
+  app.post('/gifts', ctrl.gifts.createGift)
+  app.get('/gifts', ctrl.gifts.listGifts)
+  app.patch('/gifts/:id', ctrl.gifts.updateGift)
+  app.delete('/gifts/:id', ctrl.gifts.deleteGift)
+
   // Leaderboard and rivalry
   app.get('/leaderboard', ctrl.leaderboard.weekly)
   app.get('/rivalry-feed', ctrl.rivalry.feed)
