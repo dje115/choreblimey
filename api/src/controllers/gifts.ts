@@ -53,6 +53,14 @@ export const createGift = async (
         role: {
           in: ['parent_admin', 'parent_co_parent', 'grandparent', 'uncle_aunt', 'relative_contributor']
         }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true
+          }
+        }
       }
     })
 
@@ -131,12 +139,12 @@ export const createGift = async (
             type: 'credit',
             amountPence: 0, // Stars-only transaction
             source: 'relative',
-            metaJson: {
-              giftId: gift.id,
-              starsAmount,
-              type: 'gift_stars',
-              giverName: familyMember.displayName || familyMember.user.email?.split('@')[0] || 'Unknown'
-            }
+              metaJson: {
+                giftId: gift.id,
+                starsAmount,
+                type: 'gift_stars',
+                giverName: familyMember.displayName || familyMember.user?.email?.split('@')[0] || 'Unknown'
+              }
           }
         })
       }
@@ -170,12 +178,12 @@ export const createGift = async (
             type: 'credit',
             amountPence: moneyPence,
             source: 'relative',
-            metaJson: {
-              giftId: gift.id,
-              moneyPence,
-              type: 'gift_money',
-              giverName: familyMember.displayName || familyMember.user.email?.split('@')[0] || 'Unknown'
-            }
+              metaJson: {
+                giftId: gift.id,
+                moneyPence,
+                type: 'gift_money',
+                giverName: familyMember.displayName || familyMember.user?.email?.split('@')[0] || 'Unknown'
+              }
           }
         })
       }
