@@ -6153,6 +6153,45 @@ const ParentDashboard: React.FC = () => {
                           Optional - Can be used for future features like birthday reminders
                         </p>
                       </div>
+
+                      {/* Gift Permissions */}
+                      <div className="border-t border-[var(--card-border)] pt-4">
+                        <h5 className="font-semibold text-[var(--text-primary)] mb-3">🎁 Gift Permissions</h5>
+                        <p className="text-xs text-[var(--text-secondary)] mb-4">
+                          Allow this adult to gift stars and/or pocket money to children
+                        </p>
+                        <div className="space-y-3">
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedAdult.giftStarsEnabled || false}
+                              onChange={(e) => setSelectedAdult({ ...selectedAdult, giftStarsEnabled: e.target.checked })}
+                              className="w-5 h-5 mt-1 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                            />
+                            <div>
+                              <div className="font-semibold text-[var(--text-primary)]">⭐ Gift Stars</div>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                Allow this person to gift stars to children
+                              </p>
+                            </div>
+                          </label>
+                          
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedAdult.giftMoneyEnabled || false}
+                              onChange={(e) => setSelectedAdult({ ...selectedAdult, giftMoneyEnabled: e.target.checked })}
+                              className="w-5 h-5 mt-1 text-green-600 rounded focus:ring-2 focus:ring-green-500"
+                            />
+                            <div>
+                              <div className="font-semibold text-[var(--text-primary)]">💰 Gift Pocket Money</div>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                Allow this person to gift pocket money to children
+                              </p>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
@@ -6163,7 +6202,9 @@ const ParentDashboard: React.FC = () => {
                           await apiClient.updateFamilyMember(selectedAdult.id, {
                             displayName: selectedAdult.displayName || undefined,
                             birthMonth: selectedAdult.birthMonth || undefined,
-                            birthYear: selectedAdult.birthYear || undefined
+                            birthYear: selectedAdult.birthYear || undefined,
+                            giftStarsEnabled: selectedAdult.giftStarsEnabled,
+                            giftMoneyEnabled: selectedAdult.giftMoneyEnabled
                           })
                           setToast({ message: '✅ Member updated successfully!', type: 'success' })
                           // Refresh members list

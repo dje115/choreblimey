@@ -582,7 +582,16 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
 
     const members = await prisma.familyMember.findMany({
       where: { familyId },
-      include: {
+      select: {
+        id: true,
+        role: true,
+        displayName: true,
+        birthMonth: true,
+        birthYear: true,
+        giftStarsEnabled: true,
+        giftMoneyEnabled: true,
+        paused: true,
+        createdAt: true,
         user: {
           select: {
             id: true,
@@ -618,6 +627,8 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
         displayName: member.displayName,
         birthMonth: member.birthMonth,
         birthYear: member.birthYear,
+        giftStarsEnabled: member.giftStarsEnabled,
+        giftMoneyEnabled: member.giftMoneyEnabled,
         paused: member.paused,
         joinedAt: member.createdAt,
         user: member.user
