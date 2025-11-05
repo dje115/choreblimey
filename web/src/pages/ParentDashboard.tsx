@@ -6710,8 +6710,11 @@ const ParentDashboard: React.FC = () => {
                     (giftCategory === 'tech' && template.category?.toLowerCase().includes('tech')) ||
                     (giftCategory === 'sports' && template.category?.toLowerCase().includes('sport'))
                   
-                  // Exclude templates that are already in the family
-                  const alreadyExists = familyGifts.some((gift: any) => gift.giftTemplateId === template.id)
+                  // Exclude templates that are already in the family (only check active gifts)
+                  // This allows re-adding gifts that were deleted (soft-deleted gifts are inactive)
+                  const alreadyExists = familyGifts.some((gift: any) => 
+                    gift.giftTemplateId === template.id && gift.active !== false
+                  )
                   
                   return matchesCategory && !alreadyExists
                 })
@@ -6833,27 +6836,14 @@ const ParentDashboard: React.FC = () => {
                   {(() => {
                     // Use ref as fallback if state is null (during transition)
                     const template = selectedTemplate || selectedTemplateRef.current
-                    if (!template) {
-                      return (
-                        <div className="text-center py-8">
-                          <p className="text-red-500 mb-4">Error: No template selected</p>
-                          <button
-                            onClick={() => {
-                              setShowAddGiftModal(false)
-                              setSelectedTemplate(null)
-                              selectedTemplateRef.current = null
-                            }}
-                            className="cb-button-primary"
-                          >
-                            Close
-                          </button>
-                        </div>
-                      )
-                    }
+                    
                     // Update state if we're using ref
                     if (!selectedTemplate && selectedTemplateRef.current) {
                       setSelectedTemplate(selectedTemplateRef.current)
                     }
+                    
+                    // If there's a template, show "Add from template" form
+                    // Otherwise, show "Create custom gift" form
                     return template ? (
                     // Add from template
                     <div className="space-y-4">
@@ -7140,6 +7130,7 @@ const ParentDashboard: React.FC = () => {
                             
                             try {
                               const giftData: any = {
+                                isCustom: true, // Mark as custom gift
                                 type: typeInput.value as 'amazon_product' | 'activity' | 'custom',
                                 title: titleInput.value.trim(),
                                 starsRequired: parseInt(starsInput.value),

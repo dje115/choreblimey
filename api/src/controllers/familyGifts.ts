@@ -365,11 +365,12 @@ export const addFromTemplate = async (
       return reply.status(404).send({ error: 'Gift template not found or inactive' })
     }
     
-    // Check if already added to family
+    // Check if already added to family (only check active gifts to allow re-adding deleted ones)
     const existing = await prisma.familyGift.findFirst({
       where: {
         familyId,
-        giftTemplateId: templateId
+        giftTemplateId: templateId,
+        active: true // Only prevent duplicates for active gifts
       }
     })
     
