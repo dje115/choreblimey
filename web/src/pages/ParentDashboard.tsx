@@ -144,6 +144,7 @@ const ParentDashboard: React.FC = () => {
   const [budget, setBudget] = useState<any>(null)
   const [joinCodes, setJoinCodes] = useState<any[]>([])
   const [wallets, setWallets] = useState<any[]>([]) // Child wallets for star totals
+  const [walletStats, setWalletStats] = useState<Map<string, any>>(new Map()) // Wallet stats per child (lifetime earnings)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
   
@@ -566,17 +567,32 @@ const ParentDashboard: React.FC = () => {
         // Update ref for polling
         previousChildCountRef.current = uniqueChildren.length
         
-        // Fetch wallets for all children
+        // Fetch wallets and wallet stats for all children
         const walletPromises = uniqueChildren.map((child: Child) => 
           apiClient.getWallet(child.id).catch(() => ({ wallet: { balancePence: 0 } }))
         )
-        const walletResults = await Promise.all(walletPromises)
+        const walletStatsPromises = uniqueChildren.map((child: Child) => 
+          apiClient.getWalletStats(child.id).catch(() => ({ stats: { lifetimeEarningsPence: 0, lifetimePaidOutPence: 0 } }))
+        )
+        const [walletResults, walletStatsResults] = await Promise.all([
+          Promise.all(walletPromises),
+          Promise.all(walletStatsPromises)
+        ])
         const walletsData = walletResults.map((result: { wallet?: { balancePence?: number; stars?: number } }, index: number) => ({
           childId: uniqueChildren[index]!.id,
           balancePence: result.wallet?.balancePence || 0,
           stars: result.wallet?.stars || 0
         }))
         setWallets(walletsData)
+        
+        // Store wallet stats in a Map by childId
+        const statsMap = new Map<string, any>()
+        walletStatsResults.forEach((result: { stats?: any }, index: number) => {
+          if (uniqueChildren[index]) {
+            statsMap.set(uniqueChildren[index]!.id, result.stats || { lifetimeEarningsPence: 0, lifetimePaidOutPence: 0 })
+          }
+        })
+        setWalletStats(statsMap)
       }
       if (choresRes.status === 'fulfilled') {
         console.log('📋 Loaded chores:', choresRes.value.chores?.length || 0, 'chores')
@@ -2743,16 +2759,31 @@ const ParentDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                          <div className="bg-white/60 rounded-lg p-2">
-                            <p className="text-xs text-[var(--text-secondary)]">Unpaid</p>
-                            <p className="font-bold text-green-700">£{(balancePence / 100).toFixed(2)}</p>
-                          </div>
-                          <div className="bg-white/60 rounded-lg p-2">
-                            <p className="text-xs text-[var(--text-secondary)]">Paid Out</p>
-                            <p className="font-bold text-gray-600">£{(totalPaidPence / 100).toFixed(2)}</p>
-                          </div>
-                        </div>
+                        {(() => {
+                          const childStats = walletStats.get(child.id)
+                          const lifetimeEarningsPence = childStats?.lifetimeEarningsPence || 0
+                          const showLifetime = budgetSettings?.showLifetimeEarnings !== false
+                          const gridCols = showLifetime ? 'grid-cols-3' : 'grid-cols-2'
+                          
+                          return (
+                            <div className={`grid ${gridCols} gap-2 text-sm mb-3`}>
+                              <div className="bg-white/60 rounded-lg p-2">
+                                <p className="text-xs text-[var(--text-secondary)]">Unpaid</p>
+                                <p className="font-bold text-green-700">£{(balancePence / 100).toFixed(2)}</p>
+                              </div>
+                              <div className="bg-white/60 rounded-lg p-2">
+                                <p className="text-xs text-[var(--text-secondary)]">Paid Out</p>
+                                <p className="font-bold text-gray-600">£{(totalPaidPence / 100).toFixed(2)}</p>
+                              </div>
+                              {showLifetime && (
+                                <div className="bg-white/60 rounded-lg p-2">
+                                  <p className="text-xs text-[var(--text-secondary)]">Lifetime Earned</p>
+                                  <p className="font-bold text-blue-700">£{(lifetimeEarningsPence / 100).toFixed(2)}</p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
 
                         {/* Show split gifts if any */}
                         {childGifts.length > 0 && (

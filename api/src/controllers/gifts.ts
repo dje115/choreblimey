@@ -149,9 +149,10 @@ export const createGift = async (
         })
       }
 
-      // If money is being gifted, add to wallet balance (but status remains pending until paid out)
+      // If money is being gifted, create transaction but DON'T update wallet balance yet
+      // Balance will only be updated when the gift is paid out via payout
       if (moneyPence > 0) {
-        // Get or create wallet
+        // Get or create wallet (but don't update balance yet)
         const wallet = await tx.wallet.upsert({
           where: {
             childId_familyId: {
@@ -160,17 +161,18 @@ export const createGift = async (
             }
           },
           update: {
-            balancePence: { increment: moneyPence }
+            // Don't increment balance - money gifts are pending until paid out
           },
           create: {
             familyId,
             childId,
-            balancePence: moneyPence,
+            balancePence: 0,
             stars: 0
           }
         })
 
-        // Create transaction record for money gift
+        // Create transaction record for money gift (but don't affect balance yet)
+        // This transaction will be marked as pending until payout
         await tx.transaction.create({
           data: {
             walletId: wallet.id,
@@ -182,7 +184,8 @@ export const createGift = async (
                 giftId: gift.id,
                 moneyPence,
                 type: 'gift_money',
-                giverName: familyMember.displayName || familyMember.user?.email?.split('@')[0] || 'Unknown'
+                giverName: familyMember.displayName || familyMember.user?.email?.split('@')[0] || 'Unknown',
+                status: 'pending' // Money gift is pending until paid out
               }
           }
         })

@@ -220,6 +220,7 @@ const ChildDashboard: React.FC = () => {
   const [streakStats, setStreakStats] = useState<{ individualStreaks: StreakStat[]; [key: string]: any } | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [payouts, setPayouts] = useState<Payout[]>([])
+  const [gifts, setGifts] = useState<any[]>([]) // Gift records (money/star gifts from adults)
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [error, setError] = useState<string>('')
   const [successMessage, setSuccessMessage] = useState<string>('')
@@ -424,7 +425,7 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes, redemptionsRes, starPurchasesRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes, redemptionsRes, starPurchasesRes, giftsRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.getWalletStats(childId),
         apiClient.getFamily(),
@@ -438,7 +439,8 @@ const ChildDashboard: React.FC = () => {
         apiClient.getTransactions(childId, 50),
         apiClient.getPayouts(childId), // Get payouts to show who paid
         apiClient.getRedemptions(undefined, childId), // Get all redemptions for this child
-        apiClient.getStarPurchases(undefined, childId) // Get all star purchases for this child
+        apiClient.getStarPurchases(undefined, childId), // Get all star purchases for this child
+        apiClient.listGifts({ childId }) // Get Gift records (money/star gifts from adults)
       ])
 
       if (walletRes.status === 'fulfilled') {
@@ -626,6 +628,9 @@ const ChildDashboard: React.FC = () => {
       if (payoutsRes.status === 'fulfilled') {
         setPayouts(payoutsRes.value.payouts || [])
       }
+      if (giftsRes.status === 'fulfilled') {
+        setGifts(giftsRes.value.gifts || [])
+      }
     } catch (err: any) {
       console.error('Error loading dashboard:', err)
       setError(err.message || 'Failed to load dashboard')
@@ -751,6 +756,74 @@ const ChildDashboard: React.FC = () => {
 
   const totalStars = wallet?.stars || 0
 
+  // Calculate split values for banner display
+  const calculateBannerStats = () => {
+    let earnedMoneyUnpaidPence = 0  // Money earned from chores that hasn't been paid out
+    let giftedMoneyUnpaidPence = 0  // Money gifted that is pending (unpaid)
+    let totalPaidOutPence = 0  // Total amount paid out
+    let earnedStars = 0
+    let giftedStars = 0
+    
+    // Calculate total paid out from payout records
+    if (payouts && payouts.length > 0) {
+      totalPaidOutPence = payouts.reduce((sum: number, p: any) => sum + (p.amountPence || 0), 0)
+    }
+    
+    // Calculate total earned money from all credit transactions (excluding gifts)
+    let totalEarnedMoneyPence = 0
+    transactions.forEach((tx: any) => {
+      const meta = typeof tx.metaJson === 'string' ? JSON.parse(tx.metaJson) : (tx.metaJson || {})
+      
+      if (tx.type === 'credit') {
+        if (meta.type === 'gift_stars') {
+          // Gifted stars (always count all gifted stars)
+          giftedStars += meta.starsAmount || 0
+        } else if (meta.type === 'gift_money') {
+          // Gifted money - check if the gift is still pending
+          // Find the gift record by giftId to check its actual status
+          const giftRecord = gifts.find((g: any) => g.id === meta.giftId)
+          if (giftRecord && giftRecord.status === 'pending') {
+            giftedMoneyUnpaidPence += tx.amountPence
+          }
+        } else if (meta.completionId || meta.type === 'streak_bonus' || meta.type === 'rivalry_bonus') {
+          // Earned from chores/completions - count all earned money
+          totalEarnedMoneyPence += tx.amountPence
+        }
+      }
+    })
+    
+    // Unpaid earned money = total earned - total paid out
+    // Note: wallet.balancePence should equal earned money unpaid (since gift money isn't in balance until paid out)
+    // But we'll calculate it from transactions to be safe
+    earnedMoneyUnpaidPence = Math.max(0, totalEarnedMoneyPence - totalPaidOutPence)
+    
+    // Calculate earned stars: total stars minus gifted stars
+    // This accounts for stars earned from chores that might have starsOverride
+    giftedStars = transactions.reduce((sum: number, tx: any) => {
+      const meta = typeof tx.metaJson === 'string' ? JSON.parse(tx.metaJson) : (tx.metaJson || {})
+      if (tx.type === 'credit' && meta.type === 'gift_stars') {
+        return sum + (meta.starsAmount || 0)
+      }
+      return sum
+    }, 0)
+    
+    earnedStars = Math.max(0, totalStars - giftedStars)
+    
+    // Owed = earned money unpaid + gifted money unpaid
+    const owedPence = earnedMoneyUnpaidPence + giftedMoneyUnpaidPence
+    
+    return {
+      owedPence,
+      earnedMoneyUnpaidPence,
+      giftedMoneyUnpaidPence,
+      earnedStars,
+      giftedStars,
+      lifetimeEarningsPence: walletStats?.lifetimeEarningsPence || 0
+    }
+  }
+  
+  const bannerStats = calculateBannerStats()
+
   const handleThemeChange = async (themeId: string) => {
     try {
       const theme = getTheme(themeId)
@@ -865,21 +938,40 @@ const ChildDashboard: React.FC = () => {
               <div>
                 <p className="text-white/80 text-sm font-semibold uppercase tracking-wide">Your Star Bank</p>
                 <p className="text-6xl font-bold mt-2">{totalStars}⭐</p>
-                <p className="text-white/70 text-sm mt-1">£{((wallet?.balancePence || 0) / 100).toFixed(2)} owed</p>
+                <p className="text-white/70 text-sm mt-1">£{(bannerStats.owedPence / 100).toFixed(2)} owed</p>
               </div>
               <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-4xl animate-pulse">
                 💰
               </div>
             </div>
-            <div className={`flex gap-4 text-sm ${familySettings?.showLifetimeEarnings !== false ? 'grid grid-cols-3' : 'grid grid-cols-2'}`}>
+            <div className={`grid gap-3 text-sm ${familySettings?.showLifetimeEarnings !== false ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-7' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
               <div className="bg-white/10 rounded-xl p-3">
                 <p className="text-white/70 text-xs">Owed</p>
-                <p className="font-bold text-lg">£{((wallet?.balancePence || 0) / 100).toFixed(2)}</p>
+                <p className="font-bold text-lg">£{(bannerStats.owedPence / 100).toFixed(2)}</p>
+                <p className="text-white/60 text-[10px]">Earned + Gifted unpaid</p>
               </div>
-              {familySettings?.showLifetimeEarnings !== false && walletStats && (
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-white/70 text-xs">Earned</p>
+                <p className="font-bold text-lg">£{(bannerStats.earnedMoneyUnpaidPence / 100).toFixed(2)}</p>
+                <p className="text-white/60 text-[10px]">From chores unpaid</p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-white/70 text-xs">Gifted</p>
+                <p className="font-bold text-lg">£{(bannerStats.giftedMoneyUnpaidPence / 100).toFixed(2)}</p>
+                <p className="text-white/60 text-[10px]">Money gifted unpaid</p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-white/70 text-xs">Stars Earned</p>
+                <p className="font-bold text-lg">{bannerStats.earnedStars}⭐</p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-white/70 text-xs">Stars Gifted</p>
+                <p className="font-bold text-lg">{bannerStats.giftedStars}⭐</p>
+              </div>
+              {familySettings?.showLifetimeEarnings !== false && (
                 <div className="bg-white/10 rounded-xl p-3">
-                  <p className="text-white/70 text-xs">Total Earned</p>
-                  <p className="font-bold text-lg">£{((walletStats.lifetimeEarningsPence || 0) / 100).toFixed(2)}</p>
+                  <p className="text-white/70 text-xs">Lifetime Earned</p>
+                  <p className="font-bold text-lg">£{(bannerStats.lifetimeEarningsPence / 100).toFixed(2)}</p>
                 </div>
               )}
               <div className="bg-white/10 rounded-xl p-3">
@@ -2326,6 +2418,14 @@ const ChildDashboard: React.FC = () => {
                         icon = '⚔️'
                         label = 'Rivalry Bonus'
                         description = 'Challenge champion!'
+                      } else if (metaJson.type === 'gift_stars') {
+                        icon = '⭐'
+                        label = 'Stars Gifted'
+                        description = metaJson.giverName ? `From ${metaJson.giverName}` : (metaJson.note || 'Gift received')
+                      } else if (metaJson.type === 'gift_money') {
+                        icon = '💵'
+                        label = 'Money Gifted'
+                        description = metaJson.giverName ? `From ${metaJson.giverName}` : (metaJson.note || 'Gift received')
                       } else {
                         icon = '💵'
                         label = 'Money Added'
@@ -2404,6 +2504,17 @@ const ChildDashboard: React.FC = () => {
                       showStars = false
                       showMoney = true
                       moneyDisplay = `£${(transaction.amountPence / 100).toFixed(2)}`
+                    } else if (metaJson.type === 'gift_money') {
+                      // Money-only gift: only show money (no stars)
+                      showStars = false
+                      showMoney = true
+                      moneyDisplay = `£${(transaction.amountPence / 100).toFixed(2)}`
+                    } else if (metaJson.type === 'gift_stars') {
+                      // Stars-only gift: only show stars (no money)
+                      stars = metaJson.starsAmount || 0
+                      showStars = true
+                      showMoney = false
+                      starsDisplay = `+${stars}⭐`
                     } else {
                       // Default: calculate stars from amount
                       stars = Math.floor(transaction.amountPence / 10)

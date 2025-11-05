@@ -40,13 +40,10 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
       return reply.status(404).send({ error: 'Wallet not found' })
     }
 
-    // Check if child has enough balance
-    if (wallet.balancePence < amountPence) {
-      return reply.status(400).send({ error: 'Insufficient balance' })
-    }
-
     // Validate gift IDs if provided
     const giftIds = req.body.giftIds || []
+    let totalFromGifts = 0
+    
     if (giftIds.length > 0) {
       const gifts = await prisma.gift.findMany({
         where: {
@@ -62,14 +59,74 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
       }
 
       // Calculate total from selected gifts
-      const totalFromGifts = gifts.reduce((sum, g) => sum + g.moneyPence, 0)
+      totalFromGifts = gifts.reduce((sum, g) => sum + g.moneyPence, 0)
       if (amountPence !== totalFromGifts) {
         return reply.status(400).send({ error: `Amount must match total of selected gifts (${totalFromGifts} pence)` })
       }
     }
 
+    // Check if child has enough balance (including pending gift money if gifts are selected)
+    // For gifts, we'll credit them first, then debit, so balance check includes gift money
+    const availableBalance = wallet.balancePence + totalFromGifts
+    if (availableBalance < amountPence) {
+      return reply.status(400).send({ error: 'Insufficient balance' })
+    }
+
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
+      // If gifts are being paid out, first credit them to the wallet (they were pending)
+      if (giftIds.length > 0) {
+        const gifts = await tx.gift.findMany({
+          where: {
+            id: { in: giftIds },
+            familyId,
+            childId,
+            status: 'pending'
+          }
+        })
+        
+        const totalGiftAmount = gifts.reduce((sum, g) => sum + g.moneyPence, 0)
+        
+        // Credit the pending gift money to the wallet
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            balancePence: { increment: totalGiftAmount }
+          }
+        })
+        
+        // Update the gift transaction metaJson to mark it as paid out
+        // Find transactions for these gifts and update their status
+        const giftTransactions = await tx.transaction.findMany({
+          where: {
+            walletId: wallet.id,
+            familyId,
+            type: 'credit',
+            source: 'relative'
+          }
+        })
+        
+        for (const gift of gifts) {
+          const giftTx = giftTransactions.find(t => {
+            const meta = typeof t.metaJson === 'string' ? JSON.parse(t.metaJson) : (t.metaJson || {})
+            return meta?.giftId === gift.id && meta?.type === 'gift_money'
+          })
+          
+          if (giftTx) {
+            const meta = typeof giftTx.metaJson === 'string' ? JSON.parse(giftTx.metaJson) : (giftTx.metaJson || {})
+            await tx.transaction.update({
+              where: { id: giftTx.id },
+              data: {
+                metaJson: {
+                  ...meta,
+                  status: 'paid_out'
+                }
+              }
+            })
+          }
+        }
+      }
+      
       // Create payout record
       const payout = await tx.payout.create({
         data: {
@@ -97,7 +154,7 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
         })
       }
 
-      // Debit from wallet
+      // Debit from wallet (now that gift money has been credited)
       await tx.wallet.update({
         where: { id: wallet.id },
         data: {

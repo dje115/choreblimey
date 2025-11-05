@@ -292,6 +292,7 @@ export const getStats = async (req: FastifyRequest<{ Params: { childId: string }
     }
 
     // Calculate total credits (earnings)
+    // Exclude pending money gifts - they should only count after payout
     const credits = await prisma.transaction.findMany({
       where: {
         walletId: wallet.id,
@@ -300,7 +301,14 @@ export const getStats = async (req: FastifyRequest<{ Params: { childId: string }
       }
     })
 
-    const lifetimeEarningsPence = credits.reduce((sum, tx) => sum + tx.amountPence, 0)
+    const lifetimeEarningsPence = credits.reduce((sum, tx) => {
+      const meta = typeof tx.metaJson === 'string' ? JSON.parse(tx.metaJson) : (tx.metaJson || {})
+      // Exclude pending money gifts from lifetime earnings
+      if (meta.type === 'gift_money' && meta.status === 'pending') {
+        return sum // Don't count pending money gifts
+      }
+      return sum + tx.amountPence
+    }, 0)
 
     // Get total payouts
     const payouts = await prisma.payout.findMany({
