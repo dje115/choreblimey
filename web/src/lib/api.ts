@@ -99,7 +99,9 @@ class ApiClient {
     return this.get('/family')
   }
 
-  async updateFamily(data: { 
+  async updateFamily(data: {
+    buyStarsEnabled?: boolean
+    starConversionRatePence?: number 
     nameCipher?: string
     region?: string
     maxBudgetPence?: number
@@ -328,6 +330,27 @@ class ApiClient {
 
   async getUnpaidBalance(childId: string) {
     return this.get(`/payouts/unpaid/${childId}`)
+  }
+
+  // Buy Stars
+  async buyStars(starsRequested: number) {
+    return this.post('/wallet/buy-stars', { starsRequested })
+  }
+
+  async getStarPurchases(status?: string, childId?: string) {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    if (childId) params.append('childId', childId)
+    const url = params.toString() ? `/wallet/buy-stars?${params.toString()}` : '/wallet/buy-stars'
+    return this.get(url)
+  }
+
+  async approveStarPurchase(purchaseId: string) {
+    return this.post(`/wallet/buy-stars/${purchaseId}/approve`, {})
+  }
+
+  async rejectStarPurchase(purchaseId: string) {
+    return this.post(`/wallet/buy-stars/${purchaseId}/reject`, {})
   }
 
   // Gift Templates (browse available templates - read-only)

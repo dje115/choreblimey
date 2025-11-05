@@ -27,6 +27,8 @@ interface FamilyUpdateBody {
   budgetPeriod?: 'weekly' | 'monthly'
   showLifetimeEarnings?: boolean
   giftsEnabled?: boolean
+  buyStarsEnabled?: boolean
+  starConversionRatePence?: number
   // Streak Settings
   streakProtectionDays?: number
   bonusEnabled?: boolean
@@ -262,6 +264,8 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
         budgetPeriod: true,
         showLifetimeEarnings: true,
         giftsEnabled: true,
+        buyStarsEnabled: true,
+        starConversionRatePence: true,
         holidayMode: true,
         holidayStartDate: true,
         holidayEndDate: true,
@@ -346,6 +350,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     const { familyId: jwtFamilyId, sub: userId } = req.claims!
     const { 
       nameCipher, region, maxBudgetPence, budgetPeriod, showLifetimeEarnings, giftsEnabled,
+      buyStarsEnabled, starConversionRatePence,
       streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
       penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
       minBalancePence, minBalanceStars,
@@ -420,6 +425,14 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     if (budgetPeriod !== undefined) updateData.budgetPeriod = budgetPeriod
     if (showLifetimeEarnings !== undefined) updateData.showLifetimeEarnings = showLifetimeEarnings
     if (giftsEnabled !== undefined) updateData.giftsEnabled = giftsEnabled
+    if (buyStarsEnabled !== undefined) updateData.buyStarsEnabled = buyStarsEnabled
+    if (starConversionRatePence !== undefined) {
+      // Validate conversion rate: 5 pence to 30 pence
+      if (starConversionRatePence < 5 || starConversionRatePence > 30) {
+        return reply.status(400).send({ error: 'Star conversion rate must be between 5 and 30 pence' })
+      }
+      updateData.starConversionRatePence = starConversionRatePence
+    }
     
     // Streak settings
     if (streakProtectionDays !== undefined) updateData.streakProtectionDays = streakProtectionDays
@@ -478,6 +491,8 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
         budgetPeriod: true,
         showLifetimeEarnings: true,
         giftsEnabled: true,
+        buyStarsEnabled: true,
+        starConversionRatePence: true,
         holidayMode: true,
         holidayStartDate: true,
         holidayEndDate: true,

@@ -31,6 +31,10 @@ model Family {
   // Gift shop control
   giftsEnabled   Boolean        @default(true) // Toggle to enable/disable gift shop on child dashboard
   
+  // Buy Stars feature
+  buyStarsEnabled Boolean       @default(false) // Toggle to enable/disable buy stars feature on child dashboard
+  starConversionRatePence Int   @default(10) // Cost in pence per star (5p to 30p, default 10p)
+  
   // Login tracking for auto-delete
   lastLoginAt   DateTime?       // When ANY family member last logged in
   suspendedAt   DateTime?       // When account was suspended (for 12-month deletion)
@@ -78,6 +82,7 @@ model Family {
   childJoinCodes ChildJoinCode[]
   authTokens    AuthToken[]
   familyGifts   FamilyGift[]
+  starPurchases StarPurchase[]
 }
 
 model User {
@@ -90,6 +95,8 @@ model User {
   createdGifts   FamilyGift[] @relation("GiftCreatedBy")
   approvedRedemptions Redemption[] @relation("RedemptionApprovedBy")
   rejectedRedemptions Redemption[] @relation("RedemptionRejectedBy")
+  approvedStarPurchases StarPurchase[] @relation("StarPurchaseApprovedBy")
+  rejectedStarPurchases StarPurchase[] @relation("StarPurchaseRejectedBy")
 }
 
 enum Role {
@@ -164,6 +171,7 @@ model Child {
   completions  Completion[]
   redemptions  Redemption[]
   payouts      Payout[]
+  starPurchases StarPurchase[]
   joinCodeUsed ChildJoinCode?
 
   @@index([familyId])
@@ -427,6 +435,28 @@ model Redemption {
   @@index([familyId, status])
   @@index([childId, createdAt])
   @@index([familyGiftId])
+}
+
+model StarPurchase {
+  id              String   @id @default(uuid())
+  familyId        String
+  childId         String
+  amountPence     Int      // Money amount to spend
+  starsRequested  Int      // Number of stars requested
+  conversionRatePence Int  // Conversion rate used at time of request
+  status          String   @default("pending") // "pending" | "approved" | "rejected"
+  approvedBy      String?  // UserId who approved the purchase
+  rejectedBy      String?  // UserId who rejected the purchase
+  processedAt     DateTime? // When the purchase was approved or rejected
+  createdAt       DateTime @default(now())
+
+  family          Family   @relation(fields: [familyId], references: [id])
+  child           Child    @relation(fields: [childId], references: [id])
+  approvedByUser  User?    @relation("StarPurchaseApprovedBy", fields: [approvedBy], references: [id])
+  rejectedByUser  User?    @relation("StarPurchaseRejectedBy", fields: [rejectedBy], references: [id])
+  
+  @@index([familyId, status])
+  @@index([childId, createdAt])
 }
 
 // Global gift catalog (admin-managed)

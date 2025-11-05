@@ -137,6 +137,8 @@ const ParentDashboard: React.FC = () => {
   const [pendingCompletions, setPendingCompletions] = useState<Completion[]>([])
   const [recentCompletions, setRecentCompletions] = useState<Completion[]>([]) // All recent completions for activity feed
   const [pendingRedemptions, setPendingRedemptions] = useState<any[]>([])
+  const [starPurchases, setStarPurchases] = useState<any[]>([])
+  const [pendingStarPurchases, setPendingStarPurchases] = useState<any[]>([])
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [budget, setBudget] = useState<any>(null)
   const [joinCodes, setJoinCodes] = useState<any[]>([])
@@ -255,8 +257,12 @@ const ParentDashboard: React.FC = () => {
   const [budgetSettings, setBudgetSettings] = useState({
     maxBudgetPence: 0,
     budgetPeriod: 'weekly' as 'weekly' | 'monthly',
-    showLifetimeEarnings: true
+    showLifetimeEarnings: true,
+    buyStarsEnabled: false,
+    starConversionRatePence: 10 // Default 0.10p per star
   })
+  const [buyStarsEnabledTemp, setBuyStarsEnabledTemp] = useState(false)
+  const buyStarsEnabledTimeoutRef = useRef<number | null>(null)
   
   const [activeTab, setActiveTab] = useState<'all' | 'recurring' | 'pending' | 'completed'>('all')
   
@@ -306,6 +312,13 @@ const ParentDashboard: React.FC = () => {
 
   useEffect(() => {
     loadDashboard()
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (buyStarsEnabledTimeoutRef.current) {
+        clearTimeout(buyStarsEnabledTimeoutRef.current)
+      }
+    }
   }, [])
 
   // Listen for completion updates from child dashboard
@@ -442,8 +455,11 @@ const ParentDashboard: React.FC = () => {
       setBudgetSettings({
         maxBudgetPence: family.maxBudgetPence || 0,
         budgetPeriod: family.budgetPeriod || 'weekly',
-        showLifetimeEarnings: family.showLifetimeEarnings !== false // Default to true
+        showLifetimeEarnings: family.showLifetimeEarnings !== false, // Default to true
+        buyStarsEnabled: family.buyStarsEnabled || false,
+        starConversionRatePence: family.starConversionRatePence || 10
       })
+      setBuyStarsEnabledTemp(false) // Reset temp state when family data loads
     }
   }, [family])
 
@@ -453,7 +469,7 @@ const ParentDashboard: React.FC = () => {
     }
     parentLoadingRef.current = true
     try {
-      const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, leaderboardRes, budgetRes, joinCodesRes, payoutsRes] = await Promise.allSettled([
+      const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, starPurchasesRes, leaderboardRes, budgetRes, joinCodesRes, payoutsRes] = await Promise.allSettled([
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listChores(),
@@ -461,6 +477,7 @@ const ParentDashboard: React.FC = () => {
         apiClient.listCompletions('pending'), // For approval section
         apiClient.listCompletions(), // All recent for activity feed
         apiClient.getRedemptions(), // Get all redemptions (pending and fulfilled) for history tab
+        apiClient.getStarPurchases('pending'), // Get pending star purchases
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
         apiClient.getFamilyJoinCodes(),
@@ -563,6 +580,11 @@ const ParentDashboard: React.FC = () => {
         const allRedemptions = redemptionsRes.value.redemptions || []
         setRedemptions(allRedemptions) // Store all redemptions for history tab
         setPendingRedemptions(allRedemptions.filter((r: any) => r.status === 'pending')) // Only pending for approval section
+      }
+      if (starPurchasesRes.status === 'fulfilled') {
+        const allPurchases = starPurchasesRes.value.purchases || []
+        setStarPurchases(allPurchases)
+        setPendingStarPurchases(allPurchases.filter((p: any) => p.status === 'pending'))
       }
       if (leaderboardRes.status === 'fulfilled') {
         // Transform leaderboard data to flatten child object
@@ -960,6 +982,40 @@ const ParentDashboard: React.FC = () => {
       notifyChildDashboardsOfRedemption()
     } catch (error) {
       console.error('Error rejecting redemption:', error)
+      setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
+    }
+  }
+
+  const handleApproveStarPurchase = async (purchaseId: string) => {
+    try {
+      await apiClient.approveStarPurchase(purchaseId)
+      setToast({ message: 'Star purchase approved! Stars added to child.', type: 'success' })
+      
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
+      
+      // Notify child dashboards of the update
+      notifyChildDashboardsOfRedemption()
+    } catch (error) {
+      console.error('Error approving star purchase:', error)
+      setToast({ message: 'Failed to approve. Please try again.', type: 'error' })
+    }
+  }
+
+  const handleRejectStarPurchase = async (purchaseId: string) => {
+    try {
+      await apiClient.rejectStarPurchase(purchaseId)
+      setToast({ message: 'Star purchase rejected. Money refunded to child.', type: 'warning' })
+      
+      // Small delay to ensure DB is updated, then reload
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await loadDashboard()
+      
+      // Notify child dashboards of the update (money refunded)
+      notifyChildDashboardsOfRedemption()
+    } catch (error) {
+      console.error('Error rejecting star purchase:', error)
       setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
     }
   }
@@ -1484,9 +1540,9 @@ const ParentDashboard: React.FC = () => {
             </div>
 
             {/* Pending Approvals Section */}
-            {(pendingCompletions.length > 0 || pendingRedemptions.length > 0) && (
+            {(pendingCompletions.length > 0 || pendingRedemptions.length > 0 || pendingStarPurchases.length > 0) && (
               <div className="cb-card p-6 border-4 border-[var(--warning)]">
-                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length + pendingRedemptions.length})</h2>
+                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length + pendingRedemptions.length + pendingStarPurchases.length})</h2>
                 <div className="space-y-4">
                   {/* Chore Completions */}
                   {pendingCompletions.map((completion: any) => (
@@ -1623,6 +1679,61 @@ const ParentDashboard: React.FC = () => {
                       </div>
                     )
                   })}
+                  
+                  {/* Star Purchases */}
+                  {pendingStarPurchases.map((purchase: any) => (
+                    <div
+                      key={purchase.id}
+                      className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                          ⭐
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                Buy {purchase.starsRequested} Star{purchase.starsRequested !== 1 ? 's' : ''}
+                              </h4>
+                              <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                Requested by <span className="font-semibold text-[var(--primary)]">{purchase.child?.nickname || 'Unknown'}</span>
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)]">
+                                Conversion rate: £{((purchase.conversionRatePence || 10) / 100).toFixed(2)} per star
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-xl font-bold text-[var(--bonus-stars)]">
+                                ⭐ {purchase.starsRequested || 0} stars
+                              </div>
+                              <div className="text-sm text-[var(--text-secondary)]">
+                                £{((purchase.amountPence || 0) / 100).toFixed(2)}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)]">
+                                {new Date(purchase.createdAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              onClick={() => handleApproveStarPurchase(purchase.id)}
+                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectStarPurchase(purchase.id)}
+                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ❌ Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -2698,6 +2809,68 @@ const ParentDashboard: React.FC = () => {
                         </div>
                       </label>
                     </div>
+                    
+                    {/* Buy Stars Feature */}
+                    <div className="border-t-2 border-[var(--card-border)] pt-4 mt-4">
+                      <h4 className="font-bold text-[var(--text-primary)] mb-3">⭐ Buy Stars Feature</h4>
+                      <p className="text-sm text-[var(--text-secondary)] mb-4">
+                        Allow children to buy stars using their pocket money
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={buyStarsEnabledTemp || budgetSettings.buyStarsEnabled}
+                            onChange={(e) => {
+                              const newValue = e.target.checked
+                              setBudgetSettings(prev => ({ ...prev, buyStarsEnabled: newValue }))
+                              setBuyStarsEnabledTemp(newValue)
+                              
+                              // Clear existing timeout
+                              if (buyStarsEnabledTimeoutRef.current) {
+                                clearTimeout(buyStarsEnabledTimeoutRef.current)
+                              }
+                              
+                              // Set timeout to clear temp state after 60 seconds
+                              buyStarsEnabledTimeoutRef.current = setTimeout(() => {
+                                setBuyStarsEnabledTemp(false)
+                              }, 60000)
+                            }}
+                            className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
+                          />
+                          <span className="font-semibold text-[var(--text-primary)]">
+                            Enable Buy Stars
+                          </span>
+                        </label>
+                        
+                        {budgetSettings.buyStarsEnabled && (
+                          <div className="ml-8 space-y-3">
+                            <div>
+                              <label className="block font-semibold text-[var(--text-primary)] mb-2 text-sm">
+                                Star Conversion Rate: £{((budgetSettings.starConversionRatePence) / 100).toFixed(2)} per star
+                              </label>
+                              <input
+                                type="range"
+                                min="5"
+                                max="30"
+                                step="1"
+                                value={budgetSettings.starConversionRatePence}
+                                onChange={(e) => setBudgetSettings(prev => ({ ...prev, starConversionRatePence: parseInt(e.target.value) }))}
+                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
+                              />
+                              <div className="flex justify-between text-xs text-[var(--text-secondary)] mt-1">
+                                <span>5p</span>
+                                <span>30p</span>
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)] mt-2">
+                                Current rate: {budgetSettings.starConversionRatePence}p per star
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
               </div>
             </div>
@@ -2801,7 +2974,9 @@ const ParentDashboard: React.FC = () => {
                     const response = await apiClient.updateFamily({
                       maxBudgetPence: budgetSettings.maxBudgetPence,
                       budgetPeriod: budgetSettings.budgetPeriod,
-                      showLifetimeEarnings: budgetSettings.showLifetimeEarnings
+                      showLifetimeEarnings: budgetSettings.showLifetimeEarnings,
+                      buyStarsEnabled: budgetSettings.buyStarsEnabled,
+                      starConversionRatePence: budgetSettings.starConversionRatePence
                     })
                     // TODO: Save rivalry settings when backend is ready
                     
@@ -2810,7 +2985,9 @@ const ParentDashboard: React.FC = () => {
                       setBudgetSettings({
                         maxBudgetPence: response.family.maxBudgetPence || 0,
                         budgetPeriod: response.family.budgetPeriod || 'weekly',
-                        showLifetimeEarnings: response.family.showLifetimeEarnings !== false
+                        showLifetimeEarnings: response.family.showLifetimeEarnings !== false,
+                        buyStarsEnabled: response.family.buyStarsEnabled || false,
+                        starConversionRatePence: response.family.starConversionRatePence || 10
                       })
                     }
                     

@@ -212,6 +212,10 @@ const ChildDashboard: React.FC = () => {
   const [redemptionHistory, setRedemptionHistory] = useState<Redemption[]>([])
   const [selectedGiftForRedemption, setSelectedGiftForRedemption] = useState<FamilyGift | null>(null)
   const [showRedemptionModal, setShowRedemptionModal] = useState(false)
+  const [starPurchases, setStarPurchases] = useState<any[]>([])
+  const [pendingStarPurchases, setPendingStarPurchases] = useState<any[]>([])
+  const [buyStarsAmount, setBuyStarsAmount] = useState(1)
+  const [buyingStars, setBuyingStars] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [streakStats, setStreakStats] = useState<{ individualStreaks: StreakStat[]; [key: string]: any } | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -420,7 +424,7 @@ const ChildDashboard: React.FC = () => {
       setError('')
       const childId = user?.childId || user?.id || ''
 
-      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes, redemptionsRes] = await Promise.allSettled([
+      const [walletRes, walletStatsRes, familyRes, familyMembersRes, assignmentsRes, completionsRes, rewardsRes, familyGiftsRes, leaderboardRes, streaksRes, transactionsRes, payoutsRes, redemptionsRes, starPurchasesRes] = await Promise.allSettled([
         apiClient.getWallet(childId),
         apiClient.getWalletStats(childId),
         apiClient.getFamily(),
@@ -433,7 +437,8 @@ const ChildDashboard: React.FC = () => {
         apiClient.getStreakStats(childId),
         apiClient.getTransactions(childId, 50),
         apiClient.getPayouts(childId), // Get payouts to show who paid
-        apiClient.getRedemptions(undefined, childId) // Get all redemptions for this child
+        apiClient.getRedemptions(undefined, childId), // Get all redemptions for this child
+        apiClient.getStarPurchases(undefined, childId) // Get all star purchases for this child
       ])
 
       if (walletRes.status === 'fulfilled') {
@@ -580,6 +585,11 @@ const ChildDashboard: React.FC = () => {
         setRedemptions(allRedemptions)
         setPendingRedemptions(allRedemptions.filter((r: Redemption) => r.status === 'pending'))
         setRedemptionHistory(allRedemptions.filter((r: Redemption) => r.status === 'fulfilled' || r.status === 'rejected'))
+      }
+      if (starPurchasesRes.status === 'fulfilled') {
+        const allPurchases = starPurchasesRes.value.purchases || []
+        setStarPurchases(allPurchases)
+        setPendingStarPurchases(allPurchases.filter((p: any) => p.status === 'pending'))
       }
       
       if (leaderboardRes.status === 'fulfilled') {
@@ -1296,42 +1306,6 @@ const ChildDashboard: React.FC = () => {
         {activeTab === 'streaks' && (
           <div className="space-y-6">
             <h2 className="cb-heading-lg text-[var(--primary)]">🔥 Your Streaks</h2>
-            
-            {/* Main Stats Cards */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="cb-card bg-gradient-to-br from-orange-400 to-red-500 text-white p-6 shadow-lg">
-                <div className="text-6xl mb-4">🔥</div>
-                <h3 className="text-3xl font-bold mb-2">{streakStats?.currentStreak || 0} Days</h3>
-                <p className="text-white/90">Current Streak</p>
-                {streakStats?.currentStreak > 0 && (
-                  <div className="mt-3 text-xs bg-white/20 rounded-lg px-2 py-1 inline-block">
-                    Keep it going! 💪
-                  </div>
-                )}
-              </div>
-              
-              <div className="cb-card bg-gradient-to-br from-purple-400 to-pink-500 text-white p-6 shadow-lg">
-                <div className="text-6xl mb-4">🏆</div>
-                <h3 className="text-3xl font-bold mb-2">{streakStats?.bestStreak || 0} Days</h3>
-                <p className="text-white/90">Best Streak Ever</p>
-                {streakStats?.currentStreak === streakStats?.bestStreak && streakStats?.currentStreak > 0 && (
-                  <div className="mt-3 text-xs bg-white/20 rounded-lg px-2 py-1 inline-block">
-                    Personal Best! 🎯
-                  </div>
-                )}
-              </div>
-              
-              <div className="cb-card bg-gradient-to-br from-green-400 to-teal-500 text-white p-6 shadow-lg">
-                <div className="text-6xl mb-4">📅</div>
-                <h3 className="text-3xl font-bold mb-2">{streakStats?.totalCompletedDays || 0}</h3>
-                <p className="text-white/90">Total Days Completed</p>
-                {streakStats?.totalCompletedDays > 0 && (
-                  <div className="mt-3 text-xs bg-white/20 rounded-lg px-2 py-1 inline-block">
-                    That's {Math.floor((streakStats.totalCompletedDays / 7))} weeks! 📆
-                  </div>
-                )}
-              </div>
-            </div>
 
             {/* Individual Chore Streaks */}
             {streakStats?.individualStreaks && streakStats.individualStreaks.length > 0 && (
@@ -1467,16 +1441,16 @@ const ChildDashboard: React.FC = () => {
 
             {/* Penalty Information (if enabled) */}
             {familySettings && familySettings.penaltyEnabled && (
-              <div className="cb-card p-6 bg-gradient-to-br from-red-50 to-pink-50 border-2 border-red-300">
-                <h3 className="cb-heading-md text-red-600 mb-3 flex items-center gap-2">
+              <div className="cb-card p-4 bg-white border-2 border-red-300">
+                <h3 className="text-sm font-bold text-red-600 mb-2 flex items-center gap-2">
                   ⚠️ Penalty Info
                 </h3>
-                <p className="text-sm text-[var(--text-secondary)] mb-3">
-                  Missing chores after your protection period will result in penalties:
+                <p className="text-xs text-gray-700 mb-2">
+                  Missing chores after protection period:
                 </p>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-1 text-xs">
                   {familySettings.firstMissPence > 0 && (
-                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between text-gray-800">
                       <span>1st miss:</span>
                       <span className="font-bold text-red-600">
                         -£{(familySettings.firstMissPence / 100).toFixed(2)}
@@ -1485,7 +1459,7 @@ const ChildDashboard: React.FC = () => {
                     </div>
                   )}
                   {familySettings.secondMissPence > 0 && (
-                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between text-gray-800">
                       <span>2nd miss:</span>
                       <span className="font-bold text-red-600">
                         -£{(familySettings.secondMissPence / 100).toFixed(2)}
@@ -1494,7 +1468,7 @@ const ChildDashboard: React.FC = () => {
                     </div>
                   )}
                   {familySettings.thirdMissPence > 0 && (
-                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between text-gray-800">
                       <span>3rd+ miss:</span>
                       <span className="font-bold text-red-600">
                         -£{(familySettings.thirdMissPence / 100).toFixed(2)}
@@ -1504,7 +1478,7 @@ const ChildDashboard: React.FC = () => {
                   )}
                 </div>
                 {(familySettings.minBalancePence > 0 || familySettings.minBalanceStars > 0) && (
-                  <div className="mt-3 text-xs text-[var(--text-secondary)] bg-white rounded-lg px-3 py-2">
+                  <div className="mt-2 pt-2 border-t border-red-200 text-xs text-gray-700">
                     🛡️ Protection: You'll always keep at least £{(familySettings.minBalancePence / 100).toFixed(2)}
                     {familySettings.minBalanceStars > 0 && ` and ${familySettings.minBalanceStars} stars`}
                   </div>
@@ -1564,18 +1538,18 @@ const ChildDashboard: React.FC = () => {
                 <p className="text-[var(--text-secondary)]">Ask your parents to add some rewards!</p>
               </div>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {/* Display Family Gifts (new system) */}
                 {familyGifts.map((gift) => (
                   <div
                     key={gift.id}
-                    className="bg-white border-2 border-[var(--card-border)] rounded-3xl overflow-hidden hover:shadow-2xl transition-all cursor-pointer"
+                    className="bg-white border-2 border-[var(--card-border)] rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer"
                     onClick={() => {
                       setSelectedGiftForRedemption(gift)
                       setShowRedemptionModal(true)
                     }}
                   >
-                    <div className="aspect-video bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-6xl relative">
+                    <div className="aspect-square bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-4xl relative">
                       {gift.imageUrl ? (
                         <a
                           href={gift.affiliateUrl || gift.sitestripeUrl || undefined}
@@ -1590,9 +1564,9 @@ const ChildDashboard: React.FC = () => {
                         '🎁'
                       )}
                     </div>
-                    <div className="p-4">
+                    <div className="p-3">
                       <h3 
-                        className={`font-bold text-lg text-[var(--text-primary)] mb-2 ${gift.affiliateUrl || gift.sitestripeUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
+                        className={`font-bold text-base text-[var(--text-primary)] mb-1 line-clamp-2 ${gift.affiliateUrl || gift.sitestripeUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
                         onClick={(e) => {
                           if (gift.affiliateUrl || gift.sitestripeUrl) {
                             e.stopPropagation()
@@ -1602,19 +1576,20 @@ const ChildDashboard: React.FC = () => {
                       >
                         {gift.title}
                       </h3>
-                      <p className="text-sm text-[var(--text-secondary)] mb-2 line-clamp-2">
+                      <p className="text-xs text-[var(--text-secondary)] mb-2 line-clamp-2">
                         {gift.description || 'A special reward just for you!'}
                       </p>
                       {gift.createdByUser && (
-                        <p className="text-xs text-[var(--text-secondary)] mb-4 italic">
+                        <p className="text-xs text-[var(--text-secondary)] mb-2 italic">
                           Added by {gift.createdByUser.email?.split('@')[0] || 'Unknown'}
                         </p>
                       )}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl font-bold text-[var(--bonus-stars)]">
-                            {gift.starsRequired}⭐
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200">
+                          <span className="text-lg font-bold text-yellow-700">
+                            {gift.starsRequired}
                           </span>
+                          <span className="text-lg">⭐</span>
                         </div>
                         <button
                           onClick={(e) => {
@@ -1623,13 +1598,13 @@ const ChildDashboard: React.FC = () => {
                             setShowRedemptionModal(true)
                           }}
                           disabled={totalStars < gift.starsRequired || claimingReward === gift.id}
-                          className={`px-4 py-2 rounded-full font-bold text-sm ${
+                          className={`px-3 py-1.5 rounded-full font-bold text-xs whitespace-nowrap ${
                             totalStars >= gift.starsRequired
                               ? 'bg-[var(--primary)] text-white hover:scale-105'
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           } transition-all`}
                         >
-                          {claimingReward === gift.id ? '⏳ Redeeming...' : totalStars >= gift.starsRequired ? '🎉 Redeem' : `🔒 Need ${gift.starsRequired - totalStars} more`}
+                          {claimingReward === gift.id ? '⏳...' : totalStars >= gift.starsRequired ? '🎉 Redeem' : `🔒 Need ${gift.starsRequired - totalStars}`}
                         </button>
                       </div>
                     </div>
@@ -1640,34 +1615,37 @@ const ChildDashboard: React.FC = () => {
                 {rewards.map((reward) => (
                   <div
                     key={reward.id}
-                    className="bg-white border-2 border-[var(--card-border)] rounded-3xl overflow-hidden hover:shadow-2xl transition-all"
+                    className="bg-white border-2 border-[var(--card-border)] rounded-2xl overflow-hidden hover:shadow-xl transition-all"
                   >
-                    <div className="aspect-video bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-6xl">
+                    <div className="aspect-square bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-4xl">
                       {reward.imageUrl ? (
                         <img src={reward.imageUrl} alt={reward.title} className="w-full h-full object-cover" />
                       ) : (
                         '🎁'
                       )}
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-lg text-[var(--text-primary)] mb-2">{reward.title}</h3>
-                      <p className="text-sm text-[var(--text-secondary)] mb-4 line-clamp-2">
+                    <div className="p-3">
+                      <h3 className="font-bold text-base text-[var(--text-primary)] mb-1 line-clamp-2">{reward.title}</h3>
+                      <p className="text-xs text-[var(--text-secondary)] mb-2 line-clamp-2">
                         {reward.description || 'A special reward just for you!'}
                       </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-[var(--bonus-stars)]">
-                          {reward.starsRequired}⭐
-                        </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200">
+                          <span className="text-lg font-bold text-yellow-700">
+                            {reward.starsRequired}
+                          </span>
+                          <span className="text-lg">⭐</span>
+                        </div>
                         <button
                           onClick={() => handleClaimReward(reward)}
                           disabled={totalStars < reward.starsRequired || claimingReward === reward.id}
-                          className={`px-4 py-2 rounded-full font-bold text-sm ${
+                          className={`px-3 py-1.5 rounded-full font-bold text-xs whitespace-nowrap ${
                             totalStars >= reward.starsRequired
                               ? 'bg-[var(--primary)] text-white hover:scale-105'
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           } transition-all`}
                         >
-                          {claimingReward === reward.id ? '⏳ Claiming...' : totalStars >= reward.starsRequired ? '🎉 Claim' : '🔒 Locked'}
+                          {claimingReward === reward.id ? '⏳...' : totalStars >= reward.starsRequired ? '🎉 Claim' : '🔒 Locked'}
                         </button>
                       </div>
                     </div>
@@ -1829,19 +1807,6 @@ const ChildDashboard: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            {/* Show Amazon link for approved Amazon products */}
-                            {isApproved && redemption.familyGift && (redemption.familyGift.affiliateUrl || redemption.familyGift.sitestripeUrl) && (
-                              <div className="mt-2">
-                                <a 
-                                  href={redemption.familyGift.affiliateUrl || redemption.familyGift.sitestripeUrl || '#'} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="inline-block px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
-                                >
-                                  🔗 View on Amazon
-                                </a>
-                              </div>
-                            )}
                             {isRejected && (
                               <p className="text-sm text-red-600 mt-2 italic">
                                 Stars have been refunded to your account
@@ -1861,27 +1826,6 @@ const ChildDashboard: React.FC = () => {
         {/* Showdown Tab - Rivalry Bidding */}
         {activeTab === 'showdown' && (
           <div className="space-y-6">
-            <div className="cb-card bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500 text-white p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="text-6xl">⚔️</div>
-                <div>
-                  <h2 className="text-3xl font-bold">Challenge Mode!</h2>
-                  <p className="text-white/90">Offer to do chores for LESS money = WIN DOUBLE STARS! 🏆</p>
-                </div>
-              </div>
-              <div className="mt-4 bg-white/20 rounded-xl p-4 text-sm">
-                <p className="font-semibold mb-2">💡 How it works:</p>
-                <ul className="space-y-1 text-white/90">
-                  <li>• Chore usually pays £0.10 (1⭐) → Offer £0.10 or LESS to claim it</li>
-                  <li>• Lowest offer wins the chore!</li>
-                  <li>• <strong>Winner gets your bid PLUS a bonus star! 🎉</strong></li>
-                  <li>• Example: Bid £0.09, get £0.09 + bonus star = 2⭐ total!</li>
-                  <li>• <strong>🔥 Streak bonus:</strong> If you have a streak, claim it quick or lose it!</li>
-                  <li>• <strong>💪 Break streaks:</strong> Steal chores from siblings to break their streaks!</li>
-                </ul>
-              </div>
-            </div>
-
             {/* Bidding Chores */}
             <div>
               <h3 className="cb-heading-md text-[var(--primary)] mb-4">🎯 Challenge Chores</h3>
@@ -2210,7 +2154,7 @@ const ChildDashboard: React.FC = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-3xl font-bold text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
+                        <p className="text-3xl font-bold text-yellow-700">{entry.totalStars || 0} ⭐</p>
                       </div>
                     </div>
                   ))
@@ -2223,28 +2167,125 @@ const ChildDashboard: React.FC = () => {
         {/* Bank Tab */}
         {activeTab === 'bank' && (
           <div className="space-y-6">
-            <div className="cb-card bg-gradient-to-br from-green-500 via-teal-500 to-blue-500 text-white p-6">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="text-6xl">🏦</div>
-                <div>
-                  <h2 className="text-3xl font-bold mb-1">Star Bank</h2>
-                  <p className="text-white/90 text-lg">Your Money History</p>
-                </div>
-              </div>
+            {/* Buy Stars Section - Only show if enabled, otherwise show nothing at top */}
+            {familySettings?.buyStarsEnabled && (() => {
+              const balancePence = wallet?.balancePence || 0
+              const conversionRatePence = familySettings?.starConversionRatePence || 10
+              const maxStarsAffordable = Math.floor(balancePence / conversionRatePence)
+              const maxStars = Math.max(1, maxStarsAffordable)
+              const currentCost = buyStarsAmount * conversionRatePence
+              const canAfford = balancePence >= currentCost
               
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
-                  <p className="text-white/80 text-sm font-semibold mb-1">Current Balance</p>
-                  <p className="text-4xl font-bold">{totalStars}⭐</p>
-                  <p className="text-white/80 text-sm">£{((wallet?.balancePence || 0) / 100).toFixed(2)}</p>
+              // Ensure buyStarsAmount doesn't exceed maxStars
+              if (buyStarsAmount > maxStars) {
+                setBuyStarsAmount(maxStars)
+              }
+              
+              return (
+                <div className="cb-card bg-white p-4 shadow-md border-2 border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">⭐</span>
+                      <h2 className="text-lg font-bold text-gray-800">Buy Stars</h2>
+                    </div>
+                    <span className="text-sm text-gray-600">Balance: £{(balancePence / 100).toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Max Stars Info */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-4">
+                    <p className="text-xs text-gray-700 text-center">
+                      You can buy up to <span className="font-bold text-blue-700">{maxStars} star{maxStars !== 1 ? 's' : ''}</span> ({conversionRatePence}p per star)
+                    </p>
+                  </div>
+                  
+                  {/* Slider */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-sm font-semibold text-gray-800">
+                        Stars to buy:
+                      </label>
+                      <span className="text-2xl font-bold text-orange-600">{buyStarsAmount} ⭐</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max={maxStars}
+                      step="1"
+                      value={buyStarsAmount}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(maxStars, parseInt(e.target.value) || 1))
+                        setBuyStarsAmount(val)
+                      }}
+                      className="w-full h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, #f97316 0%, #f97316 ${maxStars > 1 ? ((buyStarsAmount - 1) / (maxStars - 1)) * 100 : 0}%, #e5e7eb ${maxStars > 1 ? ((buyStarsAmount - 1) / (maxStars - 1)) * 100 : 0}%, #e5e7eb 100%)`
+                      }}
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>1</span>
+                      <span>{maxStars}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Cost Display */}
+                  <div className="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-700 font-medium">Total cost:</span>
+                      <span className={`text-xl font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
+                        £{(currentCost / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Pending Requests Alert */}
+                  {pendingStarPurchases.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-2 mb-4">
+                      <p className="text-xs text-yellow-800 font-semibold text-center">
+                        ⏳ {pendingStarPurchases.length} request{pendingStarPurchases.length !== 1 ? 's' : ''} waiting for approval
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Buy Button */}
+                  <button
+                    onClick={async () => {
+                      if (buyingStars) return
+                      if (!canAfford) {
+                        setToast({ message: "You don't have enough money! 💰", type: 'error' })
+                        return
+                      }
+                      try {
+                        setBuyingStars(true)
+                        const response = await apiClient.buyStars(buyStarsAmount)
+                        setToast({ message: `⭐ Requested ${buyStarsAmount} stars! Waiting for parent approval...`, type: 'success' })
+                        setBuyStarsAmount(1)
+                        await loadDashboard()
+                      } catch (error: any) {
+                        setToast({ message: error.response?.data?.error || 'Failed to buy stars', type: 'error' })
+                      } finally {
+                        setBuyingStars(false)
+                      }
+                    }}
+                    disabled={buyingStars || !canAfford || maxStars === 0}
+                    className="w-full py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-bold text-base hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md active:scale-95 transform"
+                  >
+                    {buyingStars ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="animate-spin">⏳</span>
+                        <span>Requesting...</span>
+                      </span>
+                    ) : (
+                      <span>💰 Buy {buyStarsAmount} Star{buyStarsAmount !== 1 ? 's' : ''}!</span>
+                    )}
+                  </button>
+                  
+                  {/* Info Note */}
+                  <p className="text-gray-500 text-xs text-center mt-3">
+                    ⚠️ Money deducted now, stars added after approval
+                  </p>
                 </div>
-                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
-                  <p className="text-white/80 text-sm font-semibold mb-1">Transactions</p>
-                  <p className="text-4xl font-bold">{transactions.length}</p>
-                  <p className="text-white/80 text-sm">All time</p>
-                </div>
-              </div>
-            </div>
+              )
+            })()}
 
             <div className="cb-card p-6">
               <h3 className="cb-heading-md text-[var(--primary)] mb-4">📊 Transaction History</h3>
@@ -2300,6 +2341,18 @@ const ChildDashboard: React.FC = () => {
                         const giftTitle = metaJson.giftTitle || gift?.title || metaJson.rewardTitle || 'Prize redeemed'
                         const addedBy = gift?.createdByUser?.email?.split('@')[0]
                         description = giftTitle + (addedBy ? ` • Added by ${addedBy}` : '')
+                      } else if (metaJson.type === 'buy_stars_request') {
+                        icon = '⭐'
+                        label = 'Buy Stars Request'
+                        description = `Requested ${metaJson.starsRequested || 0} stars • Waiting for approval`
+                      } else if (metaJson.type === 'buy_stars_approved') {
+                        icon = '⭐'
+                        label = 'Stars Purchased'
+                        description = `Bought ${metaJson.starsRequested || 0} stars!`
+                      } else if (metaJson.type === 'buy_stars_rejected' || metaJson.type === 'buy_stars_refund') {
+                        icon = '💰'
+                        label = 'Buy Stars Refund'
+                        description = metaJson.note || 'Refund for rejected star purchase'
                       } else if (metaJson.payoutId) {
                         icon = '💸'
                         label = 'Paid Out'
@@ -2328,7 +2381,35 @@ const ChildDashboard: React.FC = () => {
                       hour12: true
                     })
                     
-                    const stars = Math.floor(transaction.amountPence / 10)
+                    // Calculate stars and money display based on transaction type
+                    let stars = 0
+                    let showStars = true
+                    let showMoney = true
+                    let starsDisplay = ''
+                    let moneyDisplay = ''
+                    
+                    if (metaJson.type === 'buy_stars_approved' && metaJson.starsRequested) {
+                      // Buy stars approved: only show stars (no money)
+                      stars = metaJson.starsRequested
+                      showMoney = false
+                      starsDisplay = `+${stars}⭐`
+                    } else if (metaJson.redemptionId || metaJson.familyGiftId || metaJson.starsSpent) {
+                      // Gift redemption: show stars cost (from starsSpent), no money displayed
+                      stars = metaJson.starsSpent || metaJson.costPaid || 0
+                      showMoney = false
+                      starsDisplay = `-${stars}⭐`
+                      moneyDisplay = ''
+                    } else if (metaJson.payoutId) {
+                      // Cash payout: only show money (no stars)
+                      showStars = false
+                      showMoney = true
+                      moneyDisplay = `£${(transaction.amountPence / 100).toFixed(2)}`
+                    } else {
+                      // Default: calculate stars from amount
+                      stars = Math.floor(transaction.amountPence / 10)
+                      starsDisplay = `${isCredit ? '+' : '-'}${stars}⭐`
+                      moneyDisplay = `£${(transaction.amountPence / 100).toFixed(2)}`
+                    }
                     
                     return (
                       <div
@@ -2353,14 +2434,37 @@ const ChildDashboard: React.FC = () => {
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <h4 className="font-bold text-[var(--text-primary)] text-lg">{label}</h4>
                             <div className="text-right">
-                              <p className={`font-bold text-2xl ${
-                                isCredit ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {isCredit ? '+' : '-'}{stars}⭐
-                              </p>
-                              <p className="text-sm text-[var(--text-secondary)]">
-                                £{(transaction.amountPence / 100).toFixed(2)}
-                              </p>
+                              {metaJson.type === 'buy_stars_approved' ? (
+                                // For buy_stars_approved, only show stars (no money)
+                                <p className="font-bold text-2xl text-green-600">
+                                  {starsDisplay}
+                                </p>
+                              ) : metaJson.payoutId ? (
+                                // For cash payouts, only show money (no stars)
+                                <p className="text-lg font-bold text-[var(--text-primary)]">
+                                  {moneyDisplay}
+                                </p>
+                              ) : (metaJson.redemptionId || metaJson.familyGiftId || metaJson.starsSpent) ? (
+                                // For gift redemptions, show only stars (no money)
+                                <p className={`font-bold text-2xl text-red-600`}>
+                                  {starsDisplay}
+                                </p>
+                              ) : (
+                                <>
+                                  {showStars && (
+                                    <p className={`font-bold text-2xl ${
+                                      isCredit ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {starsDisplay}
+                                    </p>
+                                  )}
+                                  {showMoney && (
+                                    <p className="text-sm text-[var(--text-secondary)]">
+                                      {moneyDisplay || `£{(transaction.amountPence / 100).toFixed(2)}`}
+                                    </p>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
                           
