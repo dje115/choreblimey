@@ -128,9 +128,9 @@ services:
       - REDIS_PORT=6379
       - API_PORT=1501
       - API_HOST=0.0.0.0
-      - APP_VERSION=0.1.3
+      - APP_VERSION=0.1.4
     labels:
-      - "com.choreblimey.version=0.1.3"
+      - "com.choreblimey.version=0.1.4"
     ports:
       - "1501:1501"
     networks:
@@ -162,9 +162,9 @@ services:
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - LC_CTYPE=C.UTF-8
-      - APP_VERSION=0.1.3
+      - APP_VERSION=0.1.4
     labels:
-      - "com.choreblimey.version=0.1.3"
+      - "com.choreblimey.version=0.1.4"
     ports:
       - "1500:1500"
     networks:
@@ -191,9 +191,9 @@ services:
       - REDIS_URL=redis://redis:6379
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - APP_VERSION=0.1.3
+      - APP_VERSION=0.1.4
     labels:
-      - "com.choreblimey.version=0.1.3"
+      - "com.choreblimey.version=0.1.4"
     networks:
       - user_network
       - database_network  # Database access only
@@ -237,9 +237,9 @@ services:
       - S3_SECRET_KEY=${S3_SECRET_KEY:-minio12345}
       - S3_BUCKET=${S3_BUCKET:-gift-images}
       - S3_REGION=${S3_REGION:-us-east-1}
-      - APP_VERSION=0.1.3
+      - APP_VERSION=0.1.4
     labels:
-      - "com.choreblimey.version=0.1.3"
+      - "com.choreblimey.version=0.1.4"
     ports:
       - "1502:1502"
     networks:
@@ -270,9 +270,9 @@ services:
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - LC_CTYPE=C.UTF-8
-      - APP_VERSION=0.1.3
+      - APP_VERSION=0.1.4
     labels:
-      - "com.choreblimey.version=0.1.3"
+      - "com.choreblimey.version=0.1.4"
     ports:
       - "1503:1503"
     networks:

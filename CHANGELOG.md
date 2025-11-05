@@ -2,6 +2,24 @@
 
 All notable changes to ChoreBlimey! will be documented in this file.
 
+## [0.1.4] - 2025-11-25
+
+### Fixed
+- **Budget Settings Console Errors**
+  - Removed console warnings for duplicate assignments in budget calculation
+  - Removed debug console logs from budget earnings calculation
+  - Clean console output when opening settings/budget modal
+
+- **Single-Child Gift Purchase Handling**
+  - Fixed "All Children" checkbox auto-unchecking when single child purchases non-recurring gift
+  - Improved gift re-listing workflow for single-child families
+  - Enhanced gift edit modal to handle purchased non-recurring gifts correctly
+
+### Changed
+- **Gift Visibility Control**
+  - Improved handling of non-recurring gifts after redemption
+  - Better UI feedback for purchased gifts in parent dashboard
+
 ## [0.1.3] - 2025-11-25
 
 ### Changed

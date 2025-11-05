@@ -384,5 +384,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 **ChoreBlimey!** - Making chores fun for the whole family! 🧹⭐
 
 **Last Updated**: November 2025  
-**Version**: 0.1.3  
+**Version**: 0.1.4  
 **Maintainer**: Development Team

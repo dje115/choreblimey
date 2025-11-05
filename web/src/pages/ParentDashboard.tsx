@@ -1801,8 +1801,15 @@ const ParentDashboard: React.FC = () => {
                         <div 
                           key={gift.id} 
                           className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4 hover:shadow-md transition-all cursor-pointer relative"
-                          onClick={() => {
-                            setSelectedGift(gift)
+                          onClick={async () => {
+                            // Reload gift to ensure we have fresh data (especially after redemption)
+                            try {
+                              const freshGiftResponse = await apiClient.getFamilyGift(gift.id)
+                              setSelectedGift(freshGiftResponse.gift)
+                            } catch (error) {
+                              // Fallback to current gift data if API call fails
+                              setSelectedGift(gift)
+                            }
                             setShowEditGiftModal(true)
                           }}
                         >
@@ -2631,7 +2638,6 @@ const ParentDashboard: React.FC = () => {
                                 const deduplicatedAssignments = childAssignments.filter((a: any) => {
                                   if (!a.choreId) return false // Skip if no choreId
                                   if (uniqueChoreIds.has(a.choreId)) {
-                                    console.warn(`⚠️ Duplicate assignment found for child ${child.nickname}, chore ${a.choreId}`)
                                     return false // Skip duplicate
                                   }
                                   uniqueChoreIds.add(a.choreId)
@@ -2647,18 +2653,6 @@ const ParentDashboard: React.FC = () => {
                                     weeklyEarnings += (a.chore.baseRewardPence || 0)
                                   }
                                   // 'once' chores don't count towards regular budget
-                                })
-                                
-                                console.log(`💰 Budget calc for ${child.nickname}:`, {
-                                  totalAssignments: childAssignments.length,
-                                  uniqueChores: deduplicatedAssignments.length,
-                                  assignments: deduplicatedAssignments.map((a: any) => ({
-                                    choreTitle: a.chore?.title,
-                                    frequency: a.chore?.frequency,
-                                    rewardPence: a.chore?.baseRewardPence,
-                                    weeklyValue: a.chore?.frequency === 'daily' ? (a.chore.baseRewardPence || 0) * 7 : (a.chore.baseRewardPence || 0)
-                                  })),
-                                  weeklyEarnings: `£${(weeklyEarnings / 100).toFixed(2)}`
                                 })
 
                                 // Convert to monthly if needed
@@ -6493,24 +6487,70 @@ const ParentDashboard: React.FC = () => {
                       <input
                         type="checkbox"
                         id="editGiftAvailableForAll"
-                        defaultChecked={selectedGift.availableForAll}
+                        defaultChecked={(() => {
+                          // Check if there's only one child and they've purchased this non-recurring gift
+                          const hasSinglePurchasedChild = uniqueChildren.length === 1 && 
+                            !selectedGift.recurring && 
+                            redemptions.some((r: any) => 
+                              r.familyGiftId === selectedGift.id && 
+                              r.childId === uniqueChildren[0].id &&
+                              (r.status === 'pending' || r.status === 'fulfilled')
+                            )
+                          
+                          // If single child purchased a non-recurring gift, always uncheck "All Children"
+                          // (This handles cases where the gift was redeemed before the API auto-update logic existed)
+                          if (hasSinglePurchasedChild) {
+                            return false
+                          }
+                          
+                          // Otherwise, use the actual database value
+                          return selectedGift.availableForAll
+                        })()}
                         onChange={(e) => {
                           const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="editGiftChildIds"]')
+                          // Special case: if there's only one child and they've purchased a non-recurring gift,
+                          // keep their checkbox enabled even when "All Children" is checked
+                          const hasSinglePurchasedChild = uniqueChildren.length === 1 && 
+                            !selectedGift.recurring && 
+                            redemptions.some((r: any) => 
+                              r.familyGiftId === selectedGift.id && 
+                              r.childId === uniqueChildren[0].id &&
+                              (r.status === 'pending' || r.status === 'fulfilled')
+                            )
+                          
                           checkboxes.forEach(cb => {
-                            cb.disabled = e.target.checked
-                            if (e.target.checked) cb.checked = false
+                            // Don't disable if it's a single child who purchased a non-recurring gift
+                            if (!hasSinglePurchasedChild) {
+                              cb.disabled = e.target.checked
+                              if (e.target.checked) cb.checked = false
+                            }
                           })
                         }}
                         className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
                       />
                       <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
                         All Children
+                        {uniqueChildren.length === 1 && (
+                          <span className="text-xs text-[var(--text-secondary)] ml-2 font-normal">
+                            (only {uniqueChildren[0].nickname})
+                          </span>
+                        )}
                       </span>
                     </label>
                     <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
                       {uniqueChildren.map((child: Child) => {
                         const childIds = selectedGift.availableForChildIds as string[] | null
                         const isChecked = !!(childIds && childIds.includes(child.id))
+                        // Check if this child has purchased this non-recurring gift
+                        const hasPurchased = !selectedGift.recurring && redemptions.some((r: any) => 
+                          r.familyGiftId === selectedGift.id && 
+                          r.childId === child.id &&
+                          (r.status === 'pending' || r.status === 'fulfilled')
+                        )
+                        // If there's only one child and they've purchased it, ensure we can see/manage their checkbox
+                        // (API already unchecks "All Children" when non-recurring gift is redeemed)
+                        const isSingleChildPurchased = uniqueChildren.length === 1 && hasPurchased && !selectedGift.recurring
+                        
                         return (
                           <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
                             <input
@@ -6518,11 +6558,27 @@ const ParentDashboard: React.FC = () => {
                               name="editGiftChildIds"
                               value={child.id}
                               defaultChecked={isChecked}
-                              disabled={selectedGift.availableForAll}
+                              disabled={(() => {
+                                // If single child purchased, always enable their checkbox so they can re-list
+                                if (isSingleChildPurchased) return false
+                                // Otherwise, disable if "All Children" is checked
+                                const allCheckbox = document.getElementById('editGiftAvailableForAll') as HTMLInputElement
+                                return allCheckbox?.checked || selectedGift.availableForAll
+                              })()}
                               className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:opacity-40"
                             />
-                            <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                            <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-2">
                               {child.nickname}
+                              {hasPurchased && (
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                                  ✓ Purchased
+                                </span>
+                              )}
+                              {isSingleChildPurchased && selectedGift.availableForAll && (
+                                <span className="text-xs text-[var(--text-secondary)] italic">
+                                  (Check box to re-list)
+                                </span>
+                              )}
                             </span>
                           </label>
                         )

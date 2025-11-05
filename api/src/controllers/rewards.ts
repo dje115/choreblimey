@@ -187,7 +187,7 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
         },
         include: {
           reward: rewardId ? { select: { id: true, title: true, starsRequired: true } } : false,
-          familyGift: familyGiftId ? { select: { id: true, title: true, starsRequired: true } } : false,
+          familyGift: familyGiftId ? { select: { id: true, title: true, starsRequired: true, recurring: true, availableForAll: true, availableForChildIds: true } } : false,
           child: {
             select: {
               id: true,
@@ -197,6 +197,42 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
           }
         }
       })
+
+      // For non-recurring gifts: automatically remove child from availableForChildIds
+      // This ensures the gift disappears from child's shop after purchase
+      // Parents can re-list it by checking the child's box in Edit Gift modal
+      if (familyGiftId && redemption.familyGift && !redemption.familyGift.recurring) {
+        const currentAvailableForAll = redemption.familyGift.availableForAll
+        const currentChildIds = (redemption.familyGift.availableForChildIds as string[] | null) || []
+        
+        if (currentAvailableForAll) {
+          // If available for all, switch to specific children list excluding this child
+          const allChildIds = await tx.child.findMany({
+            where: { familyId },
+            select: { id: true }
+          })
+          const otherChildIds = allChildIds
+            .map(c => c.id)
+            .filter(id => id !== actualChildId)
+          
+          await tx.familyGift.update({
+            where: { id: familyGiftId },
+            data: {
+              availableForAll: false,
+              availableForChildIds: otherChildIds
+            }
+          })
+        } else {
+          // If already specific children, just remove this child
+          const updatedChildIds = currentChildIds.filter(id => id !== actualChildId)
+          await tx.familyGift.update({
+            where: { id: familyGiftId },
+            data: {
+              availableForChildIds: updatedChildIds
+            }
+          })
+        }
+      }
 
       return { redemption, wallet: updatedWallet }
     })
