@@ -196,6 +196,19 @@ export const togglePause = async (req: FastifyRequest<{ Params: { id: string } }
     // Invalidate family cache so changes are reflected immediately
     await cache.invalidateFamily(familyId)
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'child:pause:updated', {
+        child: {
+          id: updatedChild.id,
+          nickname: updatedChild.nickname,
+          paused: updatedChild.paused
+        }
+      })
+    }
+
     return { 
       message: `Child ${updatedChild.paused ? 'paused' : 'unpaused'} successfully`,
       paused: updatedChild.paused

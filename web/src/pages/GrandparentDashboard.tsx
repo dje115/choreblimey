@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
+import { useSocket } from '../contexts/SocketContext'
 import Confetti from 'react-confetti'
 
 const GrandparentDashboard: React.FC = () => {
@@ -12,7 +13,7 @@ const GrandparentDashboard: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true)
       const [familyData, childrenData, walletsData] = await Promise.all([
@@ -21,20 +22,101 @@ const GrandparentDashboard: React.FC = () => {
         apiClient.getWallets()
       ])
       
-      setFamily(familyData)
-      setChildren(childrenData)
-      setWallets(walletsData)
+      setFamily(familyData.family || familyData)
+      setChildren(childrenData.children || childrenData)
+      setWallets(walletsData.wallets || walletsData)
     } catch (error) {
       console.error('Failed to load dashboard:', error)
       setToast({ message: 'Failed to load dashboard data', type: 'error' })
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadDashboard()
-  }, [])
+  }, [loadDashboard])
+
+  // WebSocket connection for real-time updates
+  const { socket, isConnected, on, off } = useSocket()
+
+  /**
+   * Listen for updates via WebSocket
+   * This works across all devices, browsers, and tabs
+   */
+  useEffect(() => {
+    if (!socket || !isConnected) {
+      console.log('🔌 WebSocket not connected, skipping event listeners')
+      return
+    }
+
+    console.log('👂 Setting up WebSocket listeners for grandparent dashboard')
+
+    // Listen for family settings updated (holiday mode, shop enable/disable, streak settings)
+    const handleFamilySettingsUpdated = (data: any) => {
+      console.log('📢 WebSocket: family:settings:updated received on GRANDPARENT dashboard', data)
+      const familyData = data.family
+      
+      if (familyData) {
+        // Update family state immediately
+        setFamily((prev: any) => {
+          if (!prev) return familyData
+          return {
+            ...prev,
+            ...familyData
+          }
+        })
+        console.log('✅ Family settings updated via WebSocket, state updated immediately')
+      }
+    }
+
+    // Listen for completion approved (to see wallet updates)
+    const handleCompletionApproved = (data: any) => {
+      console.log('📢 WebSocket: completion:approved received', data)
+      loadDashboard()
+    }
+
+    // Listen for gift created/updated (to see new/updated gifts)
+    const handleGiftCreated = (data: any) => {
+      console.log('📢 WebSocket: gift:created received', data)
+      loadDashboard()
+    }
+
+    const handleGiftUpdated = (data: any) => {
+      console.log('📢 WebSocket: gift:updated received', data)
+      loadDashboard()
+    }
+
+    // Listen for redemption fulfilled (to see when gifts are redeemed)
+    const handleRedemptionFulfilled = (data: any) => {
+      console.log('📢 WebSocket: redemption:fulfilled received', data)
+      loadDashboard()
+    }
+
+    // Listen for child pause status updated (individual child holiday mode)
+    const handleChildPauseUpdated = (data: any) => {
+      console.log('📢 WebSocket: child:pause:updated received', data)
+      loadDashboard()
+    }
+
+    // Register listeners
+    on('family:settings:updated', handleFamilySettingsUpdated)
+    on('completion:approved', handleCompletionApproved)
+    on('gift:created', handleGiftCreated)
+    on('gift:updated', handleGiftUpdated)
+    on('redemption:fulfilled', handleRedemptionFulfilled)
+    on('child:pause:updated', handleChildPauseUpdated)
+
+    // Cleanup
+    return () => {
+      off('family:settings:updated', handleFamilySettingsUpdated)
+      off('completion:approved', handleCompletionApproved)
+      off('gift:created', handleGiftCreated)
+      off('gift:updated', handleGiftUpdated)
+      off('redemption:fulfilled', handleRedemptionFulfilled)
+      off('child:pause:updated', handleChildPauseUpdated)
+    }
+  }, [socket, isConnected, on, off, loadDashboard])
 
   const handleSendGift = async (childId: string, amount: number) => {
     try {

@@ -365,15 +365,16 @@ model Transaction {
 }
 
 model Payout {
-  id          String   @id @default(uuid())
-  familyId    String
-  childId     String
-  amountPence Int
-  paidBy      String?  // userId of parent who paid
-  method      String?  // "cash", "bank_transfer", "other"
-  note        String?
-  giftIds     String[] @default([]) // IDs of gifts that were paid out in this payout
-  createdAt   DateTime @default(now())
+  id              String   @id @default(uuid())
+  familyId        String
+  childId         String
+  amountPence     Int
+  choreAmountPence Int?    // Amount from chores (rest is from gifts)
+  paidBy          String?  // userId of parent who paid
+  method          String?  // "cash", "bank_transfer", "other"
+  note            String?
+  giftIds         String[] @default([]) // IDs of gifts that were paid out in this payout
+  createdAt       DateTime @default(now())
 
   family  Family @relation(fields: [familyId], references: [id])
   child   Child  @relation(fields: [childId], references: [id])

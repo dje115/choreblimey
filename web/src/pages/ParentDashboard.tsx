@@ -151,6 +151,7 @@ const ParentDashboard: React.FC = () => {
   const [showPayoutModal, setShowPayoutModal] = useState(false)
   const [payoutChild, setPayoutChild] = useState<any>(null)
   const [payoutAmount, setPayoutAmount] = useState('')
+  const [payoutChoreAmount, setPayoutChoreAmount] = useState('') // Amount from chores
   const [payoutMethod, setPayoutMethod] = useState<'cash' | 'bank_transfer' | 'other'>('cash')
   const [payoutNote, setPayoutNote] = useState('')
   
@@ -299,7 +300,7 @@ const ParentDashboard: React.FC = () => {
         apiClient.listCompletions('pending'), // For approval section
         apiClient.listCompletions(), // All recent for activity feed
         apiClient.getRedemptions(), // Get all redemptions (pending and fulfilled) for history tab
-        apiClient.getStarPurchases('pending'), // Get pending star purchases
+        apiClient.getStarPurchases(), // Get all star purchases (pending and approved) for activity feed
         apiClient.getLeaderboard(),
         apiClient.getFamilyBudget(),
         apiClient.getFamilyJoinCodes(),
@@ -325,7 +326,8 @@ const ParentDashboard: React.FC = () => {
         if (familyData) {
           const withinOptimistic = Date.now() < holidayOptimisticUntil
           // Don't update holiday mode state if modal is open or within optimistic window
-          if (!withinOptimistic && !showHolidayModal) {
+          // Also don't update if modal was just initialized (to avoid overwriting user changes)
+          if (!withinOptimistic && !showHolidayModal && !holidayModalInitializedRef.current) {
             setHolidayMode((prev: any) => ({
               ...prev,
               familyHolidayMode: familyData.holidayMode ?? false,
@@ -563,6 +565,101 @@ const ParentDashboard: React.FC = () => {
       loadDashboard()
     }
 
+    // Listen for star purchase created (child buys stars)
+    const handleStarPurchaseCreated = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:created received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for star purchase approved (parent approves, child needs to see wallet update)
+    const handleStarPurchaseApproved = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:approved received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for star purchase rejected (parent rejects, child needs to see wallet update)
+    const handleStarPurchaseRejected = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:rejected received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for family settings updated (holiday mode, shop enable/disable, streak settings)
+    const handleFamilySettingsUpdated = (data: any) => {
+      console.log('📢 WebSocket: family:settings:updated received', data)
+      const familyData = data.family
+      
+      if (familyData) {
+        // Update family state immediately
+        setFamily((prev: Family | null) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            ...familyData
+          }
+        })
+        
+        // Update budget settings immediately
+        setBudgetSettings((prev: any) => ({
+          ...prev,
+          buyStarsEnabled: familyData.buyStarsEnabled ?? prev.buyStarsEnabled,
+          starConversionRatePence: familyData.starConversionRatePence ?? prev.starConversionRatePence,
+          giftsEnabled: familyData.giftsEnabled ?? prev.giftsEnabled
+        }))
+        
+        // Update streak settings immediately
+        setStreakSettings((prev: any) => ({
+          ...prev,
+          protectionDays: familyData.streakProtectionDays ?? prev.protectionDays,
+          bonusEnabled: familyData.bonusEnabled ?? prev.bonusEnabled,
+          bonusDays: familyData.bonusDays ?? prev.bonusDays,
+          bonusMoneyPence: familyData.bonusMoneyPence ?? prev.bonusMoneyPence,
+          bonusStars: familyData.bonusStars ?? prev.bonusStars,
+          bonusType: familyData.bonusType ?? prev.bonusType,
+          penaltyEnabled: familyData.penaltyEnabled ?? prev.penaltyEnabled,
+          firstMissPence: familyData.firstMissPence ?? prev.firstMissPence,
+          firstMissStars: familyData.firstMissStars ?? prev.firstMissStars,
+          secondMissPence: familyData.secondMissPence ?? prev.secondMissPence,
+          secondMissStars: familyData.secondMissStars ?? prev.secondMissStars,
+          thirdMissPence: familyData.thirdMissPence ?? prev.thirdMissPence,
+          thirdMissStars: familyData.thirdMissStars ?? prev.thirdMissStars,
+          penaltyType: familyData.penaltyType ?? prev.penaltyType,
+          minBalancePence: familyData.minBalancePence ?? prev.minBalancePence,
+          minBalanceStars: familyData.minBalanceStars ?? prev.minBalanceStars
+        }))
+        
+        // Update holiday mode immediately - ONLY if modal is not open (to avoid overwriting user's changes)
+        if (!showHolidayModal) {
+          setHolidayMode((prev: any) => ({
+            ...prev,
+            familyHolidayMode: familyData.holidayMode ?? false,
+            familyHolidayStartDate: familyData.holidayStartDate
+              ? new Date(familyData.holidayStartDate).toISOString().split('T')[0]
+              : '',
+            familyHolidayEndDate: familyData.holidayEndDate
+              ? new Date(familyData.holidayEndDate).toISOString().split('T')[0]
+              : ''
+          }))
+        } else {
+          console.log('⚠️ Holiday modal is open, skipping holiday mode state update to avoid overwriting user changes')
+        }
+      }
+      
+      // Don't call loadDashboard here - it will overwrite optimistic updates
+      // The state has already been updated above, and loadDashboard will be called
+      // by the fallback polling system if needed
+      console.log('✅ Family settings updated via WebSocket, state updated immediately')
+    }
+
+    // Listen for child pause status updated (individual child holiday mode)
+    const handleChildPauseUpdated = (data: any) => {
+      console.log('📢 WebSocket: child:pause:updated received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
     // Register listeners
     on('completion:created', handleCompletionCreated)
     on('completion:approved', handleCompletionApproved)
@@ -576,6 +673,11 @@ const ParentDashboard: React.FC = () => {
     on('redemption:rejected', handleRedemptionRejected)
     on('gift:created', handleGiftCreated)
     on('gift:updated', handleGiftUpdated)
+    on('starPurchase:created', handleStarPurchaseCreated)
+    on('starPurchase:approved', handleStarPurchaseApproved)
+    on('starPurchase:rejected', handleStarPurchaseRejected)
+    on('family:settings:updated', handleFamilySettingsUpdated)
+    on('child:pause:updated', handleChildPauseUpdated)
 
     // Cleanup
     return () => {
@@ -591,6 +693,11 @@ const ParentDashboard: React.FC = () => {
       off('redemption:rejected', handleRedemptionRejected)
       off('gift:created', handleGiftCreated)
       off('gift:updated', handleGiftUpdated)
+      off('starPurchase:created', handleStarPurchaseCreated)
+      off('starPurchase:approved', handleStarPurchaseApproved)
+      off('starPurchase:rejected', handleStarPurchaseRejected)
+      off('family:settings:updated', handleFamilySettingsUpdated)
+      off('child:pause:updated', handleChildPauseUpdated)
     }
   }, [socket, isConnected, on, off, loadDashboard])
 
@@ -607,6 +714,32 @@ const ParentDashboard: React.FC = () => {
     pollingInterval: 5000, // Poll every 5 seconds as fallback
     useVisibilityAPI: true
   })
+  
+  // Initialize holiday mode state when modal opens (only on open, not on family changes)
+  const holidayModalInitializedRef = useRef(false)
+  useEffect(() => {
+    if (showHolidayModal && family && !holidayModalInitializedRef.current) {
+      console.log('🌴 Holiday modal opened, initializing state from family data:', {
+        holidayMode: family.holidayMode,
+        holidayStartDate: family.holidayStartDate,
+        holidayEndDate: family.holidayEndDate
+      })
+      setHolidayMode(prev => ({
+        ...prev,
+        familyHolidayMode: family.holidayMode ?? false,
+        familyHolidayStartDate: family.holidayStartDate
+          ? new Date(family.holidayStartDate).toISOString().split('T')[0]
+          : '',
+        familyHolidayEndDate: family.holidayEndDate
+          ? new Date(family.holidayEndDate).toISOString().split('T')[0]
+          : '',
+      }))
+      holidayModalInitializedRef.current = true
+    } else if (!showHolidayModal) {
+      // Reset flag when modal closes so it can initialize again next time
+      holidayModalInitializedRef.current = false
+    }
+  }, [showHolidayModal, family])
   
   // Poll for child joins when there are active join codes
   useEffect(() => {
@@ -1087,12 +1220,8 @@ const ParentDashboard: React.FC = () => {
       await apiClient.rejectStarPurchase(purchaseId)
       setToast({ message: 'Star purchase rejected. Money refunded to child.', type: 'warning' })
       
-      // Small delay to ensure DB is updated, then reload
-      await new Promise(resolve => setTimeout(resolve, 300))
-      await loadDashboard()
-      
-      // Notify child dashboards of the update (money refunded)
-      notifyChildDashboardsOfRedemption()
+      // WebSocket will trigger dashboard refresh automatically
+      // No need to manually reload or notify
     } catch (error) {
       console.error('Error rejecting star purchase:', error)
       setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
@@ -1121,15 +1250,22 @@ const ParentDashboard: React.FC = () => {
     
     try {
       const amountPence = Math.round(parseFloat(payoutAmount) * 100)
+      const choreAmountPence = payoutChoreAmount ? Math.round(parseFloat(payoutChoreAmount) * 100) : 0
       
       if (isNaN(amountPence) || amountPence <= 0) {
         setToast({ message: 'Please enter a valid amount', type: 'error' })
         return
       }
 
+      if (choreAmountPence < 0) {
+        setToast({ message: 'Chore amount cannot be negative', type: 'error' })
+        return
+      }
+
       await apiClient.createPayout({
         childId: payoutChild.id,
         amountPence,
+        choreAmountPence: choreAmountPence > 0 ? choreAmountPence : undefined,
         method: payoutMethod,
         note: payoutNote || undefined,
         giftIds: selectedGiftIds.length > 0 ? selectedGiftIds : undefined
@@ -1142,6 +1278,7 @@ const ParentDashboard: React.FC = () => {
       // Reset form
       setShowPayoutModal(false)
       setPayoutAmount('')
+      setPayoutChoreAmount('')
       setPayoutNote('')
       setPayoutMethod('cash')
       setPayoutChild(null)
@@ -1312,12 +1449,29 @@ const ParentDashboard: React.FC = () => {
                   setShowHolidayModal(true)
                 }}
                 className={`px-4 py-2 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${
-                  family?.holidayMode
+                  (() => {
+                    // Check if holiday mode is active (enabled AND within date range if dates are set)
+                    if (!family?.holidayMode) return false
+                    const now = new Date()
+                    const startDate = family.holidayStartDate ? new Date(family.holidayStartDate) : null
+                    const endDate = family.holidayEndDate ? new Date(family.holidayEndDate) : null
+                    const withinStart = !startDate || startDate <= now
+                    const withinEnd = !endDate || endDate >= now
+                    return withinStart && withinEnd
+                  })()
                     ? 'bg-yellow-400/30 hover:bg-yellow-400/40 text-yellow-50 border-2 border-yellow-300'
                     : 'bg-white/20 hover:bg-white/30'
                 }`}
               >
-                🌴 Holiday Mode {family?.holidayMode ? '☀️' : ''}
+                🌴 Holiday Mode {(() => {
+                  if (!family?.holidayMode) return ''
+                  const now = new Date()
+                  const startDate = family.holidayStartDate ? new Date(family.holidayStartDate) : null
+                  const endDate = family.holidayEndDate ? new Date(family.holidayEndDate) : null
+                  const withinStart = !startDate || startDate <= now
+                  const withinEnd = !endDate || endDate >= now
+                  return (withinStart && withinEnd) ? '☀️' : ''
+                })()}
               </button>
               <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
                 ⚙️ Settings
@@ -1328,31 +1482,946 @@ const ParentDashboard: React.FC = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {family?.holidayMode && (
-          <div className="cb-card bg-yellow-50 border-2 border-yellow-300 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🌴</div>
-              <div className="flex-1">
-                <div className="font-semibold text-yellow-900">Family holiday mode is active</div>
-                <div className="text-sm text-yellow-800">Chores still appear, but streaks and penalties are paused. Manage settings from the holiday panel.</div>
+        {(() => {
+          // Check if holiday mode is active (enabled AND within date range if dates are set)
+          if (!family?.holidayMode) return null
+          const now = new Date()
+          const startDate = family.holidayStartDate ? new Date(family.holidayStartDate) : null
+          const endDate = family.holidayEndDate ? new Date(family.holidayEndDate) : null
+          const withinStart = !startDate || startDate <= now
+          const withinEnd = !endDate || endDate >= now
+          const isActive = withinStart && withinEnd
+          
+          if (!isActive) return null
+          
+          return (
+            <div className="cb-card bg-yellow-50 border-2 border-yellow-300 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">🌴</div>
+                <div className="flex-1">
+                  <div className="font-semibold text-yellow-900">Family holiday mode is active</div>
+                  <div className="text-sm text-yellow-800">Chores still appear, but streaks and penalties are paused. Manage settings from the holiday panel.</div>
+                </div>
+                <button
+                  onClick={() => {
+                    // Set optimistic window immediately to prevent background refreshes from interfering
+                    setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
+                    setShowHolidayModal(true)
+                  }}
+                  className="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 border border-yellow-300 rounded-md text-yellow-900 text-sm font-semibold"
+                >
+                  Manage
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  // Set optimistic window immediately to prevent background refreshes from interfering
-                  setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
-                  setShowHolidayModal(true)
-                }}
-                className="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 border border-yellow-300 rounded-md text-yellow-900 text-sm font-semibold"
-              >
-                Manage
-              </button>
             </div>
-          </div>
-        )}
+          )
+        })()}
         {/* Main Content Grid */}
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left Column: Manage Chores (2 cols on desktop) */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Pending Approvals Section */}
+            {(pendingCompletions.length > 0 || pendingRedemptions.length > 0 || pendingStarPurchases.length > 0) && (
+              <div className="cb-card p-6 border-4 border-[var(--warning)]">
+                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length + pendingRedemptions.length + pendingStarPurchases.length})</h2>
+                <div className="space-y-4">
+                  {/* Chore Completions */}
+                  {pendingCompletions.map((completion: any) => (
+                    <div
+                      key={completion.id}
+                      className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                          ✅
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                {completion.assignment?.chore?.title || 'Chore'}
+                              </h4>
+                              <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                Completed by <span className="font-semibold text-[var(--primary)]">{completion.child?.nickname || 'Unknown'}</span>
+                              </p>
+                              {completion.note && (
+                                <div className="mt-2 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                  <p className="text-sm text-gray-700">
+                                    <span className="font-semibold">Note:</span> {completion.note}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-xl font-bold text-[var(--success)]">
+                                {completion.bidAmountPence ? (
+                                  <>
+                                    <div className="text-sm text-orange-600 font-bold">⚔️ Challenge Bid</div>
+                                    <div>💰 £{(completion.bidAmountPence / 100).toFixed(2)}</div>
+                                    <div className="text-xs text-yellow-600">🏆 Gets 2⭐ (double!)</div>
+                                  </>
+                                ) : (
+                                  <>💰 £{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}</>
+                                )}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)]">
+                                {new Date(completion.timestamp).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              onClick={() => handleApproveCompletion(completion.id)}
+                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ✅ Approve & Pay
+                            </button>
+                            <button
+                              onClick={() => handleRejectCompletion(completion.id)}
+                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ❌ Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Gift Redemptions */}
+                  {pendingRedemptions.map((redemption: any) => {
+                    const gift = redemption.familyGift || redemption.reward
+                    const addedBy = redemption.familyGift?.createdByUser
+                    
+                    return (
+                      <div
+                        key={redemption.id}
+                        className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                            🎁
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                  {gift?.title || 'Gift'}
+                                </h4>
+                                <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                  Redeemed by <span className="font-semibold text-[var(--primary)]">{redemption.child?.nickname || 'Unknown'}</span>
+                                  {addedBy && (
+                                    <> • Added by <span className="font-semibold text-purple-600">{addedBy.email?.split('@')[0] || 'Unknown'}</span></>
+                                  )}
+                                </p>
+                                {gift?.description && (
+                                  <p className="text-xs text-[var(--text-secondary)] mb-2">
+                                    {gift.description}
+                                  </p>
+                                )}
+                                {(gift?.affiliateUrl || gift?.sitestripeUrl) && (
+                                  <a 
+                                    href={gift.affiliateUrl || gift.sitestripeUrl || '#'} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-block mt-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
+                                  >
+                                    🔗 Purchase on Amazon
+                                  </a>
+                                )}
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="text-xl font-bold text-[var(--bonus-stars)]">
+                                  ⭐ {redemption.costPaid || 0} stars
+                                </div>
+                                <div className="text-xs text-[var(--text-secondary)]">
+                                  {new Date(redemption.createdAt).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2 mt-4">
+                              <button
+                                onClick={() => handleApproveRedemption(redemption.id)}
+                                className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              >
+                                ✅ Approve & Purchase
+                              </button>
+                              <button
+                                onClick={() => handleRejectRedemption(redemption.id)}
+                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              >
+                                ❌ Reject
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  {/* Star Purchases */}
+                  {pendingStarPurchases.map((purchase: any) => (
+                    <div
+                      key={purchase.id}
+                      className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
+                          ⭐
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
+                                Buy {purchase.starsRequested} Star{purchase.starsRequested !== 1 ? 's' : ''}
+                              </h4>
+                              <p className="text-sm text-[var(--text-secondary)] mb-2">
+                                Requested by <span className="font-semibold text-[var(--primary)]">{purchase.child?.nickname || 'Unknown'}</span>
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)]">
+                                Conversion rate: £{((purchase.conversionRatePence || 10) / 100).toFixed(2)} per star
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-xl font-bold text-[var(--bonus-stars)]">
+                                ⭐ {purchase.starsRequested || 0} stars
+                              </div>
+                              <div className="text-sm text-[var(--text-secondary)]">
+                                £{((purchase.amountPence || 0) / 100).toFixed(2)}
+                              </div>
+                              <div className="text-xs text-[var(--text-secondary)]">
+                                {new Date(purchase.createdAt).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              onClick={() => handleApproveStarPurchase(purchase.id)}
+                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectStarPurchase(purchase.id)}
+                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                            >
+                              ❌ Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Family Activity Feed */}
+            <div className="cb-card p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="cb-heading-lg text-[var(--primary)]">📊 Family Activity</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setActivityTab('recent')}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      activityTab === 'recent'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                    }`}
+                  >
+                    Recent (2 days)
+                  </button>
+                  <button
+                    onClick={() => setActivityTab('history')}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      activityTab === 'history'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                    }`}
+                  >
+                    History (2 months)
+                  </button>
+                </div>
+              </div>
+              
+              {activityTab === 'recent' && (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {/* Show completions from last 2 days */}
+                  {(() => {
+                    const twoDaysAgo = new Date()
+                    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+                    
+                    // Get recent completions
+                    const recentItems = [...recentCompletions]
+                      .filter((c: any) => new Date(c.timestamp) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                      .map((completion: any) => ({
+                        type: 'completion',
+                        data: completion,
+                        timestamp: completion.timestamp
+                      }))
+                    
+                    // Get recent gifts (created)
+                    const recentGifts = gifts
+                      .filter((g: any) => new Date(g.createdAt) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((gift: any) => ({
+                        type: 'gift_created',
+                        data: gift,
+                        timestamp: gift.createdAt
+                      }))
+                    
+                    // Get recent gift approvals (paid out)
+                    const recentGiftApprovals = gifts
+                      .filter((g: any) => g.status === 'paid_out' && g.paidOutAt && new Date(g.paidOutAt) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.paidOutAt).getTime() - new Date(a.paidOutAt).getTime())
+                      .map((gift: any) => ({
+                        type: 'gift_approved',
+                        data: gift,
+                        timestamp: gift.paidOutAt
+                      }))
+                    
+                    // Get recent payouts
+                    const recentPayouts = payouts
+                      .filter((p: any) => new Date(p.createdAt) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((payout: any) => ({
+                        type: 'payout',
+                        data: payout,
+                        timestamp: payout.createdAt
+                      }))
+                    
+                    // Get recent redemption fulfillments
+                    const recentRedemptionFulfillments = redemptions
+                      .filter((r: any) => r.status === 'fulfilled' && r.processedAt && new Date(r.processedAt) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime())
+                      .map((redemption: any) => ({
+                        type: 'redemption_fulfilled',
+                        data: redemption,
+                        timestamp: redemption.processedAt
+                      }))
+                    
+                    // Get recent redemption rejections
+                    const recentRedemptionRejections = redemptions
+                      .filter((r: any) => r.status === 'rejected' && r.processedAt && new Date(r.processedAt) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime())
+                      .map((redemption: any) => ({
+                        type: 'redemption_rejected',
+                        data: redemption,
+                        timestamp: redemption.processedAt
+                      }))
+                    
+                    // Get recent star purchase approvals
+                    const recentStarPurchaseApprovals = starPurchases
+                      .filter((p: any) => p.status === 'approved' && p.processedAt && new Date(p.processedAt) >= twoDaysAgo)
+                      .sort((a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime())
+                      .map((purchase: any) => ({
+                        type: 'star_purchase_approved',
+                        data: purchase,
+                        timestamp: purchase.processedAt
+                      }))
+                    
+                    // Combine and sort
+                    const allRecent = [
+                      ...recentItems, 
+                      ...recentGifts, 
+                      ...recentGiftApprovals, 
+                      ...recentPayouts,
+                      ...recentRedemptionFulfillments,
+                      ...recentRedemptionRejections,
+                      ...recentStarPurchaseApprovals
+                    ]
+                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    
+                    return allRecent.map((item: any) => {
+                      if (item.type === 'completion') {
+                        const completion = item.data
+                        const timeAgo = getTimeAgo(new Date(completion.timestamp))
+                        const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
+                        const action = completion.status === 'approved' 
+                          ? `completed "${completion.assignment?.chore?.title || 'a chore'}"` 
+                          : completion.status === 'rejected'
+                          ? `was rejected for "${completion.assignment?.chore?.title || 'a chore'}"`
+                          : `submitted "${completion.assignment?.chore?.title || 'a chore'}"`
+                        
+                        let rewardAmount = 0
+                        if (completion.status === 'approved') {
+                          if (completion.bidAmountPence && completion.assignment?.biddingEnabled) {
+                            rewardAmount = completion.bidAmountPence
+                          } else {
+                            rewardAmount = completion.assignment?.chore?.baseRewardPence || 0
+                          }
+                        }
+                        const reward = rewardAmount > 0 
+                          ? completion.bidAmountPence && completion.assignment?.biddingEnabled
+                            ? `+£${(rewardAmount / 100).toFixed(2)} (2⭐)`
+                            : `+£${(rewardAmount / 100).toFixed(2)}`
+                          : ''
+
+                        return (
+                          <div key={completion.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                              {icon}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{completion.child?.nickname || 'Someone'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">{action}</span>
+                                {reward && (
+                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    {reward}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'gift_created') {
+                        // Gift created item
+                        const gift = item.data
+                        const timeAgo = getTimeAgo(new Date(gift.createdAt))
+                        const child = uniqueChildren.find((c: any) => c.id === gift.childId)
+                        const giver = members.find((m: any) => m.id === gift.givenBy)
+                        const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
+                        
+                        return (
+                          <div key={`gift-created-${gift.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-xl">
+                              🎁
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{giverName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">gifted</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                {gift.starsAmount > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    +{gift.starsAmount}⭐
+                                  </span>
+                                )}
+                                {gift.moneyPence > 0 && (
+                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    +£{(gift.moneyPence / 100).toFixed(2)}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'gift_approved') {
+                        // Gift approved (paid out) item
+                        const gift = item.data
+                        const timeAgo = getTimeAgo(new Date(gift.paidOutAt))
+                        const child = uniqueChildren.find((c: any) => c.id === gift.childId)
+                        const giver = members.find((m: any) => m.id === gift.givenBy)
+                        const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
+                        
+                        return (
+                          <div key={`gift-approved-${gift.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-xl">
+                              ✅
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{giverName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">approved gift for</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                {gift.starsAmount > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    {gift.starsAmount}⭐
+                                  </span>
+                                )}
+                                {gift.moneyPence > 0 && (
+                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    £{(gift.moneyPence / 100).toFixed(2)}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'payout') {
+                        // Payout item
+                        const payout = item.data
+                        const timeAgo = getTimeAgo(new Date(payout.createdAt))
+                        const child = uniqueChildren.find((c: any) => c.id === payout.childId)
+                        const payer = members.find((m: any) => m.id === payout.paidBy)
+                        const payerName = payer?.displayName || payer?.user?.email?.split('@')[0] || 'Parent'
+                        
+                        return (
+                          <div key={`payout-${payout.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center text-xl">
+                              💸
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{payerName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">paid out</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">£{(payout.amountPence / 100).toFixed(2)}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">to</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                {payout.method && (
+                                  <span className="ml-2 cb-chip bg-blue-100 text-blue-700">
+                                    {payout.method === 'cash' ? '💵 Cash' : payout.method === 'bank_transfer' ? '🏦 Transfer' : '📝 Other'}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'redemption_fulfilled') {
+                        // Redemption fulfilled item
+                        const redemption = item.data
+                        const timeAgo = getTimeAgo(new Date(redemption.processedAt))
+                        const child = uniqueChildren.find((c: any) => c.id === redemption.childId)
+                        const gift = redemption.familyGift || redemption.reward
+                        
+                        return (
+                          <div key={`redemption-fulfilled-${redemption.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-xl">
+                              🎉
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">received</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{gift?.title || 'gift'}</span>
+                                {redemption.costPaid > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    {redemption.costPaid}⭐
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'redemption_rejected') {
+                        // Redemption rejected item
+                        const redemption = item.data
+                        const timeAgo = getTimeAgo(new Date(redemption.processedAt))
+                        const child = uniqueChildren.find((c: any) => c.id === redemption.childId)
+                        const gift = redemption.familyGift || redemption.reward
+                        
+                        return (
+                          <div key={`redemption-rejected-${redemption.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-orange-500 rounded-full flex items-center justify-center text-xl">
+                              ❌
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">redemption of</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{gift?.title || 'gift'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">was rejected</span>
+                                {redemption.costPaid > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    {redemption.costPaid}⭐ refunded
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'star_purchase_approved') {
+                        // Star purchase approved item
+                        const purchase = item.data
+                        const timeAgo = getTimeAgo(new Date(purchase.processedAt))
+                        const child = uniqueChildren.find((c: any) => c.id === purchase.childId)
+                        const approver = members.find((m: any) => m.id === purchase.approvedBy)
+                        const approverName = approver?.displayName || approver?.user?.email?.split('@')[0] || 'Parent'
+                        
+                        return (
+                          <div key={`star-purchase-approved-${purchase.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xl">
+                              ⭐
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{approverName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">approved</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{purchase.starsRequested} star{purchase.starsRequested !== 1 ? 's' : ''}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">for</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                  £{((purchase.amountPence || 0) / 100).toFixed(2)}
+                                </span>
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
+                            </div>
+                          </div>
+                        )
+                      }
+                    })
+                  })()}
+                  
+                  {(() => {
+                    const twoDaysAgo = new Date()
+                    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+                    const hasRecent = recentCompletions.some((c: any) => new Date(c.timestamp) >= twoDaysAgo) ||
+                                     gifts.some((g: any) => new Date(g.createdAt) >= twoDaysAgo) ||
+                                     gifts.some((g: any) => g.status === 'paid_out' && g.paidOutAt && new Date(g.paidOutAt) >= twoDaysAgo) ||
+                                     payouts.some((p: any) => new Date(p.createdAt) >= twoDaysAgo) ||
+                                     redemptions.some((r: any) => r.status === 'fulfilled' && r.processedAt && new Date(r.processedAt) >= twoDaysAgo) ||
+                                     redemptions.some((r: any) => r.status === 'rejected' && r.processedAt && new Date(r.processedAt) >= twoDaysAgo) ||
+                                     starPurchases.some((p: any) => p.status === 'approved' && p.processedAt && new Date(p.processedAt) >= twoDaysAgo)
+                    
+                    if (!hasRecent) {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="text-5xl mb-3">📊</div>
+                          <p className="text-[var(--text-secondary)] font-medium">No recent activity</p>
+                          <p className="text-sm text-[var(--text-secondary)] mt-1">Activity from the last 2 days will appear here</p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
+                </div>
+              )}
+              
+              {activityTab === 'history' && (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {(() => {
+                    const twoMonthsAgo = new Date()
+                    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+                    
+                    // Get all completions from last 2 months
+                    const historyCompletions = [...recentCompletions]
+                      .filter((c: any) => new Date(c.timestamp) >= twoMonthsAgo)
+                      .map((completion: any) => ({
+                        type: 'completion',
+                        data: completion,
+                        timestamp: completion.timestamp
+                      }))
+                    
+                    // Get all gifts created from last 2 months
+                    const historyGifts = gifts
+                      .filter((g: any) => new Date(g.createdAt) >= twoMonthsAgo)
+                      .map((gift: any) => ({
+                        type: 'gift_created',
+                        data: gift,
+                        timestamp: gift.createdAt
+                      }))
+                    
+                    // Get all gift approvals from last 2 months
+                    const historyGiftApprovals = gifts
+                      .filter((g: any) => g.status === 'paid_out' && g.paidOutAt && new Date(g.paidOutAt) >= twoMonthsAgo)
+                      .map((gift: any) => ({
+                        type: 'gift_approved',
+                        data: gift,
+                        timestamp: gift.paidOutAt
+                      }))
+                    
+                    // Get all payouts from last 2 months
+                    const historyPayouts = payouts
+                      .filter((p: any) => new Date(p.createdAt) >= twoMonthsAgo)
+                      .map((payout: any) => ({
+                        type: 'payout',
+                        data: payout,
+                        timestamp: payout.createdAt
+                      }))
+                    
+                    // Get all redemption fulfillments from last 2 months
+                    const historyRedemptionFulfillments = redemptions
+                      .filter((r: any) => r.status === 'fulfilled' && r.processedAt && new Date(r.processedAt) >= twoMonthsAgo)
+                      .map((redemption: any) => ({
+                        type: 'redemption_fulfilled',
+                        data: redemption,
+                        timestamp: redemption.processedAt
+                      }))
+                    
+                    // Get all redemption rejections from last 2 months
+                    const historyRedemptionRejections = redemptions
+                      .filter((r: any) => r.status === 'rejected' && r.processedAt && new Date(r.processedAt) >= twoMonthsAgo)
+                      .map((redemption: any) => ({
+                        type: 'redemption_rejected',
+                        data: redemption,
+                        timestamp: redemption.processedAt
+                      }))
+                    
+                    // Get all star purchase approvals from last 2 months
+                    const historyStarPurchaseApprovals = starPurchases
+                      .filter((p: any) => p.status === 'approved' && p.processedAt && new Date(p.processedAt) >= twoMonthsAgo)
+                      .map((purchase: any) => ({
+                        type: 'star_purchase_approved',
+                        data: purchase,
+                        timestamp: purchase.processedAt
+                      }))
+                    
+                    // Combine and sort
+                    const allHistory = [
+                      ...historyCompletions, 
+                      ...historyGifts, 
+                      ...historyGiftApprovals, 
+                      ...historyPayouts,
+                      ...historyRedemptionFulfillments,
+                      ...historyRedemptionRejections,
+                      ...historyStarPurchaseApprovals
+                    ]
+                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    
+                    return allHistory.map((item: any) => {
+                      if (item.type === 'completion') {
+                        const completion = item.data
+                        const timeAgo = getTimeAgo(new Date(completion.timestamp))
+                        const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
+                        const action = completion.status === 'approved' 
+                          ? `completed "${completion.assignment?.chore?.title || 'a chore'}"` 
+                          : completion.status === 'rejected'
+                          ? `was rejected for "${completion.assignment?.chore?.title || 'a chore'}"`
+                          : `submitted "${completion.assignment?.chore?.title || 'a chore'}"`
+                        
+                        let rewardAmount = 0
+                        if (completion.status === 'approved') {
+                          if (completion.bidAmountPence && completion.assignment?.biddingEnabled) {
+                            rewardAmount = completion.bidAmountPence
+                          } else {
+                            rewardAmount = completion.assignment?.chore?.baseRewardPence || 0
+                          }
+                        }
+                        const reward = rewardAmount > 0 
+                          ? completion.bidAmountPence && completion.assignment?.biddingEnabled
+                            ? `+£${(rewardAmount / 100).toFixed(2)} (2⭐)`
+                            : `+£${(rewardAmount / 100).toFixed(2)}`
+                          : ''
+
+                        return (
+                          <div key={completion.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                              {icon}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{completion.child?.nickname || 'Someone'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">{action}</span>
+                                {reward && (
+                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    {reward}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(completion.timestamp).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'gift_created') {
+                        // Gift created item
+                        const gift = item.data
+                        const timeAgo = getTimeAgo(new Date(gift.createdAt))
+                        const child = uniqueChildren.find((c: any) => c.id === gift.childId)
+                        const giver = members.find((m: any) => m.id === gift.givenBy)
+                        const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
+                        
+                        return (
+                          <div key={`gift-created-${gift.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-xl">
+                              🎁
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{giverName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">gifted</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                {gift.starsAmount > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    +{gift.starsAmount}⭐
+                                  </span>
+                                )}
+                                {gift.moneyPence > 0 && (
+                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    +£{(gift.moneyPence / 100).toFixed(2)}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(gift.createdAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'gift_approved') {
+                        // Gift approved (paid out) item
+                        const gift = item.data
+                        const timeAgo = getTimeAgo(new Date(gift.paidOutAt))
+                        const child = uniqueChildren.find((c: any) => c.id === gift.childId)
+                        const giver = members.find((m: any) => m.id === gift.givenBy)
+                        const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
+                        
+                        return (
+                          <div key={`gift-approved-${gift.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-xl">
+                              ✅
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{giverName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">approved gift for</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                {gift.starsAmount > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    {gift.starsAmount}⭐
+                                  </span>
+                                )}
+                                {gift.moneyPence > 0 && (
+                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                    £{(gift.moneyPence / 100).toFixed(2)}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(gift.paidOutAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'payout') {
+                        // Payout item
+                        const payout = item.data
+                        const timeAgo = getTimeAgo(new Date(payout.createdAt))
+                        const child = uniqueChildren.find((c: any) => c.id === payout.childId)
+                        const payer = members.find((m: any) => m.id === payout.paidBy)
+                        const payerName = payer?.displayName || payer?.user?.email?.split('@')[0] || 'Parent'
+                        
+                        return (
+                          <div key={`payout-${payout.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center text-xl">
+                              💸
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{payerName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">paid out</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">£{(payout.amountPence / 100).toFixed(2)}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">to</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                {payout.method && (
+                                  <span className="ml-2 cb-chip bg-blue-100 text-blue-700">
+                                    {payout.method === 'cash' ? '💵 Cash' : payout.method === 'bank_transfer' ? '🏦 Transfer' : '📝 Other'}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(payout.createdAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'redemption_fulfilled') {
+                        // Redemption fulfilled item
+                        const redemption = item.data
+                        const timeAgo = getTimeAgo(new Date(redemption.processedAt))
+                        const child = uniqueChildren.find((c: any) => c.id === redemption.childId)
+                        const gift = redemption.familyGift || redemption.reward
+                        
+                        return (
+                          <div key={`redemption-fulfilled-${redemption.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-xl">
+                              🎉
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">received</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{gift?.title || 'gift'}</span>
+                                {redemption.costPaid > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    {redemption.costPaid}⭐
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(redemption.processedAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'redemption_rejected') {
+                        // Redemption rejected item
+                        const redemption = item.data
+                        const timeAgo = getTimeAgo(new Date(redemption.processedAt))
+                        const child = uniqueChildren.find((c: any) => c.id === redemption.childId)
+                        const gift = redemption.familyGift || redemption.reward
+                        
+                        return (
+                          <div key={`redemption-rejected-${redemption.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-orange-500 rounded-full flex items-center justify-center text-xl">
+                              ❌
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">redemption of</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{gift?.title || 'gift'}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">was rejected</span>
+                                {redemption.costPaid > 0 && (
+                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
+                                    {redemption.costPaid}⭐ refunded
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(redemption.processedAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      } else if (item.type === 'star_purchase_approved') {
+                        // Star purchase approved item
+                        const purchase = item.data
+                        const timeAgo = getTimeAgo(new Date(purchase.processedAt))
+                        const child = uniqueChildren.find((c: any) => c.id === purchase.childId)
+                        const approver = members.find((m: any) => m.id === purchase.approvedBy)
+                        const approverName = approver?.displayName || approver?.user?.email?.split('@')[0] || 'Parent'
+                        
+                        return (
+                          <div key={`star-purchase-approved-${purchase.id}`} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
+                            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-xl">
+                              ⭐
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                <span className="font-bold text-[var(--text-primary)]">{approverName}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">approved</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{purchase.starsRequested} star{purchase.starsRequested !== 1 ? 's' : ''}</span>{' '}
+                                <span className="text-[var(--text-secondary)]">for</span>{' '}
+                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
+                                <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
+                                  £{((purchase.amountPence || 0) / 100).toFixed(2)}
+                                </span>
+                              </p>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(purchase.processedAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        )
+                      }
+                    })
+                  })()}
+                  
+                  {(() => {
+                    const twoMonthsAgo = new Date()
+                    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+                    const hasHistory = recentCompletions.some((c: any) => new Date(c.timestamp) >= twoMonthsAgo) ||
+                                      gifts.some((g: any) => new Date(g.createdAt) >= twoMonthsAgo) ||
+                                      gifts.some((g: any) => g.status === 'paid_out' && g.paidOutAt && new Date(g.paidOutAt) >= twoMonthsAgo) ||
+                                      payouts.some((p: any) => new Date(p.createdAt) >= twoMonthsAgo) ||
+                                      redemptions.some((r: any) => r.status === 'fulfilled' && r.processedAt && new Date(r.processedAt) >= twoMonthsAgo) ||
+                                      redemptions.some((r: any) => r.status === 'rejected' && r.processedAt && new Date(r.processedAt) >= twoMonthsAgo) ||
+                                      starPurchases.some((p: any) => p.status === 'approved' && p.processedAt && new Date(p.processedAt) >= twoMonthsAgo)
+                    
+                    if (!hasHistory) {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="text-5xl mb-3">📊</div>
+                          <p className="text-[var(--text-secondary)] font-medium">No activity in the last 2 months</p>
+                          <p className="text-sm text-[var(--text-secondary)] mt-1">Activity from the last 60 days will appear here</p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
+                </div>
+              )}
+            </div>
+
             {/* Manage Chores Section */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-6">
@@ -1664,495 +2733,6 @@ const ParentDashboard: React.FC = () => {
                       </p>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-
-            {/* Pending Approvals Section */}
-            {(pendingCompletions.length > 0 || pendingRedemptions.length > 0 || pendingStarPurchases.length > 0) && (
-              <div className="cb-card p-6 border-4 border-[var(--warning)]">
-                <h2 className="cb-heading-lg text-[var(--warning)] mb-6">⏳ Pending Approvals ({pendingCompletions.length + pendingRedemptions.length + pendingStarPurchases.length})</h2>
-                <div className="space-y-4">
-                  {/* Chore Completions */}
-                  {pendingCompletions.map((completion: any) => (
-                    <div
-                      key={completion.id}
-                      className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                          ✅
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
-                                {completion.assignment?.chore?.title || 'Chore'}
-                              </h4>
-                              <p className="text-sm text-[var(--text-secondary)] mb-2">
-                                Completed by <span className="font-semibold text-[var(--primary)]">{completion.child?.nickname || 'Unknown'}</span>
-                              </p>
-                              {completion.note && (
-                                <div className="mt-2 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
-                                  <p className="text-sm text-gray-700">
-                                    <span className="font-semibold">Note:</span> {completion.note}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-xl font-bold text-[var(--success)]">
-                                {completion.bidAmountPence ? (
-                                  <>
-                                    <div className="text-sm text-orange-600 font-bold">⚔️ Challenge Bid</div>
-                                    <div>💰 £{(completion.bidAmountPence / 100).toFixed(2)}</div>
-                                    <div className="text-xs text-yellow-600">🏆 Gets 2⭐ (double!)</div>
-                                  </>
-                                ) : (
-                                  <>💰 £{((completion.assignment?.chore?.baseRewardPence || 0) / 100).toFixed(2)}</>
-                                )}
-                              </div>
-                              <div className="text-xs text-[var(--text-secondary)]">
-                                {new Date(completion.timestamp).toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              onClick={() => handleApproveCompletion(completion.id)}
-                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                            >
-                              ✅ Approve & Pay
-                            </button>
-                            <button
-                              onClick={() => handleRejectCompletion(completion.id)}
-                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                            >
-                              ❌ Reject
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Gift Redemptions */}
-                  {pendingRedemptions.map((redemption: any) => {
-                    const gift = redemption.familyGift || redemption.reward
-                    const addedBy = redemption.familyGift?.createdByUser
-                    
-                    return (
-                      <div
-                        key={redemption.id}
-                        className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                            🎁
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-3 mb-2">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-[var(--text-primary)] mb-1">
-                                  {gift?.title || 'Gift'}
-                                </h4>
-                                <p className="text-sm text-[var(--text-secondary)] mb-2">
-                                  Redeemed by <span className="font-semibold text-[var(--primary)]">{redemption.child?.nickname || 'Unknown'}</span>
-                                  {addedBy && (
-                                    <> • Added by <span className="font-semibold text-purple-600">{addedBy.email?.split('@')[0] || 'Unknown'}</span></>
-                                  )}
-                                </p>
-                                {gift?.description && (
-                                  <p className="text-xs text-[var(--text-secondary)] mb-2">
-                                    {gift.description}
-                                  </p>
-                                )}
-                                {(gift?.affiliateUrl || gift?.sitestripeUrl) && (
-                                  <a 
-                                    href={gift.affiliateUrl || gift.sitestripeUrl || '#'} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="inline-block mt-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
-                                  >
-                                    🔗 Purchase on Amazon
-                                  </a>
-                                )}
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <div className="text-xl font-bold text-[var(--bonus-stars)]">
-                                  ⭐ {redemption.costPaid || 0} stars
-                                </div>
-                                <div className="text-xs text-[var(--text-secondary)]">
-                                  {new Date(redemption.createdAt).toLocaleString()}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2 mt-4">
-                              <button
-                                onClick={() => handleApproveRedemption(redemption.id)}
-                                className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                              >
-                                ✅ Approve & Purchase
-                              </button>
-                              <button
-                                onClick={() => handleRejectRedemption(redemption.id)}
-                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                              >
-                                ❌ Reject
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  
-                  {/* Star Purchases */}
-                  {pendingStarPurchases.map((purchase: any) => (
-                    <div
-                      key={purchase.id}
-                      className="bg-[var(--background)] border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] p-4"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0">
-                          ⭐
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-[var(--text-primary)] mb-1">
-                                Buy {purchase.starsRequested} Star{purchase.starsRequested !== 1 ? 's' : ''}
-                              </h4>
-                              <p className="text-sm text-[var(--text-secondary)] mb-2">
-                                Requested by <span className="font-semibold text-[var(--primary)]">{purchase.child?.nickname || 'Unknown'}</span>
-                              </p>
-                              <p className="text-xs text-[var(--text-secondary)]">
-                                Conversion rate: £{((purchase.conversionRatePence || 10) / 100).toFixed(2)} per star
-                              </p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-xl font-bold text-[var(--bonus-stars)]">
-                                ⭐ {purchase.starsRequested || 0} stars
-                              </div>
-                              <div className="text-sm text-[var(--text-secondary)]">
-                                £{((purchase.amountPence || 0) / 100).toFixed(2)}
-                              </div>
-                              <div className="text-xs text-[var(--text-secondary)]">
-                                {new Date(purchase.createdAt).toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              onClick={() => handleApproveStarPurchase(purchase.id)}
-                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                            >
-                              ✅ Approve
-                            </button>
-                            <button
-                              onClick={() => handleRejectStarPurchase(purchase.id)}
-                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
-                            >
-                              ❌ Reject
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Family Activity Feed */}
-            <div className="cb-card p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="cb-heading-lg text-[var(--primary)]">📊 Family Activity</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActivityTab('recent')}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
-                      activityTab === 'recent'
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
-                    }`}
-                  >
-                    Recent (2 days)
-                  </button>
-                  <button
-                    onClick={() => setActivityTab('history')}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
-                      activityTab === 'history'
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
-                    }`}
-                  >
-                    History (1 month)
-                  </button>
-                </div>
-              </div>
-              
-              {activityTab === 'recent' && (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {/* Show completions from last 2 days */}
-                  {(() => {
-                    const twoDaysAgo = new Date()
-                    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-                    
-                    // Get recent completions
-                    const recentItems = [...recentCompletions]
-                      .filter((c: any) => new Date(c.timestamp) >= twoDaysAgo)
-                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                      .map((completion: any) => ({
-                        type: 'completion',
-                        data: completion,
-                        timestamp: completion.timestamp
-                      }))
-                    
-                    // Get recent gifts
-                    const recentGifts = gifts
-                      .filter((g: any) => new Date(g.createdAt) >= twoDaysAgo)
-                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                      .map((gift: any) => ({
-                        type: 'gift',
-                        data: gift,
-                        timestamp: gift.createdAt
-                      }))
-                    
-                    // Combine and sort
-                    const allRecent = [...recentItems, ...recentGifts]
-                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                    
-                    return allRecent.map((item: any) => {
-                      if (item.type === 'completion') {
-                        const completion = item.data
-                        const timeAgo = getTimeAgo(new Date(completion.timestamp))
-                        const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
-                        const action = completion.status === 'approved' 
-                          ? `completed "${completion.assignment?.chore?.title || 'a chore'}"` 
-                          : completion.status === 'rejected'
-                          ? `was rejected for "${completion.assignment?.chore?.title || 'a chore'}"`
-                          : `submitted "${completion.assignment?.chore?.title || 'a chore'}"`
-                        
-                        let rewardAmount = 0
-                        if (completion.status === 'approved') {
-                          if (completion.bidAmountPence && completion.assignment?.biddingEnabled) {
-                            rewardAmount = completion.bidAmountPence
-                          } else {
-                            rewardAmount = completion.assignment?.chore?.baseRewardPence || 0
-                          }
-                        }
-                        const reward = rewardAmount > 0 
-                          ? completion.bidAmountPence && completion.assignment?.biddingEnabled
-                            ? `+£${(rewardAmount / 100).toFixed(2)} (2⭐)`
-                            : `+£${(rewardAmount / 100).toFixed(2)}`
-                          : ''
-
-                        return (
-                          <div key={completion.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
-                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
-                              {icon}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm">
-                                <span className="font-bold text-[var(--text-primary)]">{completion.child?.nickname || 'Someone'}</span>{' '}
-                                <span className="text-[var(--text-secondary)]">{action}</span>
-                                {reward && (
-                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                    {reward}
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
-                            </div>
-                          </div>
-                        )
-                      } else {
-                        // Gift item
-                        const gift = item.data
-                        const timeAgo = getTimeAgo(new Date(gift.createdAt))
-                        const child = uniqueChildren.find((c: any) => c.id === gift.childId)
-                        const giver = members.find((m: any) => m.id === gift.givenBy)
-                        const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
-                        
-                        return (
-                          <div key={gift.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-xl">
-                              🎁
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm">
-                                <span className="font-bold text-[var(--text-primary)]">{giverName}</span>{' '}
-                                <span className="text-[var(--text-secondary)]">gifted</span>{' '}
-                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
-                                {gift.starsAmount > 0 && (
-                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
-                                    +{gift.starsAmount}⭐
-                                  </span>
-                                )}
-                                {gift.moneyPence > 0 && (
-                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                    +£{(gift.moneyPence / 100).toFixed(2)}
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo}</p>
-                            </div>
-                          </div>
-                        )
-                      }
-                    })
-                  })()}
-                  
-                  {(() => {
-                    const twoDaysAgo = new Date()
-                    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-                    const hasRecent = recentCompletions.some((c: any) => new Date(c.timestamp) >= twoDaysAgo) ||
-                                     gifts.some((g: any) => new Date(g.createdAt) >= twoDaysAgo)
-                    
-                    if (!hasRecent) {
-                      return (
-                        <div className="text-center py-8">
-                          <div className="text-5xl mb-3">📊</div>
-                          <p className="text-[var(--text-secondary)] font-medium">No recent activity</p>
-                          <p className="text-sm text-[var(--text-secondary)] mt-1">Activity from the last 2 days will appear here</p>
-                        </div>
-                      )
-                    }
-                    return null
-                  })()}
-                </div>
-              )}
-              
-              {activityTab === 'history' && (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {(() => {
-                    const oneMonthAgo = new Date()
-                    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-                    
-                    // Get all completions from last month
-                    const historyCompletions = [...recentCompletions]
-                      .filter((c: any) => new Date(c.timestamp) >= oneMonthAgo)
-                      .map((completion: any) => ({
-                        type: 'completion',
-                        data: completion,
-                        timestamp: completion.timestamp
-                      }))
-                    
-                    // Get all gifts from last month
-                    const historyGifts = gifts
-                      .filter((g: any) => new Date(g.createdAt) >= oneMonthAgo)
-                      .map((gift: any) => ({
-                        type: 'gift',
-                        data: gift,
-                        timestamp: gift.createdAt
-                      }))
-                    
-                    // Combine and sort
-                    const allHistory = [...historyCompletions, ...historyGifts]
-                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                    
-                    return allHistory.map((item: any) => {
-                      if (item.type === 'completion') {
-                        const completion = item.data
-                        const timeAgo = getTimeAgo(new Date(completion.timestamp))
-                        const icon = completion.status === 'approved' ? '✅' : completion.status === 'rejected' ? '❌' : '⏳'
-                        const action = completion.status === 'approved' 
-                          ? `completed "${completion.assignment?.chore?.title || 'a chore'}"` 
-                          : completion.status === 'rejected'
-                          ? `was rejected for "${completion.assignment?.chore?.title || 'a chore'}"`
-                          : `submitted "${completion.assignment?.chore?.title || 'a chore'}"`
-                        
-                        let rewardAmount = 0
-                        if (completion.status === 'approved') {
-                          if (completion.bidAmountPence && completion.assignment?.biddingEnabled) {
-                            rewardAmount = completion.bidAmountPence
-                          } else {
-                            rewardAmount = completion.assignment?.chore?.baseRewardPence || 0
-                          }
-                        }
-                        const reward = rewardAmount > 0 
-                          ? completion.bidAmountPence && completion.assignment?.biddingEnabled
-                            ? `+£${(rewardAmount / 100).toFixed(2)} (2⭐)`
-                            : `+£${(rewardAmount / 100).toFixed(2)}`
-                          : ''
-
-                        return (
-                          <div key={completion.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
-                            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
-                              {icon}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm">
-                                <span className="font-bold text-[var(--text-primary)]">{completion.child?.nickname || 'Someone'}</span>{' '}
-                                <span className="text-[var(--text-secondary)]">{action}</span>
-                                {reward && (
-                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                    {reward}
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(completion.timestamp).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                        )
-                      } else {
-                        // Gift item
-                        const gift = item.data
-                        const timeAgo = getTimeAgo(new Date(gift.createdAt))
-                        const child = uniqueChildren.find((c: any) => c.id === gift.childId)
-                        const giver = members.find((m: any) => m.id === gift.givenBy)
-                        const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
-                        
-                        return (
-                          <div key={gift.id} className="flex items-center gap-3 p-3 bg-[var(--background)] rounded-[var(--radius-md)]">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-xl">
-                              🎁
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm">
-                                <span className="font-bold text-[var(--text-primary)]">{giverName}</span>{' '}
-                                <span className="text-[var(--text-secondary)]">gifted</span>{' '}
-                                <span className="font-bold text-[var(--text-primary)]">{child?.nickname || 'Unknown'}</span>
-                                {gift.starsAmount > 0 && (
-                                  <span className="ml-2 cb-chip bg-yellow-100 text-yellow-700">
-                                    +{gift.starsAmount}⭐
-                                  </span>
-                                )}
-                                {gift.moneyPence > 0 && (
-                                  <span className="ml-2 cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                                    +£{(gift.moneyPence / 100).toFixed(2)}
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-[var(--text-secondary)] mt-1">{timeAgo} • {new Date(gift.createdAt).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                        )
-                      }
-                    })
-                  })()}
-                  
-                  {(() => {
-                    const oneMonthAgo = new Date()
-                    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-                    const hasHistory = recentCompletions.some((c: any) => new Date(c.timestamp) >= oneMonthAgo) ||
-                                      gifts.some((g: any) => new Date(g.createdAt) >= oneMonthAgo)
-                    
-                    if (!hasHistory) {
-                      return (
-                        <div className="text-center py-8">
-                          <div className="text-5xl mb-3">📊</div>
-                          <p className="text-[var(--text-secondary)] font-medium">No activity in the last month</p>
-                          <p className="text-sm text-[var(--text-secondary)] mt-1">Activity from the last 30 days will appear here</p>
-                        </div>
-                      )
-                    }
-                    return null
-                  })()}
                 </div>
               )}
             </div>
@@ -2800,6 +3380,7 @@ const ParentDashboard: React.FC = () => {
                               onClick={() => {
                                 setPayoutChild(child)
                                 setPayoutAmount((balancePence / 100).toFixed(2))
+                                setPayoutChoreAmount((balancePence / 100).toFixed(2))
                                 setSelectedGiftIds([])
                                 setShowPayoutModal(true)
                               }}
@@ -3382,8 +3963,23 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
+                    // Update state optimistically BEFORE API call
+                    if (family) {
+                      setFamily((prev: Family | null) => {
+                        if (!prev) return prev
+                        return {
+                          ...prev,
+                          maxBudgetPence: budgetSettings.maxBudgetPence,
+                          budgetPeriod: budgetSettings.budgetPeriod,
+                          showLifetimeEarnings: budgetSettings.showLifetimeEarnings,
+                          buyStarsEnabled: budgetSettings.buyStarsEnabled,
+                          starConversionRatePence: budgetSettings.starConversionRatePence
+                        }
+                      })
+                    }
+                    
                     // Save budget settings
-                    const response = await apiClient.updateFamily({
+                    await apiClient.updateFamily({
                       maxBudgetPence: budgetSettings.maxBudgetPence,
                       budgetPeriod: budgetSettings.budgetPeriod,
                       showLifetimeEarnings: budgetSettings.showLifetimeEarnings,
@@ -3392,21 +3988,13 @@ const ParentDashboard: React.FC = () => {
                     })
                     // TODO: Save rivalry settings when backend is ready
                     
-                    // Update budget settings immediately from response
-                    if (response?.family) {
-                      setBudgetSettings({
-                        maxBudgetPence: response.family.maxBudgetPence || 0,
-                        budgetPeriod: response.family.budgetPeriod || 'weekly',
-                        showLifetimeEarnings: response.family.showLifetimeEarnings !== false,
-                        buyStarsEnabled: response.family.buyStarsEnabled || false,
-                        starConversionRatePence: response.family.starConversionRatePence || 10
-                      })
-                    }
-                    
+                    // WebSocket will update state automatically, but update here too for immediate feedback
                     setToast({ message: '✅ Settings saved successfully!', type: 'success' })
-                    await loadDashboard() // Reload to get updated budget
+                    // Don't wait for loadDashboard - WebSocket will handle the refresh
                   } catch (error) {
                     console.error('Failed to save settings:', error)
+                    // Revert optimistic update on error
+                    loadDashboard()
                     setToast({ message: 'Failed to save settings. Please try again.', type: 'error' })
                   } finally {
                     // Always close the modal
@@ -3983,43 +4571,45 @@ const ParentDashboard: React.FC = () => {
                     }
                     console.log('Saving streak settings:', settingsToSave)
                     
-                    // Save streak settings to backend
-                    const response = await apiClient.updateFamily(settingsToSave)
-                    console.log('Update response:', response)
-                    
-                    // Use the response data directly if available, otherwise reload
-                    if (response?.family) {
-                      console.log('Using response data:', {
-                        bonusDays: response.family.bonusDays,
-                        bonusEnabled: response.family.bonusEnabled
+                    // Update state optimistically BEFORE API call
+                    if (family) {
+                      setFamily((prev: Family | null) => {
+                        if (!prev) return prev
+                        return {
+                          ...prev,
+                          ...settingsToSave
+                        }
                       })
-                      const family = response.family
-                      setStreakSettings({
-                        protectionDays: family.streakProtectionDays ?? 1,
-                        bonusEnabled: family.bonusEnabled ?? true,
-                        bonusDays: family.bonusDays ?? 7,
-                        bonusMoneyPence: family.bonusMoneyPence ?? 50,
-                        bonusStars: family.bonusStars ?? 5,
-                        bonusType: (family.bonusType || 'both') as 'money' | 'stars' | 'both',
-                        penaltyEnabled: family.penaltyEnabled ?? true,
-                        firstMissPence: family.firstMissPence ?? 10,
-                        firstMissStars: family.firstMissStars ?? 1,
-                        secondMissPence: family.secondMissPence ?? 25,
-                        secondMissStars: family.secondMissStars ?? 3,
-                        thirdMissPence: family.thirdMissPence ?? 50,
-                        thirdMissStars: family.thirdMissStars ?? 5,
-                        penaltyType: (family.penaltyType || 'both') as 'money' | 'stars' | 'both',
-                        minBalancePence: family.minBalancePence ?? 100,
-                        minBalanceStars: family.minBalanceStars ?? 10
-                      })
-                      setFamily(family)
-                    } else {
-                      // Fallback: reload dashboard
-                      await loadDashboard()
                     }
+                    // Also update streak settings state optimistically
+                    setStreakSettings((prev: any) => ({
+                      ...prev,
+                      protectionDays: settingsToSave.streakProtectionDays ?? prev.protectionDays,
+                      bonusEnabled: settingsToSave.bonusEnabled ?? prev.bonusEnabled,
+                      bonusDays: settingsToSave.bonusDays ?? prev.bonusDays,
+                      bonusMoneyPence: settingsToSave.bonusMoneyPence ?? prev.bonusMoneyPence,
+                      bonusStars: settingsToSave.bonusStars ?? prev.bonusStars,
+                      bonusType: settingsToSave.bonusType ?? prev.bonusType,
+                      penaltyEnabled: settingsToSave.penaltyEnabled ?? prev.penaltyEnabled,
+                      firstMissPence: settingsToSave.firstMissPence ?? prev.firstMissPence,
+                      firstMissStars: settingsToSave.firstMissStars ?? prev.firstMissStars,
+                      secondMissPence: settingsToSave.secondMissPence ?? prev.secondMissPence,
+                      secondMissStars: settingsToSave.secondMissStars ?? prev.secondMissStars,
+                      thirdMissPence: settingsToSave.thirdMissPence ?? prev.thirdMissPence,
+                      thirdMissStars: settingsToSave.thirdMissStars ?? prev.thirdMissStars,
+                      penaltyType: settingsToSave.penaltyType ?? prev.penaltyType,
+                      minBalancePence: settingsToSave.minBalancePence ?? prev.minBalancePence,
+                      minBalanceStars: settingsToSave.minBalanceStars ?? prev.minBalanceStars
+                    }))
                     
+                    // Save streak settings to backend
+                    await apiClient.updateFamily(settingsToSave)
+                    console.log('Streak settings saved')
+                    
+                    // WebSocket will update state automatically, but update here too for immediate feedback
                     setToast({ message: '🔥 Streak settings saved successfully!', type: 'success' })
                     setShowStreakSettingsModal(false)
+                    // Don't wait for loadDashboard - WebSocket will handle the refresh
                   } catch (error: any) {
                     console.error('Failed to save streak settings:', error)
                     
@@ -4313,9 +4903,17 @@ const ParentDashboard: React.FC = () => {
                       holidayStartDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayStartDate || undefined : null,
                       holidayEndDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayEndDate || undefined : null,
                     }
-                    await apiClient.updateFamily(updateData)
+                    
+                    console.log('💾 Saving holiday settings:', updateData)
+                    
+                    // Update state optimistically BEFORE API call
                     setFamily((prev) => {
                       if (!prev) return prev
+                      console.log('🔄 Optimistically updating family state:', {
+                        holidayMode: holidayMode.familyHolidayMode,
+                        holidayStartDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayStartDate || null : null,
+                        holidayEndDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayEndDate || null : null,
+                      })
                       return {
                         ...prev,
                         holidayMode: holidayMode.familyHolidayMode,
@@ -4323,11 +4921,21 @@ const ParentDashboard: React.FC = () => {
                         holidayEndDate: holidayMode.familyHolidayMode ? holidayMode.familyHolidayEndDate || null : null,
                       }
                     })
+                    
+                    // Set optimistic window BEFORE API call to prevent loadDashboard from overwriting
+                    setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
+                    
+                    // Save to API - WebSocket will broadcast to all dashboards
+                    await apiClient.updateFamily(updateData)
+                    console.log('✅ Holiday settings saved, WebSocket will broadcast to all dashboards')
+                    
                     setShowHolidayModal(false)
-                    setHolidayOptimisticUntil(Date.now() + 30000)
                     setToast({ message: 'Holiday settings saved', type: 'success' })
+                    // Don't wait for loadDashboard - WebSocket will handle the refresh
                   } catch (error: any) {
                     console.error('Failed to save holiday mode settings:', error)
+                    // Revert optimistic update on error
+                    loadDashboard()
                     setToast({ message: error.message || 'Failed to save holiday settings', type: 'error' })
                   } finally {
                     uiBusyRef.current = false
@@ -5625,96 +6233,158 @@ const ParentDashboard: React.FC = () => {
             </div>
 
             <form onSubmit={handleProcessPayout} className="space-y-5">
-              {/* Show pending gifts if any */}
               {(() => {
+                const childWallet = wallets.find((w: any) => w.childId === payoutChild.id)
+                const walletBalancePence = childWallet?.balancePence || 0
                 const childGifts = gifts.filter((g: any) => g.childId === payoutChild.id && g.status === 'pending' && g.moneyPence > 0)
-                if (childGifts.length > 0) {
-                  const totalGiftMoney = childGifts.reduce((sum: number, g: any) => sum + g.moneyPence, 0)
-                  return (
-                    <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                      <p className="text-sm font-semibold text-purple-800 mb-3">Select gifts to pay out:</p>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {childGifts.map((gift: any) => {
-                          const giver = members.find((m: any) => m.id === gift.givenBy)
-                          const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
-                          const isSelected = selectedGiftIds.includes(gift.id)
-                          return (
-                            <label
-                              key={gift.id}
-                              className={`flex items-center justify-between p-2 rounded border-2 cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-purple-100 border-purple-400'
-                                  : 'bg-white border-purple-200 hover:border-purple-300'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedGiftIds([...selectedGiftIds, gift.id])
-                                      // Auto-update amount when selecting gifts
-                                      const selectedTotal = [...selectedGiftIds, gift.id]
-                                        .reduce((sum, id) => {
-                                          const g = childGifts.find((g: any) => g.id === id)
-                                          return sum + (g?.moneyPence || 0)
-                                        }, 0)
-                                      setPayoutAmount((selectedTotal / 100).toFixed(2))
-                                    } else {
-                                      const newSelected = selectedGiftIds.filter((id) => id !== gift.id)
+                const totalGiftMoney = childGifts.reduce((sum: number, g: any) => sum + g.moneyPence, 0)
+                const selectedGiftTotal = selectedGiftIds.reduce((sum, id) => {
+                  const g = childGifts.find((g: any) => g.id === id)
+                  return sum + (g?.moneyPence || 0)
+                }, 0)
+                const currentChoreAmount = payoutChoreAmount ? parseFloat(payoutChoreAmount) * 100 : 0
+                const maxPayoutPence = walletBalancePence + totalGiftMoney
+                const maxChoreAmountPence = walletBalancePence
+
+                // Calculate total when gifts or chore amount changes
+                const calculatedTotal = selectedGiftTotal + currentChoreAmount
+                const calculatedTotalPounds = (calculatedTotal / 100).toFixed(2)
+
+                return (
+                  <>
+                    {/* Show pending gifts if any */}
+                    {childGifts.length > 0 && (
+                      <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                        <p className="text-sm font-semibold text-purple-800 mb-3">Select gifts to pay out:</p>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {childGifts.map((gift: any) => {
+                            const giver = members.find((m: any) => m.id === gift.givenBy)
+                            const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
+                            const isSelected = selectedGiftIds.includes(gift.id)
+                            return (
+                              <label
+                                key={gift.id}
+                                className={`flex items-center justify-between p-2 rounded border-2 cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'bg-purple-100 border-purple-400'
+                                    : 'bg-white border-purple-200 hover:border-purple-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 flex-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      let newSelected: string[]
+                                      if (e.target.checked) {
+                                        newSelected = [...selectedGiftIds, gift.id]
+                                      } else {
+                                        newSelected = selectedGiftIds.filter((id) => id !== gift.id)
+                                      }
                                       setSelectedGiftIds(newSelected)
-                                      // Auto-update amount when deselecting
-                                      const selectedTotal = newSelected.reduce((sum, id) => {
+                                      
+                                      // Recalculate total
+                                      const newGiftTotal = newSelected.reduce((sum, id) => {
                                         const g = childGifts.find((g: any) => g.id === id)
                                         return sum + (g?.moneyPence || 0)
                                       }, 0)
-                                      setPayoutAmount((selectedTotal / 100).toFixed(2))
-                                    }
-                                  }}
-                                  className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
-                                />
-                                <span className="text-sm text-gray-700">
-                                  {giverName} gift
+                                      const newTotal = newGiftTotal + currentChoreAmount
+                                      setPayoutAmount((newTotal / 100).toFixed(2))
+                                    }}
+                                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                                  />
+                                  <span className="text-sm text-gray-700">
+                                    {giverName} gift
+                                  </span>
+                                </div>
+                                <span className="text-sm font-bold text-purple-700">
+                                  £{(gift.moneyPence / 100).toFixed(2)}
                                 </span>
-                              </div>
-                              <span className="text-sm font-bold text-purple-700">
-                                £{(gift.moneyPence / 100).toFixed(2)}
-                              </span>
-                            </label>
-                          )
-                        })}
+                              </label>
+                            )
+                          })}
+                        </div>
+                        {selectedGiftIds.length > 0 && (
+                          <p className="text-xs text-purple-600 mt-2 font-semibold">
+                            Selected gifts: £{(selectedGiftTotal / 100).toFixed(2)}
+                          </p>
+                        )}
                       </div>
-                      {selectedGiftIds.length > 0 && (
-                        <p className="text-xs text-purple-600 mt-2 font-semibold">
-                          Selected: £{(selectedGiftIds.reduce((sum, id) => {
-                            const g = childGifts.find((g: any) => g.id === id)
-                            return sum + (g?.moneyPence || 0)
-                          }, 0) / 100).toFixed(2)}
+                    )}
+
+                    {/* Chore earnings amount */}
+                    {maxChoreAmountPence > 0 && (
+                      <div className="mb-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                        <label className="block font-semibold text-green-800 mb-2">
+                          💰 Amount from chores (£)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="0"
+                            max={maxChoreAmountPence}
+                            step="1"
+                            value={currentChoreAmount}
+                            onChange={(e) => {
+                              const newChoreAmount = parseInt(e.target.value)
+                              setPayoutChoreAmount((newChoreAmount / 100).toFixed(2))
+                              const newTotal = selectedGiftTotal + newChoreAmount
+                              setPayoutAmount((newTotal / 100).toFixed(2))
+                            }}
+                            className="flex-1 h-2 bg-green-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            max={(maxChoreAmountPence / 100).toFixed(2)}
+                            step="0.01"
+                            value={payoutChoreAmount}
+                            onChange={(e) => {
+                              const newChoreAmount = Math.max(0, Math.min(maxChoreAmountPence, Math.round(parseFloat(e.target.value || '0') * 100)))
+                              setPayoutChoreAmount((newChoreAmount / 100).toFixed(2))
+                              const newTotal = selectedGiftTotal + newChoreAmount
+                              setPayoutAmount((newTotal / 100).toFixed(2))
+                            }}
+                            className="w-24 px-3 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none text-sm font-bold"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <p className="text-xs text-green-600 mt-1">
+                          Max from chores: £{(maxChoreAmountPence / 100).toFixed(2)}
                         </p>
-                      )}
+                      </div>
+                    )}
+
+                    {/* Total amount display */}
+                    <div className="mb-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-blue-800">Total Payout:</span>
+                        <span className="text-2xl font-bold text-blue-900">£{calculatedTotalPounds}</span>
+                      </div>
+                      <div className="text-xs text-blue-600 space-y-1">
+                        {selectedGiftTotal > 0 && (
+                          <div className="flex justify-between">
+                            <span>From gifts:</span>
+                            <span>£{(selectedGiftTotal / 100).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {currentChoreAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span>From chores:</span>
+                            <span>£{(currentChoreAmount / 100).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-blue-600 mt-2">
+                        Max available: £{(maxPayoutPence / 100).toFixed(2)} (chores: £{(walletBalancePence / 100).toFixed(2)} + gifts: £{(totalGiftMoney / 100).toFixed(2)})
+                      </p>
                     </div>
-                  )
-                }
-                return null
+
+                    {/* Hidden total amount input for form submission */}
+                    <input type="hidden" value={calculatedTotalPounds} />
+                  </>
+                )
               })()}
-              
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Amount (£) *</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={payoutAmount}
-                  onChange={(e) => setPayoutAmount(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all text-lg font-bold"
-                  placeholder="10.00"
-                  required
-                />
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Max: £{((wallets.find((w: any) => w.childId === payoutChild.id)?.balancePence || 0) / 100).toFixed(2)}
-                </p>
-              </div>
 
               <div>
                 <label className="block font-semibold text-[var(--text-primary)] mb-2">Payment Method *</label>
@@ -5772,6 +6442,7 @@ const ParentDashboard: React.FC = () => {
                   onClick={() => {
                     setShowPayoutModal(false)
                     setPayoutAmount('')
+                    setPayoutChoreAmount('')
                     setPayoutNote('')
                     setPayoutMethod('cash')
                     setPayoutChild(null)

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
+import { useSocket } from '../contexts/SocketContext'
 import Confetti from 'react-confetti'
 
 const CoParentDashboard: React.FC = () => {
@@ -14,7 +15,7 @@ const CoParentDashboard: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true)
       const [familyData, childrenData, choresData, walletsData, completionsData] = await Promise.all([
@@ -25,22 +26,191 @@ const CoParentDashboard: React.FC = () => {
         apiClient.getCompletions()
       ])
       
-      setFamily(familyData)
-      setChildren(childrenData)
-      setChores(choresData)
-      setWallets(walletsData)
-      setCompletions(completionsData)
+      setFamily(familyData.family || familyData)
+      setChildren(childrenData.children || childrenData)
+      setChores(choresData.chores || choresData)
+      setWallets(walletsData.wallets || walletsData)
+      setCompletions(completionsData.completions || completionsData)
     } catch (error) {
       console.error('Failed to load dashboard:', error)
       setToast({ message: 'Failed to load dashboard data', type: 'error' })
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadDashboard()
-  }, [])
+  }, [loadDashboard])
+
+  // WebSocket connection for real-time updates
+  const { socket, isConnected, on, off } = useSocket()
+
+  /**
+   * Listen for updates via WebSocket
+   * This works across all devices, browsers, and tabs
+   */
+  useEffect(() => {
+    if (!socket || !isConnected) {
+      console.log('🔌 WebSocket not connected, skipping event listeners')
+      return
+    }
+
+    console.log('👂 Setting up WebSocket listeners for co-parent dashboard')
+
+    // Listen for family settings updated (holiday mode, shop enable/disable, streak settings)
+    const handleFamilySettingsUpdated = (data: any) => {
+      console.log('📢 WebSocket: family:settings:updated received on CO-PARENT dashboard', data)
+      const familyData = data.family
+      
+      if (familyData) {
+        // Update family state immediately
+        setFamily((prev: any) => {
+          if (!prev) return familyData
+          return {
+            ...prev,
+            ...familyData
+          }
+        })
+        console.log('✅ Family settings updated via WebSocket, state updated immediately')
+      }
+    }
+
+    // Listen for completion created (child submits chore)
+    const handleCompletionCreated = (data: any) => {
+      console.log('📢 WebSocket: completion:created received', data)
+      loadDashboard()
+    }
+
+    // Listen for completion approved (parent approves, child needs to see wallet update)
+    const handleCompletionApproved = (data: any) => {
+      console.log('📢 WebSocket: completion:approved received', data)
+      loadDashboard()
+    }
+
+    // Listen for completion rejected (parent rejects, child needs to see status)
+    const handleCompletionRejected = (data: any) => {
+      console.log('📢 WebSocket: completion:rejected received', data)
+      loadDashboard()
+    }
+
+    // Listen for chore created (parent creates chore, children need to see it)
+    const handleChoreCreated = (data: any) => {
+      console.log('📢 WebSocket: chore:created received', data)
+      loadDashboard()
+    }
+
+    // Listen for assignment created (parent assigns chore to child)
+    const handleAssignmentCreated = (data: any) => {
+      console.log('📢 WebSocket: assignment:created received', data)
+      loadDashboard()
+    }
+
+    // Listen for assignment deleted (parent removes chore assignment)
+    const handleAssignmentDeleted = (data: any) => {
+      console.log('📢 WebSocket: assignment:deleted received', data)
+      loadDashboard()
+    }
+
+    // Listen for chore updated (parent updates chore details)
+    const handleChoreUpdated = (data: any) => {
+      console.log('📢 WebSocket: chore:updated received', data)
+      loadDashboard()
+    }
+
+    // Listen for redemption created (child redeems gift)
+    const handleRedemptionCreated = (data: any) => {
+      console.log('📢 WebSocket: redemption:created received', data)
+      loadDashboard()
+    }
+
+    // Listen for redemption fulfilled (parent fulfills redemption)
+    const handleRedemptionFulfilled = (data: any) => {
+      console.log('📢 WebSocket: redemption:fulfilled received', data)
+      loadDashboard()
+    }
+
+    // Listen for redemption rejected (parent rejects redemption)
+    const handleRedemptionRejected = (data: any) => {
+      console.log('📢 WebSocket: redemption:rejected received', data)
+      loadDashboard()
+    }
+
+    // Listen for gift created/updated (parent adds/updates gifts)
+    const handleGiftCreated = (data: any) => {
+      console.log('📢 WebSocket: gift:created received', data)
+      loadDashboard()
+    }
+
+    const handleGiftUpdated = (data: any) => {
+      console.log('📢 WebSocket: gift:updated received', data)
+      loadDashboard()
+    }
+
+    // Listen for star purchase created (child buys stars)
+    const handleStarPurchaseCreated = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:created received', data)
+      loadDashboard()
+    }
+
+    // Listen for star purchase approved (parent approves, child needs to see wallet update)
+    const handleStarPurchaseApproved = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:approved received', data)
+      loadDashboard()
+    }
+
+    // Listen for star purchase rejected (parent rejects, child needs to see wallet update)
+    const handleStarPurchaseRejected = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:rejected received', data)
+      loadDashboard()
+    }
+
+    // Listen for child pause status updated (individual child holiday mode)
+    const handleChildPauseUpdated = (data: any) => {
+      console.log('📢 WebSocket: child:pause:updated received', data)
+      loadDashboard()
+    }
+
+    // Register listeners
+    on('family:settings:updated', handleFamilySettingsUpdated)
+    on('completion:created', handleCompletionCreated)
+    on('completion:approved', handleCompletionApproved)
+    on('completion:rejected', handleCompletionRejected)
+    on('chore:created', handleChoreCreated)
+    on('chore:updated', handleChoreUpdated)
+    on('assignment:created', handleAssignmentCreated)
+    on('assignment:deleted', handleAssignmentDeleted)
+    on('redemption:created', handleRedemptionCreated)
+    on('redemption:fulfilled', handleRedemptionFulfilled)
+    on('redemption:rejected', handleRedemptionRejected)
+    on('gift:created', handleGiftCreated)
+    on('gift:updated', handleGiftUpdated)
+    on('starPurchase:created', handleStarPurchaseCreated)
+    on('starPurchase:approved', handleStarPurchaseApproved)
+    on('starPurchase:rejected', handleStarPurchaseRejected)
+    on('child:pause:updated', handleChildPauseUpdated)
+
+    // Cleanup
+    return () => {
+      off('family:settings:updated', handleFamilySettingsUpdated)
+      off('completion:created', handleCompletionCreated)
+      off('completion:approved', handleCompletionApproved)
+      off('completion:rejected', handleCompletionRejected)
+      off('chore:created', handleChoreCreated)
+      off('chore:updated', handleChoreUpdated)
+      off('assignment:created', handleAssignmentCreated)
+      off('assignment:deleted', handleAssignmentDeleted)
+      off('redemption:created', handleRedemptionCreated)
+      off('redemption:fulfilled', handleRedemptionFulfilled)
+      off('redemption:rejected', handleRedemptionRejected)
+      off('gift:created', handleGiftCreated)
+      off('gift:updated', handleGiftUpdated)
+      off('starPurchase:created', handleStarPurchaseCreated)
+      off('starPurchase:approved', handleStarPurchaseApproved)
+      off('starPurchase:rejected', handleStarPurchaseRejected)
+      off('child:pause:updated', handleChildPauseUpdated)
+    }
+  }, [socket, isConnected, on, off, loadDashboard])
 
   const handleApproveCompletion = async (completionId: string) => {
     try {

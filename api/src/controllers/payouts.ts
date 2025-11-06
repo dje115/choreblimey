@@ -4,6 +4,7 @@ import { prisma } from '../db/prisma.js'
 interface CreatePayoutBody {
   childId: string
   amountPence: number
+  choreAmountPence?: number // Amount from chores (rest is from gifts)
   method?: 'cash' | 'bank_transfer' | 'other'
   note?: string
   giftIds?: string[] // IDs of gifts to mark as paid out
@@ -42,6 +43,7 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
 
     // Validate gift IDs if provided
     const giftIds = req.body.giftIds || []
+    const choreAmountPence = req.body.choreAmountPence || 0
     let totalFromGifts = 0
     
     if (giftIds.length > 0) {
@@ -60,9 +62,22 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
 
       // Calculate total from selected gifts
       totalFromGifts = gifts.reduce((sum, g) => sum + g.moneyPence, 0)
-      if (amountPence !== totalFromGifts) {
-        return reply.status(400).send({ error: `Amount must match total of selected gifts (${totalFromGifts} pence)` })
-      }
+    }
+
+    // Validate that total amount = gifts + chores
+    const calculatedTotal = totalFromGifts + choreAmountPence
+    if (Math.abs(amountPence - calculatedTotal) > 0) {
+      return reply.status(400).send({ 
+        error: `Amount mismatch: total (${amountPence}) must equal gifts (${totalFromGifts}) + chores (${choreAmountPence}) = ${calculatedTotal}` 
+      })
+    }
+
+    // Validate chore amount doesn't exceed available balance
+    if (choreAmountPence < 0) {
+      return reply.status(400).send({ error: 'Chore amount cannot be negative' })
+    }
+    if (choreAmountPence > wallet.balancePence) {
+      return reply.status(400).send({ error: `Chore amount (${choreAmountPence}) exceeds available balance (${wallet.balancePence})` })
     }
 
     // Check if child has enough balance (including pending gift money if gifts are selected)
@@ -133,6 +148,7 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
           familyId,
           childId,
           amountPence,
+          choreAmountPence: choreAmountPence > 0 ? choreAmountPence : null,
           paidBy: sub,
           method: method || 'cash',
           note: note || null,
@@ -174,7 +190,9 @@ export const create = async (req: FastifyRequest<{ Body: CreatePayoutBody }>, re
             payoutId: payout.id,
             method: method || 'cash',
             note: note || null,
-            giftIds: giftIds
+            giftIds: giftIds,
+            choreAmountPence: choreAmountPence > 0 ? choreAmountPence : 0,
+            giftAmountPence: totalFromGifts
           }
         }
       })

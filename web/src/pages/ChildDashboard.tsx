@@ -302,38 +302,43 @@ const ChildDashboard: React.FC = () => {
 
           const isHolidayActive = isFamilyHolidayActive
 
-          if (isHolidayActive) {
-            const endDate = family.holidayEndDate ? new Date(family.holidayEndDate) : null
-            let message = "It's holiday time! No chores today – enjoy your break!"
-            if (endDate) {
-              const millisLeft = endDate.getTime() - now.getTime()
-              const daysLeft = Math.max(0, Math.ceil(millisLeft / (1000 * 60 * 60 * 24)))
-              if (daysLeft > 0) {
-                message = `Holiday mode! ${daysLeft} day${daysLeft === 1 ? '' : 's'} left of your break!`
+          // Only update holiday mode state if it's different from current state
+          // This prevents unnecessary re-renders and overwriting WebSocket updates
+          if (isHolidayActive !== wasActive || isHolidayActive) {
+            if (isHolidayActive) {
+              const endDate = family.holidayEndDate ? new Date(family.holidayEndDate) : null
+              let message = "It's holiday time! No chores today – enjoy your break!"
+              if (endDate) {
+                const millisLeft = endDate.getTime() - now.getTime()
+                const daysLeft = Math.max(0, Math.ceil(millisLeft / (1000 * 60 * 60 * 24)))
+                if (daysLeft > 0) {
+                  message = `Holiday mode! ${daysLeft} day${daysLeft === 1 ? '' : 's'} left of your break!`
+                }
               }
+
+              console.log('🌴 loadDashboard: Setting holiday mode to ACTIVE')
+              setHolidayMode({
+                isActive: true,
+                isFamilyHoliday: true,
+                startDate: family.holidayStartDate || '',
+                endDate: family.holidayEndDate || '',
+                message,
+              })
+            } else {
+              if (wasActive) {
+                console.log('🌴 loadDashboard: Holiday mode ended; setting to INACTIVE')
+              }
+              setHolidayMode({
+                isActive: false,
+                isFamilyHoliday: false,
+                startDate: '',
+                endDate: '',
+                message: '',
+              })
             }
 
-            setHolidayMode({
-              isActive: true,
-              isFamilyHoliday: true,
-              startDate: family.holidayStartDate || '',
-              endDate: family.holidayEndDate || '',
-              message,
-            })
-          } else {
-            if (wasActive) {
-              console.log('Holiday mode ended; refreshing missions on next poll')
-            }
-            setHolidayMode({
-              isActive: false,
-              isFamilyHoliday: false,
-              startDate: '',
-              endDate: '',
-              message: '',
-            })
+            holidayPrevActiveRef.current = isHolidayActive
           }
-
-          holidayPrevActiveRef.current = isHolidayActive
         }
       }
       if (familyMembersRes.status === 'fulfilled') {
@@ -570,6 +575,89 @@ const ChildDashboard: React.FC = () => {
       loadDashboard()
     }
 
+    // Listen for star purchase approved (parent approves, child needs to see wallet update)
+    const handleStarPurchaseApproved = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:approved received', data)
+      console.log('🔄 Refreshing child dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for star purchase rejected (parent rejects, child needs to see wallet update)
+    const handleStarPurchaseRejected = (data: any) => {
+      console.log('📢 WebSocket: starPurchase:rejected received', data)
+      console.log('🔄 Refreshing child dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for family settings updated (holiday mode, shop enable/disable, streak settings)
+    const handleFamilySettingsUpdated = (data: any) => {
+      console.log('📢 WebSocket: family:settings:updated received on CHILD dashboard', data)
+      console.log('📢 Full event data:', JSON.stringify(data, null, 2))
+      const familyData = data.family
+      console.log('📢 Extracted familyData:', familyData)
+      
+      if (familyData) {
+        // Update family settings immediately
+        setFamilySettings((prev: any) => ({
+          ...prev,
+          ...familyData
+        }))
+        
+        // Update holiday mode state immediately from WebSocket data
+        const now = new Date()
+        const holidayEnabled = Boolean(familyData.holidayMode)
+        const startDate = familyData.holidayStartDate ? new Date(familyData.holidayStartDate) : null
+        const endDate = familyData.holidayEndDate ? new Date(familyData.holidayEndDate) : null
+        const withinStart = !startDate || startDate <= now
+        const withinEnd = !endDate || endDate >= now
+        const isFamilyHolidayActive = holidayEnabled && withinStart && withinEnd
+        
+        if (isFamilyHolidayActive) {
+          const endDateObj = endDate
+          let message = "It's holiday time! No chores today – enjoy your break!"
+          if (endDateObj) {
+            const millisLeft = endDateObj.getTime() - now.getTime()
+            const daysLeft = Math.max(0, Math.ceil(millisLeft / (1000 * 60 * 60 * 24)))
+            if (daysLeft > 0) {
+              message = `Holiday mode! ${daysLeft} day${daysLeft === 1 ? '' : 's'} left of your break!`
+            }
+          }
+          
+          console.log('🌴 Updating holiday mode state to ACTIVE via WebSocket')
+          setHolidayMode({
+            isActive: true,
+            isFamilyHoliday: true,
+            startDate: familyData.holidayStartDate || '',
+            endDate: familyData.holidayEndDate || '',
+            message,
+          })
+          holidayPrevActiveRef.current = true
+        } else {
+          console.log('🌴 Updating holiday mode state to INACTIVE via WebSocket')
+          setHolidayMode({
+            isActive: false,
+            isFamilyHoliday: false,
+            startDate: '',
+            endDate: '',
+            message: '',
+          })
+          holidayPrevActiveRef.current = false
+        }
+      }
+      
+      // Don't call loadDashboard here - it will overwrite optimistic updates
+      // The state has already been updated above, and loadDashboard will be called
+      // by the fallback polling system if needed
+      console.log('✅ Family settings updated via WebSocket, state updated immediately')
+    }
+
+    // Listen for child pause status updated (individual child holiday mode)
+    const handleChildPauseUpdated = (data: any) => {
+      console.log('📢 WebSocket: child:pause:updated received', data)
+      console.log('🔄 Refreshing child dashboard...')
+      loadDashboard()
+    }
+
     // Register listeners
     on('chore:created', handleChoreCreated)
     on('assignment:created', handleAssignmentCreated)
@@ -582,6 +670,10 @@ const ChildDashboard: React.FC = () => {
     on('redemption:rejected', handleRedemptionRejected)
     on('gift:created', handleGiftCreated)
     on('gift:updated', handleGiftUpdated)
+    on('starPurchase:approved', handleStarPurchaseApproved)
+    on('starPurchase:rejected', handleStarPurchaseRejected)
+    on('family:settings:updated', handleFamilySettingsUpdated)
+    on('child:pause:updated', handleChildPauseUpdated)
 
     // Cleanup
     return () => {
@@ -596,6 +688,10 @@ const ChildDashboard: React.FC = () => {
       off('redemption:rejected', handleRedemptionRejected)
       off('gift:created', handleGiftCreated)
       off('gift:updated', handleGiftUpdated)
+      off('starPurchase:approved', handleStarPurchaseApproved)
+      off('starPurchase:rejected', handleStarPurchaseRejected)
+      off('family:settings:updated', handleFamilySettingsUpdated)
+      off('child:pause:updated', handleChildPauseUpdated)
     }
   }, [socket, isConnected, on, off, loadDashboard])
 
@@ -766,8 +862,23 @@ const ChildDashboard: React.FC = () => {
     let earnedStars = 0
     let giftedStars = 0
     
-    // Calculate total paid out from payout records
+    // Calculate total paid out from chores (not including gifts)
+    // Each payout has choreAmountPence which tells us how much was from chores
+    let totalChorePaidOutPence = 0
     if (payouts && payouts.length > 0) {
+      totalChorePaidOutPence = payouts.reduce((sum: number, p: any) => {
+        // If choreAmountPence is set, use it; otherwise, if no gifts were paid, the full amount was from chores
+        if (p.choreAmountPence !== null && p.choreAmountPence !== undefined) {
+          return sum + p.choreAmountPence
+        }
+        // Legacy payouts: if no giftIds, assume all was from chores
+        if (!p.giftIds || p.giftIds.length === 0) {
+          return sum + (p.amountPence || 0)
+        }
+        // If gifts were paid but no choreAmountPence, assume 0 from chores (all was gifts)
+        return sum
+      }, 0)
+      // Also calculate total paid out for display
       totalPaidOutPence = payouts.reduce((sum: number, p: any) => sum + (p.amountPence || 0), 0)
     }
     
@@ -794,10 +905,10 @@ const ChildDashboard: React.FC = () => {
       }
     })
     
-    // Unpaid earned money = total earned - total paid out
+    // Unpaid earned money = total earned - total paid out from chores only
     // Note: wallet.balancePence should equal earned money unpaid (since gift money isn't in balance until paid out)
     // But we'll calculate it from transactions to be safe
-    earnedMoneyUnpaidPence = Math.max(0, totalEarnedMoneyPence - totalPaidOutPence)
+    earnedMoneyUnpaidPence = Math.max(0, totalEarnedMoneyPence - totalChorePaidOutPence)
     
     // Calculate earned stars: total stars minus gifted stars
     // This accounts for stars earned from chores that might have starsOverride
@@ -1062,7 +1173,8 @@ const ChildDashboard: React.FC = () => {
                     return assignmentDate.getTime() === today.getTime()
                   }
                   
-                  // For weekly chores, show assignments from this week
+                  // For weekly chores, show assignments from this week OR last week (if not completed)
+                  // This ensures weekly chores are visible even if the worker didn't run on Monday
                   if (a.chore.frequency === 'weekly') {
                     const today = new Date()
                     const day = today.getDay()
@@ -1070,8 +1182,14 @@ const ChildDashboard: React.FC = () => {
                     const startOfWeek = new Date(today)
                     startOfWeek.setDate(diff)
                     startOfWeek.setHours(0, 0, 0, 0)
+                    
+                    // Also check last week (in case worker didn't run on Monday)
+                    const startOfLastWeek = new Date(startOfWeek)
+                    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7)
+                    
                     const assignmentDate = new Date(a.createdAt)
-                    return assignmentDate >= startOfWeek
+                    // Show if created this week OR last week (and not completed)
+                    return assignmentDate >= startOfLastWeek
                   }
                   
                   // For 'once' chores, show all
@@ -1093,15 +1211,23 @@ const ChildDashboard: React.FC = () => {
                 return assignmentDate.getTime() === today.getTime()
               }
               
-              // For weekly chores, show assignments from this week
+              // For weekly chores, show assignments from this week OR last week (if not completed)
+              // This ensures weekly chores are visible even if the worker didn't run on Monday
               if (a.chore.frequency === 'weekly') {
                 const today = new Date()
                 const day = today.getDay()
                 const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-                const startOfWeek = new Date(today.setDate(diff))
+                const startOfWeek = new Date(today)
+                startOfWeek.setDate(diff)
                 startOfWeek.setHours(0, 0, 0, 0)
+                
+                // Also check last week (in case worker didn't run on Monday)
+                const startOfLastWeek = new Date(startOfWeek)
+                startOfLastWeek.setDate(startOfLastWeek.getDate() - 7)
+                
                 const assignmentDate = new Date(a.createdAt)
-                return assignmentDate >= startOfWeek
+                // Show if created this week OR last week (and not completed)
+                return assignmentDate >= startOfLastWeek
               }
               
               // For 'once' chores, show all

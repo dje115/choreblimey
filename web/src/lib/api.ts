@@ -328,6 +328,7 @@ class ApiClient {
   async createPayout(data: { 
     childId: string
     amountPence: number
+    choreAmountPence?: number
     method?: 'cash' | 'bank_transfer' | 'other'
     note?: string
     giftIds?: string[]

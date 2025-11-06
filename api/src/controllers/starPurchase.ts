@@ -78,7 +78,7 @@ export const buyStars = async (req: FastifyRequest<{ Body: BuyStarsBody }>, repl
           familyId,
           type: 'debit',
           amountPence,
-          source: 'buy_stars',
+          source: 'system',
           metaJson: {
             type: 'buy_stars_request',
             starsRequested,
@@ -113,11 +113,31 @@ export const buyStars = async (req: FastifyRequest<{ Body: BuyStarsBody }>, repl
     // Invalidate cache
     await cache.invalidateFamily(familyId)
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'starPurchase:created', {
+        starPurchase: {
+          id: result.starPurchase.id,
+          childId: result.starPurchase.childId,
+          starsRequested: result.starPurchase.starsRequested,
+          amountPence: result.starPurchase.amountPence,
+          status: result.starPurchase.status,
+          child: result.starPurchase.child
+        },
+        wallet: {
+          balancePence: result.wallet.balancePence,
+          stars: Math.floor(result.wallet.stars)
+        }
+      })
+    }
+
     return {
       starPurchase: result.starPurchase,
       wallet: {
         balancePence: result.wallet.balancePence,
-        stars: Math.floor(result.wallet.balanceStars)
+        stars: Math.floor(result.wallet.stars)
       }
     }
   } catch (error: any) {
@@ -223,7 +243,7 @@ export const approveStarPurchase = async (req: FastifyRequest<{ Params: { id: st
       const updatedWallet = await tx.wallet.update({
         where: { id: wallet.id },
         data: {
-          balanceStars: {
+          stars: {
             increment: purchase.starsRequested
           }
         }
@@ -236,7 +256,7 @@ export const approveStarPurchase = async (req: FastifyRequest<{ Params: { id: st
           familyId,
           type: 'credit',
           amountPence: 0, // Stars don't have money value
-          source: 'buy_stars_approved',
+          source: 'system',
           metaJson: {
             type: 'buy_stars_approved',
             starsRequested: purchase.starsRequested,
@@ -276,11 +296,30 @@ export const approveStarPurchase = async (req: FastifyRequest<{ Params: { id: st
     // Invalidate cache
     await cache.invalidateFamily(familyId)
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'starPurchase:approved', {
+        starPurchase: {
+          id: result.purchase.id,
+          childId: result.purchase.childId,
+          starsRequested: result.purchase.starsRequested,
+          status: 'approved',
+          child: result.purchase.child
+        },
+        wallet: {
+          balancePence: result.wallet.balancePence,
+          stars: Math.floor(result.wallet.stars)
+        }
+      })
+    }
+
     return {
       starPurchase: result.purchase,
       wallet: {
         balancePence: result.wallet.balancePence,
-        stars: Math.floor(result.wallet.balanceStars)
+        stars: Math.floor(result.wallet.stars)
       }
     }
   } catch (error: any) {
@@ -389,11 +428,30 @@ export const rejectStarPurchase = async (req: FastifyRequest<{ Params: { id: str
     // Invalidate cache
     await cache.invalidateFamily(familyId)
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'starPurchase:rejected', {
+        starPurchase: {
+          id: result.purchase.id,
+          childId: result.purchase.childId,
+          starsRequested: result.purchase.starsRequested,
+          status: 'rejected',
+          child: result.purchase.child
+        },
+        wallet: {
+          balancePence: result.wallet.balancePence,
+          stars: Math.floor(result.wallet.stars)
+        }
+      })
+    }
+
     return {
       starPurchase: result.purchase,
       wallet: {
         balancePence: result.wallet.balancePence,
-        stars: Math.floor(result.wallet.balanceStars)
+        stars: Math.floor(result.wallet.stars)
       }
     }
   } catch (error: any) {

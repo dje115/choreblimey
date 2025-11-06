@@ -550,6 +550,44 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     // Invalidate family cache
     await cache.invalidateFamily(familyId)
 
+    // Emit WebSocket event to notify all family members of settings changes
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      console.log('📢 Emitting family:settings:updated event for family:', familyId)
+      emitToFamily(io, familyId, 'family:settings:updated', {
+        family: {
+          id: familyWithRelations.id,
+          holidayMode: familyWithRelations.holidayMode,
+          holidayStartDate: familyWithRelations.holidayStartDate,
+          holidayEndDate: familyWithRelations.holidayEndDate,
+          buyStarsEnabled: familyWithRelations.buyStarsEnabled,
+          starConversionRatePence: familyWithRelations.starConversionRatePence,
+          giftsEnabled: familyWithRelations.giftsEnabled,
+          // Streak settings
+          streakProtectionDays: familyWithRelations.streakProtectionDays,
+          bonusEnabled: familyWithRelations.bonusEnabled,
+          bonusDays: familyWithRelations.bonusDays,
+          bonusMoneyPence: familyWithRelations.bonusMoneyPence,
+          bonusStars: familyWithRelations.bonusStars,
+          bonusType: familyWithRelations.bonusType,
+          penaltyEnabled: familyWithRelations.penaltyEnabled,
+          firstMissPence: familyWithRelations.firstMissPence,
+          firstMissStars: familyWithRelations.firstMissStars,
+          secondMissPence: familyWithRelations.secondMissPence,
+          secondMissStars: familyWithRelations.secondMissStars,
+          thirdMissPence: familyWithRelations.thirdMissPence,
+          thirdMissStars: familyWithRelations.thirdMissStars,
+          penaltyType: familyWithRelations.penaltyType,
+          minBalancePence: familyWithRelations.minBalancePence,
+          minBalanceStars: familyWithRelations.minBalanceStars
+        }
+      })
+      console.log('✅ family:settings:updated event emitted')
+    } else {
+      console.warn('⚠️ WebSocket server not available, cannot emit family:settings:updated event')
+    }
+
     return { family: familyWithRelations }
   } catch (error) {
     reply.log.error('Failed to update family:', error)
