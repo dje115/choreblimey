@@ -16,7 +16,7 @@ interface CallbackBody {
 interface ChildJoinBody {
   code?: string
   qrData?: string
-  nickname: string
+  nickname?: string // Optional - will use intendedNickname from join code if not provided
 }
 
 export const signupParent = async (req: FastifyRequest<{ Body: SignupParentBody }>, reply: FastifyReply) => {
@@ -211,10 +211,6 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
   try {
     const { code, qrData, nickname } = req.body
 
-    if (!nickname) {
-      return reply.status(400).send({ error: 'Nickname is required' })
-    }
-
     let joinCode: string | null = null
     let familyId: string | null = null
 
@@ -246,6 +242,14 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       return reply.status(400).send({ error: 'Join code has expired' })
     }
 
+    // Use intendedNickname from join code if nickname not provided in request
+    // This prevents duplicate names being created
+    const finalNickname = nickname?.trim() || joinCodeRecord.intendedNickname
+
+    if (!finalNickname) {
+      return reply.status(400).send({ error: 'Join code does not have an associated nickname. Please contact your parent.' })
+    }
+
     // Check if join code has been used by a different child
     if (joinCodeRecord.usedAt && joinCodeRecord.usedByChildId) {
       // Check if the existing child matches the nickname being used
@@ -253,7 +257,7 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
         where: { id: joinCodeRecord.usedByChildId }
       })
       
-      if (existingChild && existingChild.nickname !== nickname.trim()) {
+      if (existingChild && existingChild.nickname !== finalNickname) {
         return reply.status(400).send({ error: 'Join code has already been used by a different child' })
       }
     }
@@ -264,7 +268,7 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
     let child = await prisma.child.findFirst({
       where: {
         familyId,
-        nickname: nickname.trim()
+        nickname: finalNickname
       }
     })
 
@@ -285,11 +289,11 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       }
 
       // Create new child with birth year/month from cached info
-      console.log('Creating new child for nickname:', nickname)
+      console.log('Creating new child for nickname:', finalNickname)
       child = await prisma.child.create({
         data: {
           familyId,
-          nickname: nickname.trim(),
+          nickname: finalNickname,
           ageGroup: childInfo.ageGroup || '5-8',
           birthYear: childInfo.birthYear || null,
           birthMonth: childInfo.birthMonth || null,

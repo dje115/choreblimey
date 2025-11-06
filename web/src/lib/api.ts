@@ -90,7 +90,7 @@ class ApiClient {
     return this.get(`/auth/callback?token=${token}`, false)
   }
 
-  async childJoin(data: { code?: string; qrData?: string; nickname: string; ageGroup?: string; gender?: string }) {
+  async childJoin(data: { code?: string; qrData?: string; ageGroup?: string; gender?: string }) {
     return this.post('/auth/child-join', data, false)
   }
 
@@ -142,6 +142,7 @@ class ApiClient {
     birthYear?: number | null
     giftStarsEnabled?: boolean
     giftMoneyEnabled?: boolean
+    chatEnabled?: boolean
   }) {
     return this.patch(`/family/members/${memberId}`, data)
   }
@@ -456,6 +457,20 @@ class ApiClient {
 
   async deleteGift(id: string) {
     return this.delete(`/gifts/${id}`)
+  }
+
+  // Chat
+  async sendChatMessage(message: string) {
+    return this.post('/chat/messages', { message })
+  }
+
+  async getChatMessages(params?: { limit?: number; before?: string; days?: number }) {
+    const query = new URLSearchParams()
+    if (params?.limit) query.append('limit', params.limit.toString())
+    if (params?.before) query.append('before', params.before)
+    if (params?.days) query.append('days', params.days.toString())
+    const queryString = query.toString()
+    return this.get(`/chat/messages${queryString ? `?${queryString}` : ''}`)
   }
 }
 

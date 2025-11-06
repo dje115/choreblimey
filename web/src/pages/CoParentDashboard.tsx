@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import { useSocket } from '../contexts/SocketContext'
 import Confetti from 'react-confetti'
+import { FamilyChat } from '../components/FamilyChat'
 
 const CoParentDashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -14,16 +15,20 @@ const CoParentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [members, setMembers] = useState<any[]>([]) // Family members to check chatEnabled
+  const [showChatModal, setShowChatModal] = useState(false) // For full chat modal
+  const [chatTab, setChatTab] = useState<'recent' | 'history'>('recent') // Chat modal tabs
 
   const loadDashboard = useCallback(async () => {
     try {
       setLoading(true)
-      const [familyData, childrenData, choresData, walletsData, completionsData] = await Promise.all([
+      const [familyData, childrenData, choresData, walletsData, completionsData, membersData] = await Promise.all([
         apiClient.getFamily(),
         apiClient.getChildren(),
         apiClient.getChores(),
         apiClient.getWallets(),
-        apiClient.getCompletions()
+        apiClient.getCompletions(),
+        apiClient.getFamilyMembers()
       ])
       
       setFamily(familyData.family || familyData)
@@ -31,6 +36,7 @@ const CoParentDashboard: React.FC = () => {
       setChores(choresData.chores || choresData)
       setWallets(walletsData.wallets || walletsData)
       setCompletions(completionsData.completions || completionsData)
+      setMembers(membersData.members || [])
     } catch (error) {
       console.error('Failed to load dashboard:', error)
       setToast({ message: 'Failed to load dashboard data', type: 'error' })
@@ -72,7 +78,6 @@ const CoParentDashboard: React.FC = () => {
             ...familyData
           }
         })
-        console.log('✅ Family settings updated via WebSocket, state updated immediately')
       }
     }
 
@@ -413,6 +418,28 @@ const CoParentDashboard: React.FC = () => {
           </div>
         </section>
 
+        {/* Family Chat - Only show if enabled for this user */}
+        {(() => {
+          const currentMember = members.find((m: any) => m.user?.id === user?.id)
+          const chatEnabled = currentMember?.chatEnabled !== false // Default to true if not set
+          
+          if (!chatEnabled) return null
+          
+          return (
+            <section className="mb-8">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Family Chat 💬</h3>
+              <div className="bg-white rounded-xl shadow-lg border border-purple-100">
+                <FamilyChat 
+                  compact={true} 
+                  maxMessages={6}
+                  days={2}
+                  onOpenFull={() => setShowChatModal(true)}
+                />
+              </div>
+            </section>
+          )
+        })()}
+
         {/* Co-Parent Permissions Info */}
         <section className="mb-8">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Your Permissions ℹ️</h3>
@@ -440,6 +467,59 @@ const CoParentDashboard: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Chat Modal */}
+      {showChatModal && (() => {
+        const currentMember = members.find((m: any) => m.user?.id === user?.id)
+        const chatEnabled = currentMember?.chatEnabled !== false
+        
+        if (!chatEnabled) return null
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200 p-6">
+                <h3 className="text-2xl font-bold text-purple-600">💬 Family Chat</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setChatTab('recent')}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      chatTab === 'recent'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-600 border-2 border-gray-200'
+                    }`}
+                  >
+                    Recent (2 days)
+                  </button>
+                  <button
+                    onClick={() => setChatTab('history')}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      chatTab === 'history'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-600 border-2 border-gray-200'
+                    }`}
+                  >
+                    History (2 months)
+                  </button>
+                  <button
+                    onClick={() => setShowChatModal(false)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <FamilyChat 
+                  compact={false}
+                  days={chatTab === 'recent' ? 2 : 60}
+                  maxMessages={chatTab === 'recent' ? 150 : 500}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Toast */}
       {toast && (

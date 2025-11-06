@@ -9,6 +9,7 @@ import { useSocket } from '../contexts/SocketContext'
 import { handleApiError } from '../utils/errorHandler'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
+import { FamilyChat } from '../components/FamilyChat'
 
 // Type definitions
 interface Family {
@@ -271,6 +272,8 @@ const ParentDashboard: React.FC = () => {
   const [giftCategory, setGiftCategory] = useState<string>('all') // For gift category tabs
   const [redemptions, setRedemptions] = useState<any[]>([]) // All redemptions (pending and fulfilled)
   const [showGiftModal, setShowGiftModal] = useState(false) // For browsing admin templates
+  const [showChatModal, setShowChatModal] = useState(false) // For full chat modal
+  const [chatTab, setChatTab] = useState<'recent' | 'history'>('recent') // Chat modal tabs
 
   const parentLoadingRef = useRef(false)
   const uiBusyRef = useRef(false)
@@ -407,8 +410,6 @@ const ParentDashboard: React.FC = () => {
         setWalletStats(statsMap)
       }
       if (choresRes.status === 'fulfilled') {
-        console.log('📋 Loaded chores:', choresRes.value.chores?.length || 0, 'chores')
-        console.log('📋 Chores data:', choresRes.value.chores)
         setChores(choresRes.value.chores || [])
         // Force re-render by updating a timestamp
         setLoading(false)
@@ -446,7 +447,6 @@ const ParentDashboard: React.FC = () => {
     } finally {
       parentLoadingRef.current = false
       setLoading(false)
-      console.log('✅ loadDashboard completed')
     }
   }, []) // Empty deps - loadDashboard doesn't depend on any props/state that change
 
@@ -650,7 +650,6 @@ const ParentDashboard: React.FC = () => {
       // Don't call loadDashboard here - it will overwrite optimistic updates
       // The state has already been updated above, and loadDashboard will be called
       // by the fallback polling system if needed
-      console.log('✅ Family settings updated via WebSocket, state updated immediately')
     }
 
     // Listen for child pause status updated (individual child holiday mode)
@@ -1017,9 +1016,6 @@ const ParentDashboard: React.FC = () => {
 
   const handleCreateChore = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('🎯 handleCreateChore called')
-    console.log('📋 newChore:', newChore)
-    console.log('👨‍👩‍👧‍👦 choreAssignments:', choreAssignments)
     
     try {
       // Prepare chore data - convert null to undefined for optional fields
@@ -1029,19 +1025,12 @@ const ParentDashboard: React.FC = () => {
       }
       
       // Create the chore first
-      console.log('📡 Creating chore...')
       const result = await apiClient.createChore(choreData)
       const choreId = result.chore.id
-      console.log('✅ Chore created with ID:', choreId)
 
       // Create assignments for each selected child
-      console.log('👥 Selected child IDs:', choreAssignments.childIds)
-      console.log('🔢 Number of children:', choreAssignments.childIds.length)
-      
       if (choreAssignments.childIds.length > 0) {
-        console.log('📡 Creating assignments for', choreAssignments.childIds.length, 'children...')
         const assignmentPromises = choreAssignments.childIds.map((childId: string) => {
-          console.log('  -> Creating assignment for childId:', childId)
           return apiClient.createAssignment({
             choreId,
             childId,
@@ -1049,14 +1038,10 @@ const ParentDashboard: React.FC = () => {
           })
         })
         await Promise.all(assignmentPromises)
-        console.log('✅ All assignments created')
-      } else {
-        console.log('⚠️ No children selected - skipping assignment creation')
       }
 
       // Notify child dashboards IMMEDIATELY after successful creation
       // This ensures child dashboards get the update even before parent dashboard reloads
-      console.log('📢 Notifying child dashboards of new chore...')
       notifyChildDashboards()
       
       // Reset form and close modal
@@ -1078,12 +1063,9 @@ const ParentDashboard: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 500))
       
       // Reload dashboard
-      console.log('🔄 Reloading dashboard...')
       await loadDashboard()
-      console.log('✅ Dashboard reloaded')
       
       // Notify again after reload to ensure child dashboards get the update
-      console.log('📢 Notifying child dashboards again after reload...')
       notifyChildDashboards()
       
       // Force component refresh
@@ -1363,28 +1345,79 @@ const ParentDashboard: React.FC = () => {
     
     const childAssignments = assignments.filter((a: Assignment) => a.childId === child.id)
     
-    // Get chores that have assignments but no recent completions
-    const pendingChores: Chore[] = childAssignments
-      .map((assignment: Assignment) => assignment.chore)
-      .filter((chore: Chore | undefined): chore is Chore => {
+    // Get chores that have assignments but no approved completions
+    // For weekly chores, check if the specific assignment has been approved
+    // For daily chores, check if completed today
+    const pendingChores: Array<{ chore: Chore; assignment: Assignment }> = childAssignments
+      .filter((assignment: Assignment) => {
+        const chore = assignment.chore
         if (!chore || !chore.active) return false
         
-        // Check if this chore has been completed today
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        // For weekly chores, check if THIS assignment has an approved completion
+        // Weekly chores should show as pending until their specific assignment is approved
+        if (chore.frequency === 'weekly') {
+          const assignmentCompletions = recentCompletions.filter((c: Completion) => 
+            c.childId === child.id && 
+            c.assignmentId === assignment.id
+          )
+          const hasApprovedCompletion = assignmentCompletions.some((c: Completion) => c.status === 'approved')
+          const hasPendingCompletion = pendingCompletions.some((c: Completion) => 
+            c.childId === child.id && 
+            c.assignmentId === assignment.id
+          )
+          
+          // Show as pending chore if: no approved completion AND no pending completion (not yet submitted)
+          // If there's a pending completion, it will show in "Pending Approvals" instead
+          return !hasApprovedCompletion && !hasPendingCompletion
+        }
         
-        const completedToday = recentCompletions.some((c: Completion) => 
+        // For daily chores, check if completed today
+        if (chore.frequency === 'daily') {
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          
+          const completedToday = recentCompletions.some((c: Completion) => 
+            c.childId === child.id && 
+            c.assignment?.choreId === chore.id &&
+            new Date(c.timestamp) >= today &&
+            c.status === 'approved'
+          )
+          return !completedToday
+        }
+        
+        // For 'once' chores, check if THIS assignment has been approved
+        const hasApprovedCompletion = recentCompletions.some((c: Completion) => 
           c.childId === child.id && 
-          c.assignment?.choreId === chore.id &&
-          new Date(c.timestamp) >= today
+          c.assignmentId === assignment.id &&
+          c.status === 'approved'
         )
-        
-        return !completedToday
+        return !hasApprovedCompletion
       })
+      .map((assignment: Assignment) => ({
+        chore: assignment.chore!,
+        assignment
+      }))
+    
+    // For weekly chores, deduplicate - only show the most recent assignment per chore
+    const weeklyChoresMap = new Map<string, { chore: Chore; assignment: Assignment }>()
+    const otherChores: Array<{ chore: Chore; assignment: Assignment }> = []
+    
+    pendingChores.forEach(({ chore, assignment }) => {
+      if (chore.frequency === 'weekly') {
+        const existing = weeklyChoresMap.get(chore.id)
+        if (!existing || new Date(assignment.createdAt) > new Date(existing.assignment.createdAt)) {
+          weeklyChoresMap.set(chore.id, { chore, assignment })
+        }
+      } else {
+        otherChores.push({ chore, assignment })
+      }
+    })
+    
+    const deduplicatedChores = [...Array.from(weeklyChoresMap.values()), ...otherChores]
     
     return {
       child,
-      chores: pendingChores
+      chores: deduplicatedChores.map(({ chore }) => chore)
     }
   })
 
@@ -3108,9 +3141,212 @@ const ParentDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Column: Family & Leaderboard */}
+          {/* Right Column: Chat, Family & Leaderboard */}
           <div className="space-y-6">
-            {/* Family Members */}
+            {/* Family Chat (Compact) - Only show if enabled for current user */}
+            {(() => {
+              const currentMember = members.find((m: any) => m.user?.id === user?.id || m.userId === user?.id)
+              const chatEnabled = currentMember?.chatEnabled !== false // Default to true if not set
+              
+              if (!chatEnabled) return null
+              
+              return (
+                <FamilyChat 
+                  compact={true} 
+                  maxMessages={6}
+                  days={2}
+                  onOpenFull={() => setShowChatModal(true)}
+                />
+              )
+            })()}
+
+            {/* Pocket Money & Payouts */}
+            <div className="cb-card p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="cb-heading-md text-[var(--primary)]">💰 Pocket Money</h3>
+              </div>
+
+              {children.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-4xl mb-2">💵</p>
+                  <p className="cb-body text-[var(--text-secondary)]">No children yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {uniqueChildren.map((child: any) => {
+                    const childWallet = wallets.find((w: any) => w.childId === child.id)
+                    const balancePence = childWallet?.balancePence || 0
+
+                    // Calculate total paid out
+                    const childPayouts = payouts.filter((p: any) => p.childId === child.id)
+                    const totalPaidPence = childPayouts.reduce((sum: number, p: any) => sum + p.amountPence, 0)
+
+                    // Get pending gifts for this child
+                    const childGifts = gifts.filter((g: any) => g.childId === child.id && g.status === 'pending' && g.moneyPence > 0)
+                    const totalGiftMoney = childGifts.reduce((sum: number, g: any) => sum + g.moneyPence, 0)
+
+                    return (
+                      <div key={child.id} className="bg-gradient-to-br from-green-50 to-teal-50 border-2 border-green-200 rounded-[var(--radius-lg)] p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
+                              {child.nickname.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
+                              <p className="text-xs text-[var(--text-secondary)]">{childWallet?.stars || 0}⭐ available</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setGiftChild(child)
+                                setShowGiftStarsMoneyModal(true)
+                              }}
+                              className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold hover:shadow-lg transition-all text-sm"
+                              title="Gift stars or money"
+                            >
+                              🎁 Gift
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPayoutChild(child)
+                                setPayoutAmount((balancePence / 100).toFixed(2))
+                                setPayoutChoreAmount((balancePence / 100).toFixed(2))
+                                setSelectedGiftIds([])
+                                setShowPayoutModal(true)
+                              }}
+                              disabled={balancePence <= 0}
+                              className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              💸 Pay Out
+                            </button>
+                          </div>
+                        </div>
+
+                        {(() => {
+                          const childStats = walletStats.get(child.id)
+                          const lifetimeEarningsPence = childStats?.lifetimeEarningsPence || 0
+                          const showLifetime = budgetSettings?.showLifetimeEarnings !== false
+                          const gridCols = showLifetime ? 'grid-cols-3' : 'grid-cols-2'
+                          
+                          return (
+                            <div className={`grid ${gridCols} gap-2 text-sm mb-3`}>
+                              <div className="bg-white/60 rounded-lg p-2">
+                                <p className="text-xs text-[var(--text-secondary)]">Unpaid</p>
+                                <p className="font-bold text-green-700">£{(balancePence / 100).toFixed(2)}</p>
+                              </div>
+                              <div className="bg-white/60 rounded-lg p-2">
+                                <p className="text-xs text-[var(--text-secondary)]">Paid Out</p>
+                                <p className="font-bold text-gray-600">£{(totalPaidPence / 100).toFixed(2)}</p>
+                              </div>
+                              {showLifetime && (
+                                <div className="bg-white/60 rounded-lg p-2">
+                                  <p className="text-xs text-[var(--text-secondary)]">Lifetime Earned</p>
+                                  <p className="font-bold text-blue-700">£{(lifetimeEarningsPence / 100).toFixed(2)}</p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+
+                        {/* Show split gifts if any */}
+                        {childGifts.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-green-300">
+                            <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Gifts from:</p>
+                            <div className="space-y-1">
+                              {childGifts.map((gift: any) => {
+                                const giver = members.find((m: any) => m.id === gift.givenBy)
+                                const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
+                                return (
+                                  <div key={gift.id} className="flex items-center justify-between text-xs bg-white/60 rounded px-2 py-1">
+                                    <span className="text-[var(--text-secondary)]">
+                                      {giverName} gift
+                                    </span>
+                                    <span className="font-bold text-green-700">
+                                      £{(gift.moneyPence / 100).toFixed(2)}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Recent Payouts */}
+              {payouts.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">📝 Recent Payouts</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {payouts.slice(0, 5).map((payout: any) => {
+                      // Get the name to display - try to get from family members first, fallback to email
+                      const paidByName = payout.paidByUser 
+                        ? members.find((m: any) => m.userId === payout.paidBy)?.user?.email?.split('@')[0] || payout.paidByUser.email?.split('@')[0] || 'Parent'
+                        : 'Parent'
+                      
+                      return (
+                        <div key={payout.id} className="flex items-center justify-between p-2 bg-[var(--background)] rounded-lg text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">💵</span>
+                            <div>
+                              <p className="font-medium text-[var(--text-primary)]">{payout.child?.nickname}</p>
+                              <p className="text-xs text-[var(--text-secondary)]">
+                                {new Date(payout.createdAt).toLocaleDateString()} • {payout.method || 'cash'} • Paid by {paidByName}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="font-bold text-green-600">£{(payout.amountPence / 100).toFixed(2)}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Weekly Leaderboard */}
+            <div className="cb-card p-6">
+              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🏆 Weekly Leaders</h3>
+              <div className="space-y-3">
+                {leaderboard.slice(0, 5).map((entry, index) => (
+                  <div key={entry.childId} className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-md)] p-3 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
+                        index === 0 ? 'bg-gradient-to-br from-[var(--bonus-stars)] to-yellow-500 text-white shadow-lg' :
+                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700' :
+                        index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-orange-900' :
+                        'bg-[var(--card-border)] text-[var(--text-secondary)]'
+                      }`}>
+                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[var(--text-primary)] truncate">{entry.nickname}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-xl text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {leaderboard.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="text-5xl mb-3">🏆</div>
+                    <p className="text-[var(--text-secondary)] font-medium">No activity yet this week</p>
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">Complete chores to appear on the leaderboard!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Family Members - Moved to bottom */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="cb-heading-md text-[var(--primary)]">👨‍👩‍👧‍👦 Family</h3>
@@ -3323,192 +3559,6 @@ const ParentDashboard: React.FC = () => {
                   <div className="text-center py-8">
                     <p className="text-6xl mb-2">👨‍👩‍👧</p>
                     <p className="cb-body text-[var(--text-secondary)]">Invite children to join!</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Pocket Money & Payouts */}
-            <div className="cb-card p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="cb-heading-md text-[var(--primary)]">💰 Pocket Money</h3>
-              </div>
-
-              {children.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-4xl mb-2">💵</p>
-                  <p className="cb-body text-[var(--text-secondary)]">No children yet</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {uniqueChildren.map((child: any) => {
-                    const childWallet = wallets.find((w: any) => w.childId === child.id)
-                    const balancePence = childWallet?.balancePence || 0
-
-                    // Calculate total paid out
-                    const childPayouts = payouts.filter((p: any) => p.childId === child.id)
-                    const totalPaidPence = childPayouts.reduce((sum: number, p: any) => sum + p.amountPence, 0)
-
-                    // Get pending gifts for this child
-                    const childGifts = gifts.filter((g: any) => g.childId === child.id && g.status === 'pending' && g.moneyPence > 0)
-                    const totalGiftMoney = childGifts.reduce((sum: number, g: any) => sum + g.moneyPence, 0)
-
-                    return (
-                      <div key={child.id} className="bg-gradient-to-br from-green-50 to-teal-50 border-2 border-green-200 rounded-[var(--radius-lg)] p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] rounded-full flex items-center justify-center text-xl">
-                              {child.nickname.charAt(0)}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-[var(--text-primary)]">{child.nickname}</h4>
-                              <p className="text-xs text-[var(--text-secondary)]">{childWallet?.stars || 0}⭐ available</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                setGiftChild(child)
-                                setShowGiftStarsMoneyModal(true)
-                              }}
-                              className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold hover:shadow-lg transition-all text-sm"
-                              title="Gift stars or money"
-                            >
-                              🎁 Gift
-                            </button>
-                            <button
-                              onClick={() => {
-                                setPayoutChild(child)
-                                setPayoutAmount((balancePence / 100).toFixed(2))
-                                setPayoutChoreAmount((balancePence / 100).toFixed(2))
-                                setSelectedGiftIds([])
-                                setShowPayoutModal(true)
-                              }}
-                              disabled={balancePence <= 0}
-                              className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                              💸 Pay Out
-                            </button>
-                          </div>
-                        </div>
-
-                        {(() => {
-                          const childStats = walletStats.get(child.id)
-                          const lifetimeEarningsPence = childStats?.lifetimeEarningsPence || 0
-                          const showLifetime = budgetSettings?.showLifetimeEarnings !== false
-                          const gridCols = showLifetime ? 'grid-cols-3' : 'grid-cols-2'
-                          
-                          return (
-                            <div className={`grid ${gridCols} gap-2 text-sm mb-3`}>
-                              <div className="bg-white/60 rounded-lg p-2">
-                                <p className="text-xs text-[var(--text-secondary)]">Unpaid</p>
-                                <p className="font-bold text-green-700">£{(balancePence / 100).toFixed(2)}</p>
-                              </div>
-                              <div className="bg-white/60 rounded-lg p-2">
-                                <p className="text-xs text-[var(--text-secondary)]">Paid Out</p>
-                                <p className="font-bold text-gray-600">£{(totalPaidPence / 100).toFixed(2)}</p>
-                              </div>
-                              {showLifetime && (
-                                <div className="bg-white/60 rounded-lg p-2">
-                                  <p className="text-xs text-[var(--text-secondary)]">Lifetime Earned</p>
-                                  <p className="font-bold text-blue-700">£{(lifetimeEarningsPence / 100).toFixed(2)}</p>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })()}
-
-                        {/* Show split gifts if any */}
-                        {childGifts.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-green-300">
-                            <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Gifts from:</p>
-                            <div className="space-y-1">
-                              {childGifts.map((gift: any) => {
-                                const giver = members.find((m: any) => m.id === gift.givenBy)
-                                const giverName = giver?.displayName || giver?.user?.email?.split('@')[0] || 'Unknown'
-                                return (
-                                  <div key={gift.id} className="flex items-center justify-between text-xs bg-white/60 rounded px-2 py-1">
-                                    <span className="text-[var(--text-secondary)]">
-                                      {giverName} gift
-                                    </span>
-                                    <span className="font-bold text-green-700">
-                                      £{(gift.moneyPence / 100).toFixed(2)}
-                                    </span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Recent Payouts */}
-              {payouts.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">📝 Recent Payouts</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {payouts.slice(0, 5).map((payout: any) => {
-                      // Get the name to display - try to get from family members first, fallback to email
-                      const paidByName = payout.paidByUser 
-                        ? members.find((m: any) => m.userId === payout.paidBy)?.user?.email?.split('@')[0] || payout.paidByUser.email?.split('@')[0] || 'Parent'
-                        : 'Parent'
-                      
-                      return (
-                        <div key={payout.id} className="flex items-center justify-between p-2 bg-[var(--background)] rounded-lg text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">💵</span>
-                            <div>
-                              <p className="font-medium text-[var(--text-primary)]">{payout.child?.nickname}</p>
-                              <p className="text-xs text-[var(--text-secondary)]">
-                                {new Date(payout.createdAt).toLocaleDateString()} • {payout.method || 'cash'} • Paid by {paidByName}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="font-bold text-green-600">£{(payout.amountPence / 100).toFixed(2)}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Weekly Leaderboard */}
-            <div className="cb-card p-6">
-              <h3 className="cb-heading-md text-[var(--primary)] mb-4">🏆 Weekly Leaders</h3>
-              <div className="space-y-3">
-                {leaderboard.slice(0, 5).map((entry, index) => (
-                  <div key={entry.childId} className="bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-md)] p-3 hover:shadow-md transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${
-                        index === 0 ? 'bg-gradient-to-br from-[var(--bonus-stars)] to-yellow-500 text-white shadow-lg' :
-                        index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700' :
-                        index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-orange-900' :
-                        'bg-[var(--card-border)] text-[var(--text-secondary)]'
-                      }`}>
-                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-[var(--text-primary)] truncate">{entry.nickname}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">
-                          {entry.completedChores} chore{entry.completedChores !== 1 ? 's' : ''} • £{((entry.totalRewardPence || 0) / 100).toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-xl text-[var(--bonus-stars)]">{entry.totalStars || 0}⭐</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {leaderboard.length === 0 && (
-                  <div className="text-center py-8">
-                    <div className="text-5xl mb-3">🏆</div>
-                    <p className="text-[var(--text-secondary)] font-medium">No activity yet this week</p>
-                    <p className="text-sm text-[var(--text-secondary)] mt-1">Complete chores to appear on the leaderboard!</p>
                   </div>
                 )}
               </div>
@@ -4927,7 +4977,6 @@ const ParentDashboard: React.FC = () => {
                     
                     // Save to API - WebSocket will broadcast to all dashboards
                     await apiClient.updateFamily(updateData)
-                    console.log('✅ Holiday settings saved, WebSocket will broadcast to all dashboards')
                     
                     setShowHolidayModal(false)
                     setToast({ message: 'Holiday settings saved', type: 'success' })
@@ -6944,6 +6993,21 @@ const ParentDashboard: React.FC = () => {
                               </p>
                             </div>
                           </label>
+                          
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedAdult.chatEnabled !== false}
+                              onChange={(e) => setSelectedAdult({ ...selectedAdult, chatEnabled: e.target.checked })}
+                              className="w-5 h-5 mt-1 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                            <div>
+                              <div className="font-semibold text-[var(--text-primary)]">💬 Family Chat</div>
+                              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                Allow this person to see and use the family chat feature
+                              </p>
+                            </div>
+                          </label>
                         </div>
                       </div>
                     </div>
@@ -6958,7 +7022,8 @@ const ParentDashboard: React.FC = () => {
                             birthMonth: selectedAdult.birthMonth || undefined,
                             birthYear: selectedAdult.birthYear || undefined,
                             giftStarsEnabled: selectedAdult.giftStarsEnabled,
-                            giftMoneyEnabled: selectedAdult.giftMoneyEnabled
+                            giftMoneyEnabled: selectedAdult.giftMoneyEnabled,
+                            chatEnabled: selectedAdult.chatEnabled
                           })
                           setToast({ message: '✅ Member updated successfully!', type: 'success' })
                           // Refresh members list
@@ -8126,6 +8191,62 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Chat Modal - Only show if enabled for current user */}
+      {showChatModal && (() => {
+        const currentMember = members.find((m: any) => m.user?.id === user?.id || m.userId === user?.id)
+        const chatEnabled = currentMember?.chatEnabled !== false // Default to true if not set
+        
+        if (!chatEnabled) {
+          setShowChatModal(false) // Close modal if chat is disabled
+          return null
+        }
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="cb-card w-full max-w-2xl h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--card-border)]">
+                <h3 className="cb-heading-lg text-[var(--primary)]">💬 Family Chat</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setChatTab('recent')}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      chatTab === 'recent'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
+                    }`}
+                  >
+                    Recent (2 days)
+                  </button>
+                  <button
+                    onClick={() => setChatTab('history')}
+                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                      chatTab === 'history'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
+                    }`}
+                  >
+                    History (2 months)
+                  </button>
+                  <button
+                    onClick={() => setShowChatModal(false)}
+                    className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--background)] transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <FamilyChat 
+                  compact={false}
+                  days={chatTab === 'recent' ? 2 : 60}
+                  maxMessages={chatTab === 'recent' ? 150 : 500}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Confetti Celebration */}
       <Confetti active={showConfetti} />

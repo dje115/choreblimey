@@ -5,8 +5,7 @@ import { apiClient } from '../lib/api'
 
 const ChildJoinPage: React.FC = () => {
   const [formData, setFormData] = useState({
-    code: '',
-    nickname: ''
+    code: ''
   })
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -41,12 +40,6 @@ const ChildJoinPage: React.FC = () => {
     setIsLoading(true)
     setMessage('')
 
-    if (!formData.nickname.trim()) {
-      setMessage('Please enter a nickname')
-      setIsLoading(false)
-      return
-    }
-
     if (!useQRCode && !formData.code.trim()) {
       setMessage('Please enter a join code')
       setIsLoading(false)
@@ -55,7 +48,6 @@ const ChildJoinPage: React.FC = () => {
 
     try {
       const joinData = {
-        nickname: formData.nickname.trim(),
         ...(useQRCode && formData.code ? { qrData: JSON.stringify({ type: 'child_join', code: formData.code }) } : { code: formData.code.toUpperCase() })
       }
 
@@ -143,21 +135,6 @@ const ChildJoinPage: React.FC = () => {
               </div>
             )}
 
-            <div>
-              <label htmlFor="nickname" className="block text-sm font-medium text-foreground mb-2">
-                Your Nickname
-              </label>
-              <input
-                id="nickname"
-                name="nickname"
-                type="text"
-                required
-                value={formData.nickname}
-                onChange={handleInputChange}
-                placeholder="What should we call you?"
-                className="relative block w-full px-3 py-2 border border-input bg-background text-foreground placeholder-muted-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
 
           </div>
 

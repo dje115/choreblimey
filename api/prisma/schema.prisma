@@ -84,6 +84,7 @@ model Family {
   familyGifts   FamilyGift[]
   starPurchases StarPurchase[]
   gifts         Gift[]
+  messages      FamilyMessage[]
 }
 
 model User {
@@ -98,6 +99,7 @@ model User {
   rejectedRedemptions Redemption[] @relation("RedemptionRejectedBy")
   approvedStarPurchases StarPurchase[] @relation("StarPurchaseApprovedBy")
   rejectedStarPurchases StarPurchase[] @relation("StarPurchaseRejectedBy")
+  chatMessages          FamilyMessage[]
 }
 
 enum Role {
@@ -122,6 +124,7 @@ model FamilyMember {
   paused      Boolean  @default(false) // Pause account access
   giftStarsEnabled Boolean @default(false) // Can this adult gift stars to children?
   giftMoneyEnabled Boolean @default(false) // Can this adult gift pocket money to children?
+  chatEnabled Boolean  @default(true) // Can this user see and use the family chat?
   createdAt   DateTime @default(now())
   scopeJson   Json?
 
@@ -178,6 +181,7 @@ model Child {
   payouts      Payout[]
   starPurchases StarPurchase[]
   joinCodeUsed ChildJoinCode?
+  chatMessages FamilyMessage[]
 
   @@index([familyId])
 }
@@ -403,6 +407,23 @@ model Gift {
   @@index([familyId, childId, status])
   @@index([familyId, createdAt])
   @@index([childId, status])
+}
+
+model FamilyMessage {
+  id           String   @id @default(uuid())
+  familyId     String
+  senderId     String?  // User ID (for parents) - nullable for children
+  senderChildId String? // Child ID (for children) - nullable for parents
+  senderType   String   // "parent" | "child" - to distinguish sender type
+  message      String   @db.Text
+  createdAt    DateTime @default(now())
+
+  family       Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  sender       User?    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderChild  Child?   @relation(fields: [senderChildId], references: [id], onDelete: Cascade)
+
+  @@index([familyId, createdAt])
+  @@index([familyId])
 }
 
 enum RewardType {

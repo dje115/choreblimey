@@ -118,4 +118,8 @@ export async function routes(app: FastifyInstance) {
   app.get('/family/gifts/:id', ctrl.familyGifts.get)
   app.patch('/family/gifts/:id', ctrl.familyGifts.update)
   app.delete('/family/gifts/:id', ctrl.familyGifts.remove)
+
+  // Family Chat
+  app.post('/chat/messages', ctrl.chat.sendMessage)
+  app.get('/chat/messages', ctrl.chat.getMessages)
 }

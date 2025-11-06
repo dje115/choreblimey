@@ -9,6 +9,7 @@ import { handleApiError } from '../utils/errorHandler'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 import { childThemes, getTheme, applyTheme, type ChildTheme } from '../themes/childThemes'
+import { FamilyChat } from '../components/FamilyChat'
 
 interface Wallet {
   balancePence: number
@@ -167,7 +168,7 @@ interface WalletStats {
   [key: string]: any
 }
 
-type Tab = 'today' | 'streaks' | 'shop' | 'showdown' | 'bank'
+type Tab = 'today' | 'streaks' | 'shop' | 'showdown' | 'bank' | 'chat'
 
 const ChildDashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -204,6 +205,8 @@ const ChildDashboard: React.FC = () => {
   const [gifts, setGifts] = useState<any[]>([]) // Gift records (money/star gifts from adults)
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [error, setError] = useState<string>('')
+  const [unreadChatCount, setUnreadChatCount] = useState(0) // Track unread chat messages
+  const [lastReadChatTime, setLastReadChatTime] = useState<number>(Date.now()) // Track when chat was last viewed
   const [successMessage, setSuccessMessage] = useState<string>('')
   const [activeTab, setActiveTab] = useState<Tab>('today')
   
@@ -265,7 +268,7 @@ const ChildDashboard: React.FC = () => {
         apiClient.getFamily(),
         apiClient.getFamilyMembers(),
         apiClient.listAssignments(childId),
-        apiClient.listCompletions(), // Get all completions to filter out submitted chores
+        apiClient.listCompletions(), // Get all completions - we'll filter by status (only approved = completed)
         apiClient.getRewards(childId), // Keep for backward compatibility
         apiClient.getFamilyGifts({ childId, active: 'true' }), // New: Get family gifts
         apiClient.getLeaderboard(),
@@ -648,7 +651,6 @@ const ChildDashboard: React.FC = () => {
       // Don't call loadDashboard here - it will overwrite optimistic updates
       // The state has already been updated above, and loadDashboard will be called
       // by the fallback polling system if needed
-      console.log('✅ Family settings updated via WebSocket, state updated immediately')
     }
 
     // Listen for child pause status updated (individual child holiday mode)
@@ -656,6 +658,15 @@ const ChildDashboard: React.FC = () => {
       console.log('📢 WebSocket: child:pause:updated received', data)
       console.log('🔄 Refreshing child dashboard...')
       loadDashboard()
+    }
+
+    // Listen for chat messages (to track unread count)
+    const handleChatMessage = (data: any) => {
+      console.log('📢 WebSocket: chat:message received in child dashboard', data)
+      // Only increment unread count if chat tab is not active
+      if (activeTab !== 'chat') {
+        setUnreadChatCount((prev) => prev + 1)
+      }
     }
 
     // Register listeners
@@ -674,6 +685,7 @@ const ChildDashboard: React.FC = () => {
     on('starPurchase:rejected', handleStarPurchaseRejected)
     on('family:settings:updated', handleFamilySettingsUpdated)
     on('child:pause:updated', handleChildPauseUpdated)
+    on('chat:message', handleChatMessage)
 
     // Cleanup
     return () => {
@@ -692,8 +704,9 @@ const ChildDashboard: React.FC = () => {
       off('starPurchase:rejected', handleStarPurchaseRejected)
       off('family:settings:updated', handleFamilySettingsUpdated)
       off('child:pause:updated', handleChildPauseUpdated)
+      off('chat:message', handleChatMessage)
     }
-  }, [socket, isConnected, on, off, loadDashboard])
+  }, [socket, isConnected, on, off, loadDashboard, activeTab])
 
   // Fallback: Keep existing client-side system as backup
   useRealtimeUpdates({
@@ -1119,20 +1132,38 @@ const ChildDashboard: React.FC = () => {
               { id: 'streaks' as Tab, label: 'Streaks', icon: '🔥' },
               ...(familySettings?.giftsEnabled !== false ? [{ id: 'shop' as Tab, label: 'Shop', icon: '🛍️' }] : []),
               { id: 'showdown' as Tab, label: 'Showdown', icon: '⚔️' },
-              { id: 'bank' as Tab, label: 'Bank', icon: '🏦' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-[var(--primary)] text-white shadow-lg scale-105'
-                    : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
-                }`}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+              { id: 'bank' as Tab, label: 'Bank', icon: '🏦' },
+              { id: 'chat' as Tab, label: 'Chat', icon: '💬' }
+            ].map((tab) => {
+              const hasUnread = tab.id === 'chat' && unreadChatCount > 0
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id)
+                    // Clear unread count when opening chat tab
+                    if (tab.id === 'chat') {
+                      setUnreadChatCount(0)
+                      setLastReadChatTime(Date.now())
+                    }
+                  }}
+                  className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-all relative ${
+                    activeTab === tab.id
+                      ? 'bg-[var(--primary)] text-white shadow-lg scale-105'
+                      : hasUnread
+                        ? 'bg-orange-400 text-white animate-pulse shadow-lg'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                  }`}
+                >
+                  {tab.icon} {tab.label}
+                  {hasUnread && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center animate-bounce">
+                      {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -1160,79 +1191,110 @@ const ChildDashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <h2 className="cb-heading-lg text-[var(--primary)]">🎯 Today's Missions</h2>
               <span className="cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                {assignments.filter(a => {
-                  const hasCompletion = completions.some(c => c.assignmentId === a.id)
-                  if (!a.chore?.active || hasCompletion) return false
-                  
-                  // For daily chores, only show assignments created today
-                  if (a.chore.frequency === 'daily') {
-                    const today = new Date()
-                    today.setHours(0, 0, 0, 0)
-                    const assignmentDate = new Date(a.createdAt)
-                    assignmentDate.setHours(0, 0, 0, 0)
-                    return assignmentDate.getTime() === today.getTime()
-                  }
-                  
-                  // For weekly chores, show assignments from this week OR last week (if not completed)
-                  // This ensures weekly chores are visible even if the worker didn't run on Monday
-                  if (a.chore.frequency === 'weekly') {
-                    const today = new Date()
-                    const day = today.getDay()
-                    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-                    const startOfWeek = new Date(today)
-                    startOfWeek.setDate(diff)
-                    startOfWeek.setHours(0, 0, 0, 0)
+                {(() => {
+                  // Filter assignments
+                  const filtered = assignments.filter(a => {
+                    // For weekly chores, only consider a chore "completed" if there's an APPROVED completion
+                    // Pending/rejected completions don't count - the chore is still available
+                    const assignmentCompletions = completions.filter(c => c.assignmentId === a.id)
+                    const hasApprovedCompletion = assignmentCompletions.some(c => c.status === 'approved')
                     
-                    // Also check last week (in case worker didn't run on Monday)
-                    const startOfLastWeek = new Date(startOfWeek)
-                    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7)
+                    if (!a.chore?.active || hasApprovedCompletion) {
+                      return false
+                    }
                     
-                    const assignmentDate = new Date(a.createdAt)
-                    // Show if created this week OR last week (and not completed)
-                    return assignmentDate >= startOfLastWeek
-                  }
+                    // For daily chores, only show assignments created today
+                    if (a.chore.frequency === 'daily') {
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
+                      const assignmentDate = new Date(a.createdAt)
+                      assignmentDate.setHours(0, 0, 0, 0)
+                      return assignmentDate.getTime() === today.getTime()
+                    }
+                    
+                    // For weekly chores, show all assignments that don't have an approved completion
+                    // Pending/rejected completions mean the child can still see and complete the chore
+                    if (a.chore.frequency === 'weekly') {
+                      // Only hide if there's an approved completion
+                      // Pending/rejected completions should still show the chore
+                      return !hasApprovedCompletion
+                    }
+                    
+                    // For 'once' chores, show all
+                    return true
+                  })
                   
-                  // For 'once' chores, show all
-                  return true
-                }).length} active
+                  // For weekly chores, only show the most recent incomplete assignment per chore
+                  // This prevents duplicates if the worker somehow creates multiple assignments
+                  const weeklyChores = new Map<string, Assignment>()
+                  const otherAssignments: Assignment[] = []
+                  
+                  filtered.forEach(a => {
+                    if (a.chore?.frequency === 'weekly') {
+                      const choreId = a.choreId
+                      const existing = weeklyChores.get(choreId)
+                      if (!existing || new Date(a.createdAt) > new Date(existing.createdAt)) {
+                        weeklyChores.set(choreId, a)
+                      }
+                    } else {
+                      otherAssignments.push(a)
+                    }
+                  })
+                  
+                  return [...Array.from(weeklyChores.values()), ...otherAssignments]
+                })().length} active
               </span>
             </div>
 
-            {assignments.filter(a => {
-              const hasCompletion = completions.some(c => c.assignmentId === a.id)
-              if (!a.chore?.active || hasCompletion) return false
-              
-              // For daily chores, only show assignments created today
-              if (a.chore.frequency === 'daily') {
-                const today = new Date()
-                today.setHours(0, 0, 0, 0)
-                const assignmentDate = new Date(a.createdAt)
-                assignmentDate.setHours(0, 0, 0, 0)
-                return assignmentDate.getTime() === today.getTime()
-              }
-              
-              // For weekly chores, show assignments from this week OR last week (if not completed)
-              // This ensures weekly chores are visible even if the worker didn't run on Monday
-              if (a.chore.frequency === 'weekly') {
-                const today = new Date()
-                const day = today.getDay()
-                const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-                const startOfWeek = new Date(today)
-                startOfWeek.setDate(diff)
-                startOfWeek.setHours(0, 0, 0, 0)
+            {(() => {
+              // Filter assignments
+              const filtered = assignments.filter(a => {
+                // For weekly chores, only consider a chore "completed" if there's an APPROVED completion
+                // Pending/rejected completions don't count - the chore is still available
+                const assignmentCompletions = completions.filter(c => c.assignmentId === a.id)
+                const hasApprovedCompletion = assignmentCompletions.some(c => c.status === 'approved')
                 
-                // Also check last week (in case worker didn't run on Monday)
-                const startOfLastWeek = new Date(startOfWeek)
-                startOfLastWeek.setDate(startOfLastWeek.getDate() - 7)
+                if (!a.chore?.active || hasApprovedCompletion) return false
                 
-                const assignmentDate = new Date(a.createdAt)
-                // Show if created this week OR last week (and not completed)
-                return assignmentDate >= startOfLastWeek
-              }
+                // For daily chores, only show assignments created today
+                if (a.chore.frequency === 'daily') {
+                  const today = new Date()
+                  today.setHours(0, 0, 0, 0)
+                  const assignmentDate = new Date(a.createdAt)
+                  assignmentDate.setHours(0, 0, 0, 0)
+                  return assignmentDate.getTime() === today.getTime()
+                }
+                
+                // For weekly chores, show all assignments that don't have an approved completion
+                // Pending/rejected completions mean the child can still see and complete the chore
+                if (a.chore.frequency === 'weekly') {
+                  // Only hide if there's an approved completion
+                  return !hasApprovedCompletion
+                }
+                
+                // For 'once' chores, show all
+                return true
+              })
               
-              // For 'once' chores, show all
-              return true
-            }).length === 0 ? (
+              // For weekly chores, only show the most recent incomplete assignment per chore
+              // This prevents duplicates if the worker somehow creates multiple assignments
+              const weeklyChores = new Map<string, Assignment>()
+              const otherAssignments: Assignment[] = []
+              
+              filtered.forEach(a => {
+                if (a.chore?.frequency === 'weekly') {
+                  const choreId = a.choreId
+                  const existing = weeklyChores.get(choreId)
+                  if (!existing || new Date(a.createdAt) > new Date(existing.createdAt)) {
+                    weeklyChores.set(choreId, a)
+                  }
+                } else {
+                  otherAssignments.push(a)
+                }
+              })
+              
+              return [...Array.from(weeklyChores.values()), ...otherAssignments]
+            })().length === 0 ? (
               <div className="text-center py-16">
                 <div className="text-8xl mb-4">🎉</div>
                 <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">All caught up!</h3>
@@ -1240,34 +1302,55 @@ const ChildDashboard: React.FC = () => {
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {assignments.filter(a => {
-                  const hasCompletion = completions.some(c => c.assignmentId === a.id)
-                  if (!a.chore?.active || hasCompletion) return false
+                {(() => {
+                  // Filter assignments - same logic as the count above
+                  const filtered = assignments.filter(a => {
+                    // For weekly chores, only consider a chore "completed" if there's an APPROVED completion
+                    // Pending/rejected completions don't count - the chore is still available
+                    const assignmentCompletions = completions.filter(c => c.assignmentId === a.id)
+                    const hasApprovedCompletion = assignmentCompletions.some(c => c.status === 'approved')
+                    
+                    if (!a.chore?.active || hasApprovedCompletion) return false
+                    
+                    // For daily chores, only show assignments created today
+                    if (a.chore.frequency === 'daily') {
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
+                      const assignmentDate = new Date(a.createdAt)
+                      assignmentDate.setHours(0, 0, 0, 0)
+                      return assignmentDate.getTime() === today.getTime()
+                    }
+                    
+                    // For weekly chores, show all assignments that don't have an approved completion
+                    // Pending/rejected completions mean the child can still see and complete the chore
+                    if (a.chore.frequency === 'weekly') {
+                      // Only hide if there's an approved completion
+                      return !hasApprovedCompletion
+                    }
+                    
+                    // For 'once' chores, show all
+                    return true
+                  })
                   
-                  // For daily chores, only show assignments created today
-                  if (a.chore.frequency === 'daily') {
-                    const today = new Date()
-                    today.setHours(0, 0, 0, 0)
-                    const assignmentDate = new Date(a.createdAt)
-                    assignmentDate.setHours(0, 0, 0, 0)
-                    return assignmentDate.getTime() === today.getTime()
-                  }
+                  // For weekly chores, only show the most recent incomplete assignment per chore
+                  // This prevents duplicates if the worker somehow creates multiple assignments
+                  const weeklyChores = new Map<string, Assignment>()
+                  const otherAssignments: Assignment[] = []
                   
-                  // For weekly chores, show assignments from this week
-                  if (a.chore.frequency === 'weekly') {
-                    const today = new Date()
-                    const day = today.getDay()
-                    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-                    const startOfWeek = new Date(today)
-                    startOfWeek.setDate(diff)
-                    startOfWeek.setHours(0, 0, 0, 0)
-                    const assignmentDate = new Date(a.createdAt)
-                    return assignmentDate >= startOfWeek
-                  }
+                  filtered.forEach(a => {
+                    if (a.chore?.frequency === 'weekly') {
+                      const choreId = a.choreId
+                      const existing = weeklyChores.get(choreId)
+                      if (!existing || new Date(a.createdAt) > new Date(existing.createdAt)) {
+                        weeklyChores.set(choreId, a)
+                      }
+                    } else {
+                      otherAssignments.push(a)
+                    }
+                  })
                   
-                  // For 'once' chores, show all
-                  return true
-                }).map((assignment) => {
+                  return [...Array.from(weeklyChores.values()), ...otherAssignments]
+                })().map((assignment) => {
                   const chore = assignment.chore
                   return (
                     <div
@@ -2041,6 +2124,27 @@ const ChildDashboard: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Chat Tab */}
+        {activeTab === 'chat' && (
+          <div className="cb-card p-6">
+            <h3 className="cb-heading-lg text-[var(--primary)] mb-4">💬 Family Chat</h3>
+            <div className="h-[60vh]">
+              <FamilyChat 
+                compact={false}
+                days={30}
+                maxMessages={150}
+                childFriendly={true}
+                onNewMessage={() => {
+                  // Only count as unread if chat tab is not active
+                  if (activeTab !== 'chat') {
+                    setUnreadChatCount(prev => prev + 1)
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
 

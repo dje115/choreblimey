@@ -628,6 +628,7 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
         birthYear: true,
         giftStarsEnabled: true,
         giftMoneyEnabled: true,
+        chatEnabled: true,
         paused: true,
         createdAt: true,
         user: {
@@ -667,6 +668,7 @@ export const getMembers = async (req: FastifyRequest, reply: FastifyReply) => {
         birthYear: member.birthYear,
         giftStarsEnabled: member.giftStarsEnabled,
         giftMoneyEnabled: member.giftMoneyEnabled,
+        chatEnabled: member.chatEnabled,
         paused: member.paused,
         joinedAt: member.createdAt,
         user: member.user
@@ -690,6 +692,7 @@ interface UpdateMemberBody {
   birthYear?: number | null
   giftStarsEnabled?: boolean
   giftMoneyEnabled?: boolean
+  chatEnabled?: boolean
 }
 
 /**
@@ -707,7 +710,7 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
   try {
     const { familyId, sub: userId } = req.claims!
     const { id } = req.params
-    const { displayName, birthMonth, birthYear, giftStarsEnabled, giftMoneyEnabled } = req.body
+    const { displayName, birthMonth, birthYear, giftStarsEnabled, giftMoneyEnabled, chatEnabled } = req.body
 
     if (!familyId) {
       return reply.status(401).send({ error: 'Unauthorized' })
@@ -739,6 +742,9 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
     if (giftMoneyEnabled !== undefined) {
       updateData.giftMoneyEnabled = giftMoneyEnabled
     }
+    if (chatEnabled !== undefined) {
+      updateData.chatEnabled = chatEnabled
+    }
 
     // Update member
     const updated = await prisma.familyMember.update({
@@ -767,6 +773,7 @@ export const updateMember = async (req: FastifyRequest<{ Params: { id: string };
         birthYear: updated.birthYear,
         giftStarsEnabled: updated.giftStarsEnabled,
         giftMoneyEnabled: updated.giftMoneyEnabled,
+        chatEnabled: updated.chatEnabled,
         joinedAt: updated.createdAt,
         user: updated.user
       }

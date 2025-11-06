@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import { useSocket } from '../contexts/SocketContext'
 import Confetti from 'react-confetti'
+import { FamilyChat } from '../components/FamilyChat'
 
 const GrandparentDashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -12,19 +13,24 @@ const GrandparentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [members, setMembers] = useState<any[]>([]) // Family members to check chatEnabled
+  const [showChatModal, setShowChatModal] = useState(false) // For full chat modal
+  const [chatTab, setChatTab] = useState<'recent' | 'history'>('recent') // Chat modal tabs
 
   const loadDashboard = useCallback(async () => {
     try {
       setLoading(true)
-      const [familyData, childrenData, walletsData] = await Promise.all([
+      const [familyData, childrenData, walletsData, membersData] = await Promise.all([
         apiClient.getFamily(),
         apiClient.getChildren(),
-        apiClient.getWallets()
+        apiClient.getWallets(),
+        apiClient.getFamilyMembers()
       ])
       
       setFamily(familyData.family || familyData)
       setChildren(childrenData.children || childrenData)
       setWallets(walletsData.wallets || walletsData)
+      setMembers(membersData.members || [])
     } catch (error) {
       console.error('Failed to load dashboard:', error)
       setToast({ message: 'Failed to load dashboard data', type: 'error' })
@@ -66,7 +72,6 @@ const GrandparentDashboard: React.FC = () => {
             ...familyData
           }
         })
-        console.log('✅ Family settings updated via WebSocket, state updated immediately')
       }
     }
 
