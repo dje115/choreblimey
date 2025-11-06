@@ -92,6 +92,23 @@ export const create = async (req: FastifyRequest<{ Body: ChoreCreateBody }>, rep
     const { familyId } = req.claims!
     
     const chore = await choreService.createChore(familyId, req.body)
+    
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'chore:created', {
+        chore: {
+          id: chore.id,
+          title: chore.title,
+          description: chore.description,
+          frequency: chore.frequency,
+          baseRewardPence: chore.baseRewardPence,
+          active: chore.active
+        }
+      })
+    }
+    
     return { chore }
   } catch (error: any) {
     console.error('Error creating chore:', error)
@@ -120,6 +137,23 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }, Body:
     const { id } = req.params
     
     const chore = await choreService.updateChore(id, familyId, req.body)
+    
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'chore:updated', {
+        chore: {
+          id: chore.id,
+          title: chore.title,
+          description: chore.description,
+          frequency: chore.frequency,
+          baseRewardPence: chore.baseRewardPence,
+          active: chore.active
+        }
+      })
+    }
+    
     return { chore }
   } catch (error: any) {
     console.error('Error updating chore:', error)

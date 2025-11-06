@@ -113,6 +113,29 @@ export const create = async (req: FastifyRequest<{ Body: CompletionCreateBody }>
     // Invalidate family cache so parent dashboard shows new pending completion immediately
     await cache.invalidateFamily(familyId)
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'completion:created', {
+        completion: {
+          id: completion.id,
+          assignmentId: completion.assignmentId,
+          childId: completion.childId,
+          status: completion.status,
+          timestamp: completion.timestamp,
+          assignment: {
+            id: assignment.id,
+            chore: {
+              id: assignment.chore.id,
+              title: assignment.chore.title,
+              baseRewardPence: assignment.chore.baseRewardPence
+            }
+          }
+        }
+      })
+    }
+
     return { completion }
   } catch (error) {
     console.error('Error creating completion:', error)
@@ -307,6 +330,40 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
     await cache.invalidateWallet(completion.childId)
     await cache.invalidateLeaderboard(familyId)
 
+    // Emit WebSocket event to notify all family members of approval
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'completion:approved', {
+        completion: {
+          id: completion.id,
+          childId: completion.childId,
+          status: 'approved',
+          assignment: {
+            id: completion.assignment.id,
+            chore: {
+              id: completion.assignment.chore.id,
+              title: completion.assignment.chore.title,
+              baseRewardPence: completion.assignment.chore.baseRewardPence
+            }
+          }
+        },
+        wallet: {
+          balancePence: bonusWallet.balancePence,
+          stars: bonusWallet.stars
+        },
+        rivalryBonus: rivalryBonus ? {
+          originalReward: completion.assignment.chore.baseRewardPence,
+          doubledReward: rewardAmount
+        } : undefined,
+        streakBonus: streakBonus.shouldAward ? {
+          moneyPence: streakBonus.bonusMoneyPence,
+          stars: streakBonus.bonusStars,
+          streakLength: streakStats.currentStreak
+        } : undefined
+      })
+    }
+
     return { 
       ok: true, 
       wallet: bonusWallet,
@@ -357,6 +414,16 @@ export const reject = async (req: FastifyRequest<{ Params: { id: string }, Body:
       return reply.status(400).send({ error: 'Completion has already been processed' })
     }
 
+    // Get completion with assignment details before updating
+    const completionWithDetails = await prisma.completion.findFirst({
+      where: { id, familyId },
+      include: {
+        assignment: {
+          include: { chore: true }
+        }
+      }
+    })
+
     // Update completion status
     await prisma.completion.update({
       where: { id },
@@ -368,6 +435,28 @@ export const reject = async (req: FastifyRequest<{ Params: { id: string }, Body:
 
     // Invalidate family cache so dashboard updates immediately
     await cache.invalidateFamily(familyId)
+
+    // Emit WebSocket event to notify all family members
+    if (completionWithDetails) {
+      const { io } = await import('../server.js')
+      if (io) {
+        const { emitToFamily } = await import('../websocket/socket.js')
+        emitToFamily(io, familyId, 'completion:rejected', {
+          completion: {
+            id: completionWithDetails.id,
+            childId: completionWithDetails.childId,
+            status: 'rejected',
+            assignment: {
+              id: completionWithDetails.assignment.id,
+              chore: {
+                id: completionWithDetails.assignment.chore.id,
+                title: completionWithDetails.assignment.chore.title
+              }
+            }
+          }
+        })
+      }
+    }
 
     return { ok: true }
   } catch (error) {

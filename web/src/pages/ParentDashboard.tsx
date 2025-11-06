@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { apiClient } from '../lib/api'
 import { choreTemplates, categoryLabels, calculateSuggestedReward, type ChoreTemplate } from '../data/choreTemplates'
 import { formatCurrency } from '../utils/currency'
+import { notifyUpdate } from '../utils/notifications'
+import { useRealtimeUpdates } from '../hooks/useRealtimeUpdates'
+import { useSocket } from '../contexts/SocketContext'
+import { handleApiError } from '../utils/errorHandler'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 
@@ -68,65 +72,20 @@ function getTimeAgo(date: Date): string {
 const ParentDashboard: React.FC = () => {
   const { user, logout } = useAuth()
   
-  // Helper function to notify child dashboards of chore updates
+  /**
+   * Notifies child dashboards of chore updates
+   * Uses shared notification utility for cross-tab communication
+   */
   const notifyChildDashboards = () => {
-    console.log('📢 Notifying child dashboards of chore update...')
-    
-    // Method 1: Custom event
-    const event = new CustomEvent('choreUpdated', { 
-      detail: { timestamp: Date.now() } 
-    })
-    window.dispatchEvent(event)
-    console.log('📢 Custom event dispatched')
-    
-    // Method 2: localStorage change (works across tabs)
-    const timestamp = Date.now().toString()
-    localStorage.setItem('chore_updated', timestamp)
-    console.log('📢 localStorage updated with timestamp:', timestamp)
-    
-    // Method 3: BroadcastChannel (modern browsers)
-    if (typeof BroadcastChannel !== 'undefined') {
-      const channel = new BroadcastChannel('choreblimey-updates')
-      channel.postMessage({ type: 'choreUpdated', timestamp })
-      console.log('📢 BroadcastChannel message sent')
-      channel.close()
-    }
-    
-    // Method 4: Direct localStorage trigger (force storage event)
-    setTimeout(() => {
-      localStorage.setItem('chore_updated', (Date.now() + 1).toString())
-      console.log('📢 Second localStorage trigger sent')
-    }, 100)
+    notifyUpdate('choreUpdated')
   }
 
+  /**
+   * Notifies child dashboards of redemption updates
+   * Uses shared notification utility for cross-tab communication
+   */
   const notifyChildDashboardsOfRedemption = () => {
-    console.log('📢 Notifying child dashboards of redemption update...')
-    
-    // Method 1: Custom event
-    const event = new CustomEvent('redemptionUpdated', { 
-      detail: { timestamp: Date.now() } 
-    })
-    window.dispatchEvent(event)
-    console.log('📢 Redemption custom event dispatched')
-    
-    // Method 2: localStorage change (works across tabs)
-    const timestamp = Date.now().toString()
-    localStorage.setItem('redemption_updated', timestamp)
-    console.log('📢 Redemption localStorage updated with timestamp:', timestamp)
-    
-    // Method 3: BroadcastChannel (modern browsers)
-    if (typeof BroadcastChannel !== 'undefined') {
-      const channel = new BroadcastChannel('choreblimey-updates')
-      channel.postMessage({ type: 'redemptionUpdated', timestamp })
-      console.log('📢 Redemption BroadcastChannel message sent')
-      channel.close()
-    }
-    
-    // Method 4: Direct localStorage trigger (force storage event)
-    setTimeout(() => {
-      localStorage.setItem('redemption_updated', (Date.now() + 1).toString())
-      console.log('📢 Second redemption localStorage trigger sent')
-    }, 100)
+    notifyUpdate('redemptionUpdated')
   }
   const [family, setFamily] = useState<Family | null>(null)
   const [holidayOptimisticUntil, setHolidayOptimisticUntil] = useState<number>(0)
@@ -314,6 +273,7 @@ const ParentDashboard: React.FC = () => {
 
   const parentLoadingRef = useRef(false)
   const uiBusyRef = useRef(false)
+  const loadDashboardRef = useRef<(() => Promise<void>) | null>(null)
   const debounce = (fn: (...args: any[]) => void, wait = 400) => {
     let timeoutId: number | undefined
     return (...args: any[]) => {
@@ -322,163 +282,13 @@ const ParentDashboard: React.FC = () => {
     }
   }
 
-  useEffect(() => {
-    loadDashboard()
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (buyStarsEnabledTimeoutRef.current) {
-        clearTimeout(buyStarsEnabledTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Listen for completion updates from child dashboard
-  useEffect(() => {
-    const handleCompletionUpdate = (event?: any) => {
-      console.log('🔄 Completion update detected, refreshing parent dashboard...', event?.detail || event)
-      loadDashboard()
-    }
-
-    // Method 1: Custom events from child dashboard
-    window.addEventListener('completionUpdated', handleCompletionUpdate)
-    console.log('👂 Parent dashboard listening for completionUpdated events')
-    
-    // Method 2: localStorage changes (works across tabs)
-    const handleStorageChange = (e: StorageEvent) => {
-      console.log('🔍 Storage event received:', e.key, e.newValue, e.oldValue)
-      if (e.key === 'completion_updated' && e.newValue) {
-        console.log('🔄 Completion update detected via localStorage, refreshing parent dashboard...', e.newValue)
-        loadDashboard()
-        // Clear the flag
-        localStorage.removeItem('completion_updated')
-      }
-    }
-    
-    window.addEventListener('storage', handleStorageChange)
-    console.log('👂 Parent dashboard listening for localStorage changes')
-    
-    // Method 3: BroadcastChannel (modern browsers)
-    let broadcastChannel: BroadcastChannel | null = null
-    if (typeof BroadcastChannel !== 'undefined') {
-      broadcastChannel = new BroadcastChannel('choreblimey-updates')
-      broadcastChannel.onmessage = (event) => {
-        if (event.data.type === 'completionUpdated') {
-          console.log('🔄 Completion update detected via BroadcastChannel, refreshing parent dashboard...', event.data)
-          loadDashboard()
-        }
-      }
-      console.log('👂 Parent dashboard listening for BroadcastChannel messages')
-    }
-
-    // Method 4: Test localStorage detection for completions
-    const testCompletionLocalStorage = () => {
-      const completionValue = localStorage.getItem('completion_updated')
-      console.log('🔍 Current localStorage completion_updated value:', completionValue)
-      if (completionValue) {
-        console.log('🔄 Found completion localStorage value, triggering refresh...')
-        loadDashboard()
-        localStorage.removeItem('completion_updated')
-      }
-    }
-    
-    // Method 5: Direct API polling for pending completions
-    const checkPendingCompletions = async () => {
-      try {
-        console.log('🔍 Checking for pending completions via API...')
-        const response = await apiClient.listCompletions()
-        const pendingCount = response.completions?.filter((c: any) => c.status === 'pending').length || 0
-        console.log('🔍 Found', pendingCount, 'pending completions')
-        if (pendingCount > 0) {
-          console.log('🔄 Pending completions found, refreshing dashboard...')
-          loadDashboard()
-        }
-      } catch (error) {
-        console.error('Error checking pending completions:', error)
-      }
-    }
-    
-    // Test localStorage on load
-    testCompletionLocalStorage()
-    
-    // Test localStorage every 2 seconds
-    const localStorageTestInterval = setInterval(testCompletionLocalStorage, 2000)
-    console.log('👂 Parent dashboard testing completion localStorage every 2 seconds')
-    
-    // Check API for pending completions every 3 seconds
-    const apiCheckInterval = setInterval(checkPendingCompletions, 3000)
-    console.log('👂 Parent dashboard checking API for pending completions every 3 seconds')
-
-    return () => {
-      window.removeEventListener('completionUpdated', handleCompletionUpdate)
-      window.removeEventListener('storage', handleStorageChange)
-      if (broadcastChannel) {
-        broadcastChannel.close()
-      }
-      clearInterval(localStorageTestInterval)
-      clearInterval(apiCheckInterval)
-    }
-  }, [])
-  
-  // Poll for child joins when there are active join codes
-  useEffect(() => {
-    if (joinCodes.length === 0) return // No active join codes, no need to poll
-    
-    console.log('🔄 Starting join code polling - checking for new children every 5 seconds')
-    
-    const checkForNewChildren = async () => {
-      try {
-        console.log('🔍 Checking for new children who joined via join codes...')
-        const response = await apiClient.getFamilyMembers()
-        const currentChildCount = response.children?.length || 0
-        const previousChildCount = previousChildCountRef.current
-        
-        console.log(`🔍 Child count: previous=${previousChildCount}, current=${currentChildCount}`)
-        
-        if (currentChildCount > previousChildCount) {
-          console.log('🎉 New child detected! Refreshing dashboard...')
-          loadDashboard()
-        }
-        
-        // Update the ref for next comparison
-        previousChildCountRef.current = currentChildCount
-      } catch (error) {
-        console.error('Error checking for new children:', error)
-      }
-    }
-    
-    // Check immediately
-    checkForNewChildren()
-    
-    // Then check every 5 seconds
-    const joinPollInterval = setInterval(checkForNewChildren, 5000)
-    console.log('👂 Parent dashboard polling for child joins every 5 seconds')
-    
-    return () => {
-      clearInterval(joinPollInterval)
-      console.log('🛑 Stopped join code polling')
-    }
-  }, [joinCodes.length, children.length]) // Re-run when join codes or children change
-  
-  useEffect(() => {
-    if (family) {
-      setFamilyName(family.nameCipher || '')
-      // Always update budget settings when family data changes
-      setBudgetSettings({
-        maxBudgetPence: family.maxBudgetPence || 0,
-        budgetPeriod: family.budgetPeriod || 'weekly',
-        showLifetimeEarnings: family.showLifetimeEarnings !== false, // Default to true
-        buyStarsEnabled: family.buyStarsEnabled || false,
-        starConversionRatePence: family.starConversionRatePence || 10
-      })
-      setBuyStarsEnabledTemp(false) // Reset temp state when family data loads
-    }
-  }, [family])
-
-  const loadDashboard = async () => {
+  // Define loadDashboard FIRST so it can be used in other callbacks
+  const loadDashboard = useCallback(async () => {
     if (parentLoadingRef.current) {
+      console.log('⏸️ loadDashboard already in progress, skipping...')
       return
     }
+    console.log('🔄 loadDashboard called - fetching latest data...')
     parentLoadingRef.current = true
     try {
       const [familyRes, membersRes, choresRes, assignmentsRes, pendingCompletionsRes, allCompletionsRes, redemptionsRes, starPurchasesRes, leaderboardRes, budgetRes, joinCodesRes, payoutsRes, giftsRes] = await Promise.allSettled([
@@ -628,12 +438,230 @@ const ParentDashboard: React.FC = () => {
       if (payoutsRes.status === 'fulfilled') setPayouts(payoutsRes.value.payouts || [])
       if (giftsRes.status === 'fulfilled') setGifts(giftsRes.value.gifts || [])
     } catch (error) {
-      console.error('Error loading dashboard:', error)
+      const appError = handleApiError(error, 'Loading dashboard')
+      console.error('Error loading dashboard:', appError)
+      setToast({ message: appError.message, type: 'error' })
     } finally {
       parentLoadingRef.current = false
       setLoading(false)
+      console.log('✅ loadDashboard completed')
     }
-  }
+  }, []) // Empty deps - loadDashboard doesn't depend on any props/state that change
+
+  // Store loadDashboard in ref for use in useEffect (avoids dependency issues)
+  loadDashboardRef.current = loadDashboard
+
+  useEffect(() => {
+    // Use ref to call loadDashboard to avoid dependency issues
+    if (loadDashboardRef.current) {
+      loadDashboardRef.current()
+    }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (buyStarsEnabledTimeoutRef.current) {
+        clearTimeout(buyStarsEnabledTimeoutRef.current)
+      }
+    }
+  }, []) // Empty deps - only run on mount
+
+  // WebSocket connection for real-time updates
+  const { socket, isConnected, on, off } = useSocket()
+
+  /**
+   * Listen for completion updates via WebSocket
+   * This works across all devices, browsers, and tabs
+   */
+  useEffect(() => {
+    if (!socket || !isConnected) {
+      console.log('🔌 WebSocket not connected, skipping event listeners')
+      return
+    }
+
+    console.log('👂 Setting up WebSocket listeners for parent dashboard')
+
+    // Listen for completion created (child submits chore)
+    const handleCompletionCreated = (data: any) => {
+      console.log('📢 WebSocket: completion:created received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for completion approved (parent approves, child needs to see wallet update)
+    const handleCompletionApproved = (data: any) => {
+      console.log('📢 WebSocket: completion:approved received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for completion rejected (parent rejects, child needs to see status)
+    const handleCompletionRejected = (data: any) => {
+      console.log('📢 WebSocket: completion:rejected received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for chore created (parent creates chore, children need to see it)
+    const handleChoreCreated = (data: any) => {
+      console.log('📢 WebSocket: chore:created received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for assignment created (parent assigns chore to child)
+    const handleAssignmentCreated = (data: any) => {
+      console.log('📢 WebSocket: assignment:created received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for assignment deleted (parent removes chore assignment)
+    const handleAssignmentDeleted = (data: any) => {
+      console.log('📢 WebSocket: assignment:deleted received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for chore updated (parent updates chore details)
+    const handleChoreUpdated = (data: any) => {
+      console.log('📢 WebSocket: chore:updated received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for redemption created (child redeems gift)
+    const handleRedemptionCreated = (data: any) => {
+      console.log('📢 WebSocket: redemption:created received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for redemption fulfilled (parent fulfills redemption)
+    const handleRedemptionFulfilled = (data: any) => {
+      console.log('📢 WebSocket: redemption:fulfilled received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for redemption rejected (parent rejects redemption)
+    const handleRedemptionRejected = (data: any) => {
+      console.log('📢 WebSocket: redemption:rejected received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Listen for gift created/updated (parent adds/updates gifts)
+    const handleGiftCreated = (data: any) => {
+      console.log('📢 WebSocket: gift:created received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    const handleGiftUpdated = (data: any) => {
+      console.log('📢 WebSocket: gift:updated received', data)
+      console.log('🔄 Refreshing parent dashboard...')
+      loadDashboard()
+    }
+
+    // Register listeners
+    on('completion:created', handleCompletionCreated)
+    on('completion:approved', handleCompletionApproved)
+    on('completion:rejected', handleCompletionRejected)
+    on('chore:created', handleChoreCreated)
+    on('assignment:created', handleAssignmentCreated)
+    on('assignment:deleted', handleAssignmentDeleted)
+    on('chore:updated', handleChoreUpdated)
+    on('redemption:created', handleRedemptionCreated)
+    on('redemption:fulfilled', handleRedemptionFulfilled)
+    on('redemption:rejected', handleRedemptionRejected)
+    on('gift:created', handleGiftCreated)
+    on('gift:updated', handleGiftUpdated)
+
+    // Cleanup
+    return () => {
+      off('completion:created', handleCompletionCreated)
+      off('completion:approved', handleCompletionApproved)
+      off('completion:rejected', handleCompletionRejected)
+      off('chore:created', handleChoreCreated)
+      off('assignment:created', handleAssignmentCreated)
+      off('assignment:deleted', handleAssignmentDeleted)
+      off('chore:updated', handleChoreUpdated)
+      off('redemption:created', handleRedemptionCreated)
+      off('redemption:fulfilled', handleRedemptionFulfilled)
+      off('redemption:rejected', handleRedemptionRejected)
+      off('gift:created', handleGiftCreated)
+      off('gift:updated', handleGiftUpdated)
+    }
+  }, [socket, isConnected, on, off, loadDashboard])
+
+  // Fallback: Keep existing client-side system as backup
+  const handleCompletionUpdate = useCallback(() => {
+    console.log('🔄 Completion update detected (fallback), refreshing parent dashboard...')
+    loadDashboard()
+  }, [loadDashboard])
+
+  useRealtimeUpdates({
+    eventTypes: ['completionUpdated'],
+    onUpdate: handleCompletionUpdate,
+    enablePolling: true,
+    pollingInterval: 5000, // Poll every 5 seconds as fallback
+    useVisibilityAPI: true
+  })
+  
+  // Poll for child joins when there are active join codes
+  useEffect(() => {
+    if (joinCodes.length === 0) return // No active join codes, no need to poll
+    
+    console.log('🔄 Starting join code polling - checking for new children every 5 seconds')
+    
+    const checkForNewChildren = async () => {
+      try {
+        console.log('🔍 Checking for new children who joined via join codes...')
+        const response = await apiClient.getFamilyMembers()
+        const currentChildCount = response.children?.length || 0
+        const previousChildCount = previousChildCountRef.current
+        
+        console.log(`🔍 Child count: previous=${previousChildCount}, current=${currentChildCount}`)
+        
+        if (currentChildCount > previousChildCount) {
+          console.log('🎉 New child detected! Refreshing dashboard...')
+          loadDashboard()
+        }
+        
+        // Update the ref for next comparison
+        previousChildCountRef.current = currentChildCount
+      } catch (error) {
+        handleApiError(error, 'Checking for new children')
+      }
+    }
+    
+    // Check immediately
+    checkForNewChildren()
+    
+    // Then check every 5 seconds
+    const joinPollInterval = setInterval(checkForNewChildren, 5000)
+    console.log('👂 Parent dashboard polling for child joins every 5 seconds')
+    
+    return () => {
+      clearInterval(joinPollInterval)
+      console.log('🛑 Stopped join code polling')
+    }
+  }, [joinCodes.length, children.length, loadDashboard]) // Re-run when join codes or children change
+  
+  useEffect(() => {
+    if (family) {
+      setFamilyName(family.nameCipher || '')
+      // Always update budget settings when family data changes
+      setBudgetSettings({
+        maxBudgetPence: family.maxBudgetPence || 0,
+        budgetPeriod: family.budgetPeriod || 'weekly',
+        showLifetimeEarnings: family.showLifetimeEarnings !== false, // Default to true
+        buyStarsEnabled: family.buyStarsEnabled || false,
+        starConversionRatePence: family.starConversionRatePence || 10
+      })
+      setBuyStarsEnabledTemp(false) // Reset temp state when family data loads
+    }
+  }, [family])
 
   const loadFamilyGifts = async () => {
     try {
@@ -641,8 +669,9 @@ const ParentDashboard: React.FC = () => {
       const response = await apiClient.getFamilyGifts()
       setFamilyGifts(response.gifts || [])
     } catch (error) {
-      console.error('Failed to load family gifts:', error)
-      setToast({ message: 'Failed to load gifts', type: 'error' })
+      const appError = handleApiError(error, 'Loading family gifts')
+      console.error('Failed to load family gifts:', appError)
+      setToast({ message: appError.message, type: 'error' })
     } finally {
       setLoadingGifts(false)
     }
@@ -660,8 +689,9 @@ const ParentDashboard: React.FC = () => {
       const response = await apiClient.getGiftTemplates(params)
       setGiftTemplates(response.templates || [])
     } catch (error) {
-      console.error('Failed to load gift templates:', error)
-      setToast({ message: 'Failed to load gift templates', type: 'error' })
+      const appError = handleApiError(error, 'Loading gift templates')
+      console.error('Failed to load gift templates:', appError)
+      setToast({ message: appError.message, type: 'error' })
     } finally {
       setLoadingGifts(false)
     }
@@ -891,6 +921,11 @@ const ParentDashboard: React.FC = () => {
         console.log('⚠️ No children selected - skipping assignment creation')
       }
 
+      // Notify child dashboards IMMEDIATELY after successful creation
+      // This ensures child dashboards get the update even before parent dashboard reloads
+      console.log('📢 Notifying child dashboards of new chore...')
+      notifyChildDashboards()
+      
       // Reset form and close modal
       setShowCreateChoreModal(false)
       setNewChore({
@@ -914,7 +949,8 @@ const ParentDashboard: React.FC = () => {
       await loadDashboard()
       console.log('✅ Dashboard reloaded')
       
-      // Notify child dashboards of the update
+      // Notify again after reload to ensure child dashboards get the update
+      console.log('📢 Notifying child dashboards again after reload...')
       notifyChildDashboards()
       
       // Force component refresh
@@ -931,6 +967,11 @@ const ParentDashboard: React.FC = () => {
   const handleApproveCompletion = async (completionId: string) => {
     try {
       const result = await apiClient.approveCompletion(completionId)
+      
+      // Notify child dashboards IMMEDIATELY after successful approval
+      // This ensures instant update on child dashboard (wallet balance, completion status)
+      console.log('📢 Notifying child dashboards of completion approval...')
+      notifyChildDashboards()
       
       // Check for rivalry bonus (DOUBLE STARS!)
       if (result.rivalryBonus) {
@@ -957,7 +998,8 @@ const ParentDashboard: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 300))
       await loadDashboard()
       
-      // Notify child dashboards of the approval
+      // Notify again after reload to ensure child dashboards get the update
+      console.log('📢 Notifying child dashboards again after reload...')
       notifyChildDashboards()
     } catch (error) {
       console.error('Error approving completion:', error)
@@ -969,11 +1011,19 @@ const ParentDashboard: React.FC = () => {
     const reason = prompt('Why are you rejecting this? (optional)')
     try {
       await apiClient.rejectCompletion(completionId, reason || undefined)
+      
+      // Notify child dashboards IMMEDIATELY after rejection
+      console.log('📢 Notifying child dashboards of completion rejection...')
+      notifyChildDashboards()
+      
       setToast({ message: 'Chore rejected', type: 'warning' })
       
       // Small delay to ensure DB is updated, then reload
       await new Promise(resolve => setTimeout(resolve, 300))
       await loadDashboard()
+      
+      // Notify again after reload
+      notifyChildDashboards()
     } catch (error) {
       console.error('Error rejecting completion:', error)
       setToast({ message: 'Failed to reject. Please try again.', type: 'error' })
@@ -2118,6 +2168,8 @@ const ParentDashboard: React.FC = () => {
                     type="button"
                     role="switch"
                     aria-checked={family?.giftsEnabled !== false}
+                    aria-label={family?.giftsEnabled !== false ? 'Disable gift shop' : 'Enable gift shop'}
+                    title={family?.giftsEnabled !== false ? 'Disable gift shop' : 'Enable gift shop'}
                     onClick={() => {
                       const newValue = !(family?.giftsEnabled !== false)
                       apiClient.updateFamily({ giftsEnabled: newValue })

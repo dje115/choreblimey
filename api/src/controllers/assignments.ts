@@ -105,6 +105,25 @@ export const create = async (req: FastifyRequest<{ Body: AssignmentCreateBody }>
       }
     })
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'assignment:created', {
+        assignment: {
+          id: assignment.id,
+          choreId: assignment.choreId,
+          childId: assignment.childId,
+          biddingEnabled: assignment.biddingEnabled,
+          chore: {
+            id: assignment.chore.id,
+            title: assignment.chore.title,
+            baseRewardPence: assignment.chore.baseRewardPence
+          }
+        }
+      })
+    }
+
     return { assignment }
   } catch (error) {
     reply.status(500).send({ error: 'Failed to create assignment' })
@@ -164,6 +183,15 @@ export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, re
     await prisma.assignment.delete({
       where: { id }
     })
+
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'assignment:deleted', {
+        assignmentId: id
+      })
+    }
 
     return { success: true }
   } catch (error) {

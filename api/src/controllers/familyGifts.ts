@@ -324,6 +324,20 @@ export const create = async (
     // Invalidate family cache
     await cache.invalidateFamily(familyId)
     
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'gift:created', {
+        gift: {
+          id: gift.id,
+          title: gift.title,
+          starsRequired: gift.starsRequired,
+          active: gift.active
+        }
+      })
+    }
+    
     return { gift }
   } catch (error) {
     console.error('Error creating family gift:', error)
@@ -422,6 +436,20 @@ export const addFromTemplate = async (
     // Invalidate family cache
     await cache.invalidateFamily(familyId)
     
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'gift:created', {
+        gift: {
+          id: gift.id,
+          title: gift.title,
+          starsRequired: gift.starsRequired,
+          active: gift.active
+        }
+      })
+    }
+    
     return { gift }
   } catch (error: any) {
     console.error('Error adding gift from template:', error)
@@ -481,6 +509,20 @@ export const update = async (
     
     // Invalidate family cache
     await cache.invalidateFamily(familyId)
+    
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'gift:updated', {
+        gift: {
+          id: gift.id,
+          title: gift.title,
+          starsRequired: gift.starsRequired,
+          active: gift.active
+        }
+      })
+    }
     
     return { gift }
   } catch (error) {

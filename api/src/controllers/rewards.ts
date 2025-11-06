@@ -237,6 +237,24 @@ export const redeem = async (req: FastifyRequest<{ Body: RedemptionBody }>, repl
       return { redemption, wallet: updatedWallet }
     })
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'redemption:created', {
+        redemption: {
+          id: result.redemption.id,
+          childId: actualChildId,
+          status: result.redemption.status,
+          giftTitle: giftTitle
+        },
+        wallet: {
+          balancePence: result.wallet.balancePence,
+          stars: result.wallet.stars
+        }
+      })
+    }
+
     return result
   } catch (error) {
     console.error('Failed to redeem reward:', error)
@@ -360,6 +378,19 @@ export const fulfillRedemption = async (req: FastifyRequest<{ Params: { id: stri
       }
     })
 
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'redemption:fulfilled', {
+        redemption: {
+          id: updatedRedemption.id,
+          childId: updatedRedemption.childId,
+          status: 'fulfilled'
+        }
+      })
+    }
+
     return { redemption: updatedRedemption }
   } catch (error) {
     console.error('Failed to fulfill redemption:', error)
@@ -458,10 +489,27 @@ export const rejectRedemption = async (req: FastifyRequest<{ Params: { id: strin
         }
       })
 
-      return updatedRedemption
+      return { redemption: updatedRedemption, wallet }
     })
 
-    return { redemption: result }
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'redemption:rejected', {
+        redemption: {
+          id: result.redemption.id,
+          childId: result.redemption.childId,
+          status: 'rejected'
+        },
+        wallet: {
+          balancePence: result.wallet.balancePence,
+          stars: result.wallet.stars
+        }
+      })
+    }
+
+    return { redemption: result.redemption }
   } catch (error) {
     console.error('Failed to reject redemption:', error)
     reply.status(500).send({ error: 'Failed to reject redemption' })

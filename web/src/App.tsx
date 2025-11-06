@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { SocketProvider } from './contexts/SocketContext'
 import { ThemeProvider } from './theme/ThemeProvider'
 import VersionBadge from './components/VersionBadge'
 import { LanguageProvider } from './contexts/LanguageContext'
@@ -95,9 +96,11 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <LanguageProvider>
-        <AppContent />
-      </LanguageProvider>
+      <SocketProvider>
+        <LanguageProvider>
+          <AppContent />
+        </LanguageProvider>
+      </SocketProvider>
     </AuthProvider>
   )
 }

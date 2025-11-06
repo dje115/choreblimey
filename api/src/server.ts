@@ -15,15 +15,31 @@ import { routes } from './routes/index.js'
 import { authPlugin } from './utils/auth.js'
 import { prisma } from './db/prisma.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler.js'
+import { initializeSocketIO } from './websocket/socket.js'
+import type { Server as SocketIOServer } from 'socket.io'
 
 const app = Fastify({ 
   logger: true,
   trustProxy: true
 })
 
+// Store Socket.io instance for use in controllers
+export let io: SocketIOServer | null = null
+
 // Register security plugins
+// Note: CSP is handled in HTML meta tag for frontend, but we enable other security headers
 await app.register(helmet, {
-  contentSecurityPolicy: false
+  contentSecurityPolicy: false, // CSP handled in frontend HTML meta tag
+  crossOriginEmbedderPolicy: false, // Disable for API endpoints
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: false
+  },
+  xContentTypeOptions: true,
+  xFrameOptions: { action: 'sameorigin' },
+  xXssProtection: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 })
 
 /**
@@ -57,6 +73,12 @@ const start = async () => {
   try {
     await app.listen({ port: 1501, host: '0.0.0.0' })
     console.log('🚀 API server ready on http://localhost:1501')
+    
+    // Initialize Socket.io after server starts
+    // Fastify exposes the underlying Node.js HTTP server
+    const httpServer = app.server
+    io = initializeSocketIO(httpServer)
+    console.log('🔌 WebSocket server initialized')
   } catch (err) {
     console.error('❌ Failed to start server:', err)
     process.exit(1)

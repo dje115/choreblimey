@@ -128,9 +128,9 @@ services:
       - REDIS_PORT=6379
       - API_PORT=1501
       - API_HOST=0.0.0.0
-      - APP_VERSION=0.1.10
+      - APP_VERSION=0.1.12
     labels:
-      - "com.choreblimey.version=0.1.10"
+      - "com.choreblimey.version=0.1.12"
     ports:
       - "1501:1501"
     networks:
@@ -156,20 +156,21 @@ services:
       context: ..
       dockerfile: infra/docker/web.Dockerfile
     env_file:
-      - ./dev.env
+      - ./dev-secure.env
     environment:
       - VITE_API_BASE_URL=http://localhost:1501/v1
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - LC_CTYPE=C.UTF-8
-      - APP_VERSION=0.1.10
+      - APP_VERSION=0.1.12
     labels:
-      - "com.choreblimey.version=0.1.10"
+      - "com.choreblimey.version=0.1.12"
     ports:
       - "1500:1500"
     networks:
       - user_network
     volumes:
+      - ../web:/app/web
       - web_node_modules:/app/web/node_modules
     depends_on:
       api:
@@ -191,9 +192,9 @@ services:
       - REDIS_URL=redis://redis:6379
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - APP_VERSION=0.1.10
+      - APP_VERSION=0.1.12
     labels:
-      - "com.choreblimey.version=0.1.10"
+      - "com.choreblimey.version=0.1.12"
     networks:
       - user_network
       - database_network  # Database access only
@@ -237,9 +238,9 @@ services:
       - S3_SECRET_KEY=${S3_SECRET_KEY:-minio12345}
       - S3_BUCKET=${S3_BUCKET:-gift-images}
       - S3_REGION=${S3_REGION:-us-east-1}
-      - APP_VERSION=0.1.10
+      - APP_VERSION=0.1.12
     labels:
-      - "com.choreblimey.version=0.1.10"
+      - "com.choreblimey.version=0.1.12"
     ports:
       - "1502:1502"
     networks:
@@ -270,9 +271,9 @@ services:
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
       - LC_CTYPE=C.UTF-8
-      - APP_VERSION=0.1.10
+      - APP_VERSION=0.1.12
     labels:
-      - "com.choreblimey.version=0.1.10"
+      - "com.choreblimey.version=0.1.12"
     ports:
       - "1503:1503"
     networks:
