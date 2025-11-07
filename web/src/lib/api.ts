@@ -421,6 +421,10 @@ class ApiClient {
     return this.post(`/family/gifts/${templateId}/add`, data)
   }
 
+  async resolveAmazonProduct(url: string) {
+    return this.post('/amazon/product-info', { url })
+  }
+
   async updateFamilyGift(id: string, data: {
     starsRequired?: number
     availableForAll?: boolean

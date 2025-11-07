@@ -119,6 +119,9 @@ export async function routes(app: FastifyInstance) {
   app.patch('/family/gifts/:id', ctrl.familyGifts.update)
   app.delete('/family/gifts/:id', ctrl.familyGifts.remove)
 
+  // Amazon affiliate helpers
+  app.post('/amazon/product-info', ctrl.amazonAffiliate.resolve)
+
   // Family Chat
   app.post('/chat/messages', ctrl.chat.sendMessage)
   app.get('/chat/messages', ctrl.chat.getMessages)

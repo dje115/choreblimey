@@ -735,6 +735,19 @@ model FamilyGift {
   @@index([giftTemplateId])
 }
 
+model AffiliateConfig {
+  id               String   @id @default(uuid())
+  amazonEnabled    Boolean  @default(false)
+  amazonAssociateId String?
+  amazonAccessKey  String?
+  amazonSecretKey  String?
+  amazonTag        String?
+  sitestripeTag    String?
+  defaultImageUrl  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 // Profanity filter words (admin-managed)
 model ProfanityWord {
   id        String   @id @default(uuid())

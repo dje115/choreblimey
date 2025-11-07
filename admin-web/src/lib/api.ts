@@ -112,6 +112,15 @@ class AdminApiClient {
     return this.handleResponse<T>(response)
   }
 
+  async put<T = any>(endpoint: string, data?: any, includeAuth: boolean = true): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'PUT',
+      headers: this.getHeaders(includeAuth),
+      body: data ? JSON.stringify(data) : undefined,
+    })
+    return this.handleResponse<T>(response)
+  }
+
   async delete<T = any>(endpoint: string, data?: any, includeAuth: boolean = true): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
@@ -218,6 +227,23 @@ class AdminApiClient {
 
   async blockIPAddress(ipAddress: string, reason: string) {
     return this.post('/v1/admin/security/block-ip', { ipAddress, reason })
+  }
+
+  // Affiliate configuration
+  async getAffiliateConfig() {
+    return this.get('/v1/admin/affiliate')
+  }
+
+  async updateAffiliateConfig(data: {
+    amazonEnabled?: boolean
+    amazonAssociateId?: string
+    amazonAccessKey?: string
+    amazonSecretKey?: string
+    amazonTag?: string
+    sitestripeTag?: string
+    defaultImageUrl?: string | null
+  }) {
+    return this.put('/v1/admin/affiliate', data)
   }
 
   // Gift Template Management

@@ -6,6 +6,7 @@ import * as adminSecurity from '../controllers/adminSecurity.js'
 import * as adminGiftTemplates from '../controllers/adminGiftTemplates.js'
 import * as adminImageUpload from '../controllers/adminImageUpload.js'
 import * as adminProfanity from '../controllers/adminProfanity.js'
+import * as adminAffiliate from '../controllers/adminAffiliate.js'
 
 export async function routes(app: FastifyInstance) {
   // Health check (no auth required)
@@ -45,6 +46,10 @@ export async function routes(app: FastifyInstance) {
 
   // Image Upload (admin auth required)
   app.post('/admin/images/upload', adminImageUpload.uploadImageHandler)
+
+  // Affiliate configuration (admin auth required)
+  app.get('/admin/affiliate', adminAffiliate.getConfig)
+  app.put('/admin/affiliate', adminAffiliate.updateConfig)
 
   // Gift Template Management (admin auth required)
   app.get('/admin/gift-templates', adminGiftTemplates.listGiftTemplates)

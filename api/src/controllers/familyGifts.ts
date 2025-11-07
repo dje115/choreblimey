@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { ErrorCode, sendError } from '../utils/errors.js'
 import { cache, cacheKeys, cacheTTL } from '../utils/cache.js'
+import { getAffiliateConfig, getTrackingTag } from '../utils/affiliateConfig.js'
 
 /**
  * Request body for creating a family gift
@@ -284,7 +285,14 @@ export const create = async (
       affiliateUrl = `https://amazon.co.uk/dp/${body.amazonAsin}?tag=${body.affiliateTag}`
     }
     
+    const affiliateConfig = await getAffiliateConfig()
+    const trackingTag = getTrackingTag(affiliateConfig)
+
     const { sub: userId } = req.claims!
+
+    const imageUrl = body.imageUrl || affiliateConfig.defaultImageUrl || null
+
+    const resolvedAffiliateTag = body.affiliateTag || trackingTag || null
     
     const gift = await prisma.familyGift.create({
       data: {
@@ -292,15 +300,15 @@ export const create = async (
         giftTemplateId: body.giftTemplateId || null,
         isCustom: body.isCustom,
         type: body.type,
-        provider: body.provider || null,
+        provider: body.provider || (body.type === 'amazon_product' ? 'amazon_associates' : null),
         amazonAsin: body.amazonAsin || null,
         affiliateUrl: affiliateUrl || body.affiliateUrl || null,
-        affiliateTag: body.affiliateTag || null,
+        affiliateTag: resolvedAffiliateTag,
         sitestripeUrl: body.sitestripeUrl || null,
         pricePence: body.pricePence || null,
         title: body.title,
         description: body.description || null,
-        imageUrl: body.imageUrl || null,
+        imageUrl,
         category: body.category || null,
         starsRequired: body.starsRequired,
         ageTag: body.ageTag || null,

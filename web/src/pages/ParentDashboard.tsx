@@ -266,6 +266,11 @@ const ParentDashboard: React.FC = () => {
   const [showAddGiftModal, setShowAddGiftModal] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
   const selectedTemplateRef = useRef<any>(null) // Ref to persist template during modal transition
+  const [customGiftType, setCustomGiftType] = useState<'activity' | 'custom' | 'amazon_product'>('activity')
+  const [amazonProductUrl, setAmazonProductUrl] = useState('')
+  const [amazonProductInfo, setAmazonProductInfo] = useState<any | null>(null)
+  const [amazonProductLoading, setAmazonProductLoading] = useState(false)
+  const [amazonProductError, setAmazonProductError] = useState<string | null>(null)
   const [selectedGift, setSelectedGift] = useState<any>(null)
   const [showEditGiftModal, setShowEditGiftModal] = useState(false)
   const [giftFilters, setGiftFilters] = useState({ type: '', category: '', age: '', gender: '' })
@@ -466,6 +471,20 @@ const ParentDashboard: React.FC = () => {
       }
     }
   }, []) // Empty deps - only run on mount
+
+  useEffect(() => {
+    if (!showAddGiftModal) {
+      setAmazonProductUrl('')
+      setAmazonProductInfo(null)
+      setAmazonProductError(null)
+    }
+  }, [showAddGiftModal])
+
+  useEffect(() => {
+    if (selectedTemplate) {
+      setCustomGiftType('activity')
+    }
+  }, [selectedTemplate])
 
   // WebSocket connection for real-time updates
   const { socket, isConnected, on, off } = useSocket()
@@ -1619,6 +1638,92 @@ const ParentDashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                      {customGiftType === 'amazon_product' && (
+                        <div className="md:col-span-2 space-y-3">
+                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
+                            Amazon Product URL <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                              type="url"
+                              value={amazonProductUrl}
+                              onChange={(e) => {
+                                setAmazonProductUrl(e.target.value)
+                                setAmazonProductError(null)
+                              }}
+                              placeholder="https://www.amazon.co.uk/..."
+                              className="flex-1 px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!amazonProductUrl.trim()) {
+                                  setAmazonProductError('Enter a valid Amazon product URL')
+                                  return
+                                }
+                                try {
+                                  setAmazonProductLoading(true)
+                                  setAmazonProductError(null)
+                                  const result = await apiClient.resolveAmazonProduct(amazonProductUrl.trim())
+                                  const product = result?.product
+                                  if (!product) {
+                                    setAmazonProductError('Could not find product information')
+                                    return
+                                  }
+                                  setAmazonProductInfo(product)
+
+                                  const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement
+                                  const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement
+                                  const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement
+                                  const starsInput = document.getElementById('customGiftStars') as HTMLInputElement
+
+                                  if (product.title && titleInput) {
+                                    titleInput.value = product.title
+                                  }
+                                  if (product.shortDescription && descriptionInput && !descriptionInput.value) {
+                                    descriptionInput.value = product.shortDescription
+                                  }
+                                  if (product.image && imageUrlInput) {
+                                    imageUrlInput.value = product.image
+                                  }
+                                  if (product.price && starsInput && !starsInput.value) {
+                                    const approxStars = Math.max(1, Math.round(product.price))
+                                    starsInput.value = approxStars.toString()
+                                  }
+                                } catch (err: any) {
+                                  console.error('Failed to resolve Amazon product', err)
+                                  setAmazonProductError(err?.message || 'Failed to fetch product details')
+                                  setAmazonProductInfo(null)
+                                } finally {
+                                  setAmazonProductLoading(false)
+                                }
+                              }}
+                              className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                              disabled={amazonProductLoading}
+                            >
+                              {amazonProductLoading ? 'Fetching...' : 'Fetch Details'}
+                            </button>
+                          </div>
+                          {amazonProductError && (
+                            <p className="text-sm text-red-600">{amazonProductError}</p>
+                          )}
+                          {amazonProductInfo && (
+                            <div className="mt-3 flex items-center gap-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
+                              {amazonProductInfo.image && (
+                                <img src={amazonProductInfo.image} alt={amazonProductInfo.title} className="w-20 h-20 object-cover rounded" />
+                              )}
+                              <div className="space-y-1">
+                                <h4 className="text-sm font-semibold text-[var(--text-primary)]">{amazonProductInfo.title}</h4>
+                                {amazonProductInfo.shortDescription && (
+                                  <p className="text-xs text-[var(--text-secondary)]">{amazonProductInfo.shortDescription}</p>
+                                )}
+                                <p className="text-xs text-[var(--text-secondary)]">ASIN: {amazonProductInfo.asin}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                   
@@ -2809,6 +2914,10 @@ const ParentDashboard: React.FC = () => {
                           onClick={() => {
                             setSelectedTemplate(null)
                             selectedTemplateRef.current = null
+                    setCustomGiftType('activity')
+                    setAmazonProductUrl('')
+                    setAmazonProductInfo(null)
+                    setAmazonProductError(null)
                             setShowAddGiftModal(true)
                           }}
                   className="min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white active:bg-orange-600 active:text-white transition-all shadow-sm hover:shadow-md active:shadow-sm whitespace-nowrap touch-manipulation"
@@ -7613,6 +7722,10 @@ const ParentDashboard: React.FC = () => {
                   onClick={() => {
                     setShowAddGiftModal(false)
                     setSelectedTemplate(null)
+                    setCustomGiftType('activity')
+                    setAmazonProductUrl('')
+                    setAmazonProductInfo(null)
+                    setAmazonProductError(null)
                   }}
                   className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--background)] transition-colors"
                 >
@@ -7756,6 +7869,10 @@ const ParentDashboard: React.FC = () => {
                           onClick={() => {
                             setShowAddGiftModal(false)
                             setSelectedTemplate(null)
+                            setCustomGiftType('activity')
+                            setAmazonProductUrl('')
+                            setAmazonProductInfo(null)
+                            setAmazonProductError(null)
                           }}
                           className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-lg text-[var(--text-primary)] font-semibold hover:bg-[var(--background)] transition-colors"
                         >
@@ -7773,11 +7890,21 @@ const ParentDashboard: React.FC = () => {
                           </label>
                           <select
                             id="customGiftType"
-                            defaultValue="activity"
+                            value={customGiftType}
+                            onChange={(e) => {
+                              const value = e.target.value as 'activity' | 'custom' | 'amazon_product'
+                              setCustomGiftType(value)
+                              if (value !== 'amazon_product') {
+                                setAmazonProductUrl('')
+                                setAmazonProductInfo(null)
+                                setAmazonProductError(null)
+                              }
+                            }}
                             className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg bg-white focus:border-[var(--primary)] focus:outline-none transition-colors"
                           >
                             <option value="activity">Activity</option>
                             <option value="custom">Custom</option>
+                            <option value="amazon_product">Amazon Product</option>
                           </select>
                         </div>
                         <div>
@@ -7896,7 +8023,6 @@ const ParentDashboard: React.FC = () => {
                       <div className="flex gap-3 pt-2">
                         <button
                           onClick={async () => {
-                            const typeInput = document.getElementById('customGiftType') as HTMLSelectElement
                             const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement
                             const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement
                             const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement
@@ -7917,9 +8043,14 @@ const ParentDashboard: React.FC = () => {
                             }
                             
                             try {
+                              if (customGiftType === 'amazon_product' && !amazonProductInfo) {
+                                setToast({ message: 'Fetch product details before creating an Amazon gift', type: 'error' })
+                                return
+                              }
+
                               const giftData: any = {
                                 isCustom: true, // Mark as custom gift
-                                type: typeInput.value as 'amazon_product' | 'activity' | 'custom',
+                                type: customGiftType,
                                 title: titleInput.value.trim(),
                                 starsRequired: parseInt(starsInput.value),
                                 availableForAll: allCheckbox.checked,
@@ -7930,9 +8061,25 @@ const ParentDashboard: React.FC = () => {
                               if (descriptionInput.value.trim()) giftData.description = descriptionInput.value.trim()
                               if (imageUrlInput.value.trim()) giftData.imageUrl = imageUrlInput.value.trim()
                               
+                              if (customGiftType === 'amazon_product' && amazonProductInfo) {
+                                giftData.provider = 'amazon_associates'
+                                giftData.amazonAsin = amazonProductInfo.asin
+                                giftData.affiliateUrl = amazonProductInfo.affiliateLink
+                                if (amazonProductInfo.shortDescription && !giftData.description) {
+                                  giftData.description = amazonProductInfo.shortDescription
+                                }
+                                if (amazonProductInfo.price && amazonProductInfo.currency === 'GBP') {
+                                  giftData.pricePence = Math.round(amazonProductInfo.price * 100)
+                                }
+                              }
+                              
                               await apiClient.createFamilyGift(giftData)
                               setToast({ message: 'Custom gift created!', type: 'success' })
                               setShowAddGiftModal(false)
+                              setCustomGiftType('activity')
+                              setAmazonProductUrl('')
+                              setAmazonProductInfo(null)
+                              setAmazonProductError(null)
                               loadFamilyGifts()
                             } catch (error: any) {
                               setToast({ message: error.message || 'Failed to create gift', type: 'error' })
