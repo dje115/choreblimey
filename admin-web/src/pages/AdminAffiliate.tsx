@@ -10,6 +10,7 @@ interface AffiliateConfigState {
   amazonTag: string
   sitestripeTag: string
   defaultImageUrl: string
+  defaultStarValuePence: string
 }
 
 const DEFAULT_CONFIG: AffiliateConfigState = {
@@ -19,7 +20,8 @@ const DEFAULT_CONFIG: AffiliateConfigState = {
   amazonSecretKey: '',
   amazonTag: '',
   sitestripeTag: '',
-  defaultImageUrl: ''
+  defaultImageUrl: '',
+  defaultStarValuePence: '10'
 }
 
 const AdminAffiliate: React.FC = () => {
@@ -48,7 +50,8 @@ const AdminAffiliate: React.FC = () => {
         amazonSecretKey: cfg.amazonSecretKey ?? '',
         amazonTag: cfg.amazonTag ?? '',
         sitestripeTag: cfg.sitestripeTag ?? '',
-        defaultImageUrl: cfg.defaultImageUrl ?? ''
+        defaultImageUrl: cfg.defaultImageUrl ?? '',
+        defaultStarValuePence: cfg.defaultStarValuePence ? String(cfg.defaultStarValuePence) : '10'
       })
     } catch (err: any) {
       console.error('Failed to load affiliate configuration', err)
@@ -78,7 +81,8 @@ const AdminAffiliate: React.FC = () => {
         amazonSecretKey: config.amazonSecretKey.trim() || undefined,
         amazonTag: config.amazonTag.trim() || undefined,
         sitestripeTag: config.sitestripeTag.trim() || undefined,
-        defaultImageUrl: config.defaultImageUrl.trim() || null
+        defaultImageUrl: config.defaultImageUrl.trim() || null,
+        defaultStarValuePence: parseInt(config.defaultStarValuePence, 10) || 10
       })
 
       setSuccess('Affiliate configuration saved successfully')
@@ -252,6 +256,24 @@ const AdminAffiliate: React.FC = () => {
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 placeholder="choreblimey-21"
               />
+            </div>
+
+            <div className="border-t border-gray-200 pt-6">
+              <h4 className="text-sm font-medium text-gray-900 mb-1">Default Star Conversion Rate</h4>
+              <p className="text-xs text-gray-500 mb-3">
+                Used when auto-suggesting star costs for Amazon products. Example: with the default 10p per star, a £10 item becomes 100 stars. Families can override the star value when creating gifts.
+              </p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">1 star =</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={config.defaultStarValuePence}
+                  onChange={(e) => handleFieldChange('defaultStarValuePence', e.target.value)}
+                  className="mt-1 block w-32 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+                <span className="text-sm text-gray-600">pence</span>
+              </div>
             </div>
 
             <div className="space-y-3">

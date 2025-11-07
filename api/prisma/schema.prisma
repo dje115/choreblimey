@@ -628,6 +628,7 @@ model AffiliateConfig {
   amazonTag        String?
   sitestripeTag    String?
   defaultImageUrl  String?
+  defaultStarValuePence Int @default(10)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

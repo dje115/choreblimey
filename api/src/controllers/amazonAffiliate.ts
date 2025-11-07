@@ -33,7 +33,11 @@ export const resolve = async (
         shortDescription: product.shortDescription || '',
         source: product.source,
         price: product.price || null,
-        currency: product.currency || null
+        currency: product.currency || null,
+        pricePence: product.pricePence ?? (product.price && product.currency === 'GBP' ? Math.round(product.price * 100) : null),
+        category: product.category || null,
+        suggestedAgeRanges: product.suggestedAgeRanges || [],
+        suggestedGender: product.suggestedGender || null
       }
     }
   } catch (error: any) {

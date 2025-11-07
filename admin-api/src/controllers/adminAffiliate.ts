@@ -12,6 +12,7 @@ function sanitizeConfig(config: any) {
     amazonTag: config.amazonTag ?? '',
     sitestripeTag: config.sitestripeTag ?? '',
     defaultImageUrl: config.defaultImageUrl ?? '',
+    defaultStarValuePence: config.defaultStarValuePence ?? 10,
     createdAt: config.createdAt,
     updatedAt: config.updatedAt
   }
@@ -47,6 +48,7 @@ interface UpdateAffiliateBody {
   amazonTag?: string
   sitestripeTag?: string
   defaultImageUrl?: string
+  defaultStarValuePence?: number
 }
 
 export const updateConfig = async (
@@ -67,6 +69,13 @@ export const updateConfig = async (
 
     const config = await ensureConfig()
 
+    const defaultStarValuePence = (() => {
+      if (typeof body.defaultStarValuePence === 'number' && body.defaultStarValuePence > 0) {
+        return Math.round(body.defaultStarValuePence)
+      }
+      return config.defaultStarValuePence ?? 10
+    })()
+
     const updated = await prisma.affiliateConfig.update({
       where: { id: config.id },
       data: {
@@ -76,7 +85,8 @@ export const updateConfig = async (
         amazonSecretKey: trimmed.amazonSecretKey,
         amazonTag: trimmed.amazonTag,
         sitestripeTag: trimmed.sitestripeTag,
-        defaultImageUrl: trimmed.defaultImageUrl
+        defaultImageUrl: trimmed.defaultImageUrl,
+        defaultStarValuePence
       }
     })
 

@@ -8,6 +8,7 @@ export interface AffiliateConfig {
   amazonTag: string | null
   sitestripeTag: string | null
   defaultImageUrl: string | null
+  defaultStarValuePence: number
 }
 
 let cachedConfig: { config: AffiliateConfig; timestamp: number } | null = null
@@ -21,7 +22,8 @@ function mapConfig(record: any): AffiliateConfig {
     amazonSecretKey: record?.amazonSecretKey ?? null,
     amazonTag: record?.amazonTag ?? null,
     sitestripeTag: record?.sitestripeTag ?? null,
-    defaultImageUrl: record?.defaultImageUrl ?? null
+    defaultImageUrl: record?.defaultImageUrl ?? null,
+    defaultStarValuePence: typeof record?.defaultStarValuePence === 'number' ? record.defaultStarValuePence : 10
   }
 }
 

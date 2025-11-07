@@ -7,6 +7,7 @@ import * as adminGiftTemplates from '../controllers/adminGiftTemplates.js'
 import * as adminImageUpload from '../controllers/adminImageUpload.js'
 import * as adminProfanity from '../controllers/adminProfanity.js'
 import * as adminAffiliate from '../controllers/adminAffiliate.js'
+import * as adminAmazonProducts from '../controllers/amazonProducts.js'
 
 export async function routes(app: FastifyInstance) {
   // Health check (no auth required)
@@ -50,6 +51,7 @@ export async function routes(app: FastifyInstance) {
   // Affiliate configuration (admin auth required)
   app.get('/admin/affiliate', adminAffiliate.getConfig)
   app.put('/admin/affiliate', adminAffiliate.updateConfig)
+  app.post('/admin/amazon/product-info', adminAmazonProducts.resolve)
 
   // Gift Template Management (admin auth required)
   app.get('/admin/gift-templates', adminGiftTemplates.listGiftTemplates)

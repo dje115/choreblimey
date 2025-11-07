@@ -32,6 +32,12 @@ const AdminGiftTemplates: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<GiftTemplate | null>(null)
+  const [affiliateConfig, setAffiliateConfig] = useState<{ defaultStarValuePence: number; amazonTag?: string; sitestripeTag?: string }>({ defaultStarValuePence: 10 })
+  const [amazonProductUrl, setAmazonProductUrl] = useState('')
+  const [amazonProductLoading, setAmazonProductLoading] = useState(false)
+  const [amazonProductError, setAmazonProductError] = useState<string | null>(null)
+  const [amazonProductInfo, setAmazonProductInfo] = useState<any | null>(null)
+  const [suggestedStarsError, setSuggestedStarsError] = useState<string | null>(null)
   const [filters, setFilters] = useState({
     type: '',
     category: '',
@@ -71,6 +77,46 @@ const AdminGiftTemplates: React.FC = () => {
     loadTemplates()
   }, [filters])
 
+  useEffect(() => {
+    const loadAffiliateConfig = async () => {
+      try {
+        const response = await adminApiClient.getAffiliateConfig()
+        const cfg = response?.config
+        if (cfg) {
+          setAffiliateConfig({
+            defaultStarValuePence: cfg.defaultStarValuePence ?? 10,
+            amazonTag: cfg.amazonTag ?? '',
+            sitestripeTag: cfg.sitestripeTag ?? ''
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load affiliate configuration:', error)
+      }
+    }
+
+    loadAffiliateConfig()
+  }, [])
+
+  useEffect(() => {
+    if (formData.type !== 'amazon_product') {
+      setAmazonProductUrl('')
+      setAmazonProductInfo(null)
+      setAmazonProductError(null)
+    }
+  }, [formData.type])
+
+  useEffect(() => {
+    if (formData.type === 'amazon_product' && !formData.affiliateTag) {
+      const defaultTag = affiliateConfig.sitestripeTag || affiliateConfig.amazonTag || ''
+      if (defaultTag) {
+        setFormData((prev) => {
+          if (prev.affiliateTag) return prev
+          return { ...prev, affiliateTag: defaultTag }
+        })
+      }
+    }
+  }, [formData.type, formData.affiliateTag, affiliateConfig.sitestripeTag, affiliateConfig.amazonTag])
+
   const loadTemplates = async () => {
     try {
       setLoading(true)
@@ -92,15 +138,27 @@ const AdminGiftTemplates: React.FC = () => {
 
   const handleCreate = async () => {
     try {
+      setSuggestedStarsError(null)
       if (!formData.title || !formData.suggestedStars) {
-        alert('Title and suggested stars are required')
+        if (!formData.title) {
+          alert('Title is required')
+        }
+        if (!formData.suggestedStars) {
+          setSuggestedStarsError('Please enter the number of stars required.')
+        }
+        return
+      }
+
+      const parsedStars = parseInt(formData.suggestedStars, 10)
+      if (isNaN(parsedStars) || parsedStars <= 0) {
+        setSuggestedStarsError('Please enter the number of stars required.')
         return
       }
 
       const data: any = {
         type: formData.type,
         title: formData.title,
-        suggestedStars: parseInt(formData.suggestedStars),
+        suggestedStars: parsedStars,
         active: formData.active,
         featured: formData.featured,
         recurring: formData.recurring
@@ -112,7 +170,12 @@ const AdminGiftTemplates: React.FC = () => {
         if (formData.affiliateUrl) data.affiliateUrl = formData.affiliateUrl
         if (formData.affiliateTag) data.affiliateTag = formData.affiliateTag
         if (formData.sitestripeUrl) data.sitestripeUrl = formData.sitestripeUrl
-        if (formData.pricePence) data.pricePence = parseInt(formData.pricePence)
+        if (formData.pricePence) {
+          const parsedPrice = parseInt(formData.pricePence, 10)
+          if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+            data.pricePence = parsedPrice
+          }
+        }
       }
 
       if (formData.description) data.description = formData.description
@@ -133,6 +196,84 @@ const AdminGiftTemplates: React.FC = () => {
       loadTemplates()
     } catch (error) {
       alert('Failed to save gift template: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    }
+  }
+
+  const handleFetchAmazonProduct = async () => {
+    if (!amazonProductUrl.trim()) {
+      setAmazonProductError('Enter a valid Amazon product URL')
+      return
+    }
+
+    try {
+      setAmazonProductLoading(true)
+      setAmazonProductError(null)
+      const result = await adminApiClient.resolveAmazonProduct(amazonProductUrl.trim())
+      const product = result?.product
+
+      if (!product) {
+        setAmazonProductError('Could not find product information')
+        setAmazonProductInfo(null)
+        return
+      }
+
+      setAmazonProductInfo(product)
+      setSuggestedStarsError(null)
+
+      const defaultAffiliateTag = affiliateConfig.sitestripeTag || affiliateConfig.amazonTag || ''
+      const recognizedAgeRanges = ['5-8', '9-11', '12-15', '16+']
+
+      setFormData((prev) => {
+        const updated = { ...prev }
+
+        if (product.asin) {
+          updated.amazonAsin = product.asin
+        }
+        if (product.affiliateLink) {
+          updated.affiliateUrl = product.affiliateLink
+        }
+        if (!updated.affiliateTag && defaultAffiliateTag) {
+          updated.affiliateTag = defaultAffiliateTag
+        }
+        if (product.title) {
+          updated.title = product.title
+        }
+        if (product.shortDescription) {
+          updated.description = product.shortDescription
+        }
+        if (product.image) {
+          updated.imageUrl = product.image
+        }
+        if (product.category) {
+          updated.category = product.category
+        }
+        if (product.pricePence) {
+          updated.pricePence = String(product.pricePence)
+        }
+        if (product.suggestedAgeRanges?.length) {
+          const validRanges = product.suggestedAgeRanges.filter((range) => recognizedAgeRanges.includes(range))
+          if (validRanges.length) {
+            updated.suggestedAgeRanges = validRanges
+          }
+        }
+        if (product.suggestedGender && ['male', 'female', 'both', 'unisex'].includes(product.suggestedGender)) {
+          updated.suggestedGender = product.suggestedGender as any
+        }
+
+        if (typeof product.suggestedStars === 'number' && product.suggestedStars > 0) {
+          updated.suggestedStars = String(product.suggestedStars)
+        } else if (product.pricePence) {
+          const defaultStarValue = affiliateConfig.defaultStarValuePence > 0 ? affiliateConfig.defaultStarValuePence : 10
+          updated.suggestedStars = String(Math.max(1, Math.round(product.pricePence / defaultStarValue)))
+        }
+
+        return updated
+      })
+    } catch (error: any) {
+      setAmazonProductInfo(null)
+      setAmazonProductError(error?.message || 'Failed to fetch product details')
+    } finally {
+      setAmazonProductLoading(false)
     }
   }
 
@@ -157,6 +298,25 @@ const AdminGiftTemplates: React.FC = () => {
       featured: template.featured,
       recurring: template.recurring
     })
+    if (template.type === 'amazon_product') {
+      const canonicalUrl = template.affiliateUrl || (template.amazonAsin ? `https://www.amazon.co.uk/dp/${template.amazonAsin}` : '')
+      setAmazonProductUrl(canonicalUrl || '')
+      setAmazonProductInfo({
+        title: template.title,
+        shortDescription: template.description,
+        image: template.imageUrl,
+        pricePence: template.pricePence ?? undefined,
+        affiliateLink: template.affiliateUrl ?? '',
+        asin: template.amazonAsin ?? '',
+        suggestedStars: template.suggestedStars,
+        category: template.category ?? null
+      })
+    } else {
+      setAmazonProductUrl('')
+      setAmazonProductInfo(null)
+    }
+    setAmazonProductError(null)
+    setSuggestedStarsError(null)
     setShowCreateModal(true)
   }
 
@@ -237,6 +397,10 @@ const AdminGiftTemplates: React.FC = () => {
       featured: false,
       recurring: false
     })
+    setAmazonProductUrl('')
+    setAmazonProductInfo(null)
+    setAmazonProductError(null)
+    setSuggestedStarsError(null)
   }
 
   const toggleAgeRange = (range: string) => {
@@ -561,6 +725,64 @@ const AdminGiftTemplates: React.FC = () => {
                 {formData.type === 'amazon_product' && (
                   <>
                     <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Amazon Product URL *</label>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <input
+                          type="url"
+                          value={amazonProductUrl}
+                          onChange={(e) => {
+                            setAmazonProductUrl(e.target.value)
+                            setAmazonProductError(null)
+                          }}
+                          placeholder="https://www.amazon.co.uk/your-product"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2"
+                          required
+                        />
+                        <button
+                          onClick={handleFetchAmazonProduct}
+                          type="button"
+                          disabled={amazonProductLoading}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {amazonProductLoading ? 'Fetching…' : 'Fetch Details'}
+                        </button>
+                      </div>
+                      {amazonProductError && (
+                        <p className="mt-2 text-sm text-red-600">{amazonProductError}</p>
+                      )}
+                      {amazonProductInfo && (
+                        <div className="mt-3 p-3 border border-blue-200 rounded-md bg-blue-50">
+                          <div className="flex gap-3">
+                            {amazonProductInfo.image && (
+                              <img
+                                src={amazonProductInfo.image}
+                                alt={amazonProductInfo.title}
+                                className="w-16 h-16 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-semibold text-blue-900 truncate">{amazonProductInfo.title}</h4>
+                              {amazonProductInfo.shortDescription && (
+                                <p className="text-xs text-blue-800 truncate">{amazonProductInfo.shortDescription}</p>
+                              )}
+                              <div className="text-xs text-blue-700 mt-1 flex flex-wrap gap-2">
+                                {amazonProductInfo.pricePence ? (
+                                  <span>Price: £{(amazonProductInfo.pricePence / 100).toFixed(2)}</span>
+                                ) : amazonProductInfo.price && amazonProductInfo.currency === 'GBP' ? (
+                                  <span>Price: £{amazonProductInfo.price.toFixed(2)}</span>
+                                ) : null}
+                                {amazonProductInfo.asin && <span>ASIN: {amazonProductInfo.asin}</span>}
+                                {amazonProductInfo.category && <span>Category: {amazonProductInfo.category}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          {typeof amazonProductInfo.suggestedStars === 'number' && (
+                            <p className="mt-2 text-xs text-blue-700">Suggested stars: {amazonProductInfo.suggestedStars}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Provider *</label>
                       <select
                         value={formData.provider}
@@ -743,10 +965,16 @@ const AdminGiftTemplates: React.FC = () => {
                   <input
                     type="number"
                     value={formData.suggestedStars}
-                    onChange={(e) => setFormData({ ...formData, suggestedStars: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, suggestedStars: e.target.value })
+                      setSuggestedStarsError(null)
+                    }}
                     className="w-full border border-gray-300 rounded-md px-3 py-2"
                     required
                   />
+                  {suggestedStarsError && (
+                    <p className="mt-1 text-xs text-red-600 font-medium">{suggestedStarsError}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 flex-wrap">
                   <label className="flex items-center">

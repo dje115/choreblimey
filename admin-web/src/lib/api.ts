@@ -242,8 +242,13 @@ class AdminApiClient {
     amazonTag?: string
     sitestripeTag?: string
     defaultImageUrl?: string | null
+    defaultStarValuePence?: number
   }) {
     return this.put('/v1/admin/affiliate', data)
+  }
+
+  async resolveAmazonProduct(url: string) {
+    return this.post('/v1/admin/amazon/product-info', { url })
   }
 
   // Gift Template Management

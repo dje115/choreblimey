@@ -1,6 +1,16 @@
 import * as cheerio from 'cheerio'
 import amazonPaapi from 'amazon-paapi'
-import { AffiliateConfig, getAffiliateConfig, getTrackingTag } from './affiliateConfig.js'
+
+interface AffiliateConfig {
+  amazonEnabled: boolean
+  amazonAssociateId: string | null
+  amazonAccessKey: string | null
+  amazonSecretKey: string | null
+  amazonTag: string | null
+  sitestripeTag: string | null
+  defaultImageUrl: string | null
+  defaultStarValuePence: number
+}
 
 type SuggestedGender = 'male' | 'female' | 'both' | 'unisex'
 
@@ -21,6 +31,7 @@ interface ProductInfo {
 
 interface ResolveOptions {
   url: string
+  config: AffiliateConfig
 }
 
 const MARKET_MAP = {
@@ -123,7 +134,6 @@ function normalizeHost(rawUrl: string): { host: MarketKey; url: URL } {
   const url = new URL(rawUrl)
   let host = url.hostname.replace(/^smile\./, '').replace(/^m\./, '')
   if (!Object.prototype.hasOwnProperty.call(MARKET_MAP, host)) {
-    // default to UK marketplace
     host = 'amazon.co.uk'
   }
   return { host: host as MarketKey, url }
@@ -178,7 +188,10 @@ async function resolveViaPAAPI(host: MarketKey, asin: string, config: AffiliateC
           'ItemInfo.Title',
           'ItemInfo.Features',
           'ItemInfo.ContentInfo',
-          'Offers.Listings.Price'
+          'Offers.Listings.Price',
+          'ItemInfo.Classifications',
+          'ItemInfo.ByLineInfo',
+          'ItemInfo.ProductInfo'
         ]
       },
       {} as any
@@ -317,15 +330,14 @@ async function resolveViaScrape(host: MarketKey, asin: string, trackingTag: stri
   }
 }
 
-export async function resolveAmazonProduct({ url }: ResolveOptions): Promise<ProductInfo> {
+export async function resolveAmazonProduct({ url, config }: ResolveOptions): Promise<ProductInfo> {
   const { host, url: parsed } = normalizeHost(url)
   const asin = extractASIN(parsed)
   if (!asin) {
     throw new Error('Unable to find ASIN in Amazon URL')
   }
 
-  const config = await getAffiliateConfig()
-  const trackingTag = getTrackingTag(config)
+  const trackingTag = config.sitestripeTag || config.amazonTag || null
 
   const viaApi = await resolveViaPAAPI(host, asin, config, trackingTag)
   if (viaApi) {
