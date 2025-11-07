@@ -148,7 +148,7 @@ class AdminApiClient {
   }
 
   async adminLogout() {
-    return this.post('/v1/admin/auth/logout')
+    return this.post('/v1/admin/auth/logout', {})
   }
 
   async getAdminProfile() {

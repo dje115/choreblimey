@@ -11,7 +11,7 @@ export const resolve = async (
   reply: FastifyReply
 ) => {
   try {
-    const claims = req.claims
+    const claims = req.adminClaims
     if (!claims || claims.role !== 'admin') {
       return reply.status(403).send({ error: 'Admin access required' })
     }

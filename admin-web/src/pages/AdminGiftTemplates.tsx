@@ -251,7 +251,7 @@ const AdminGiftTemplates: React.FC = () => {
           updated.pricePence = String(product.pricePence)
         }
         if (product.suggestedAgeRanges?.length) {
-          const validRanges = product.suggestedAgeRanges.filter((range) => recognizedAgeRanges.includes(range))
+          const validRanges = product.suggestedAgeRanges.filter((range: string) => recognizedAgeRanges.includes(range))
           if (validRanges.length) {
             updated.suggestedAgeRanges = validRanges
           }
