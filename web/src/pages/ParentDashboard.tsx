@@ -1692,52 +1692,6 @@ const ParentDashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      {customGiftType === 'amazon_product' && (
-                        <div className="md:col-span-2 space-y-3">
-                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
-                            Amazon Product URL <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <input
-                              type="url"
-                              value={amazonProductUrl}
-                              onChange={(e) => {
-                                setAmazonProductUrl(e.target.value)
-                                setAmazonProductError(null)
-                                setAmazonProductFetchedOnce(false)
-                              }}
-                              placeholder="https://www.amazon.co.uk/..."
-                              className="flex-1 px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={fetchAmazonProductDetails}
-                              className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                              disabled={amazonProductLoading}
-                            >
-                              {amazonProductLoading ? 'Fetching...' : 'Fetch Details'}
-                            </button>
-                          </div>
-                          {amazonProductError && (
-                            <p className="text-sm text-red-600">{amazonProductError}</p>
-                          )}
-                          {amazonProductInfo && (
-                            <div className="mt-3 flex items-center gap-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
-                              {amazonProductInfo.image && (
-                                <img src={amazonProductInfo.image} alt={amazonProductInfo.title} className="w-20 h-20 object-cover rounded" />
-                              )}
-                              <div className="space-y-1">
-                                <h4 className="text-sm font-semibold text-[var(--text-primary)]">{amazonProductInfo.title}</h4>
-                                {amazonProductInfo.shortDescription && (
-                                  <p className="text-xs text-[var(--text-secondary)]">{amazonProductInfo.shortDescription}</p>
-                                )}
-                                <p className="text-xs text-[var(--text-secondary)]">ASIN: {amazonProductInfo.asin}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   ))}
                   
@@ -7936,6 +7890,53 @@ const ParentDashboard: React.FC = () => {
                           />
                         </div>
                       </div>
+
+                      {customGiftType === 'amazon_product' && (
+                        <div className="space-y-3">
+                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
+                            Amazon Product URL <span className="text-red-500">*</span>
+                          </label>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                              type="url"
+                              value={amazonProductUrl}
+                              onChange={(e) => {
+                                setAmazonProductUrl(e.target.value)
+                                setAmazonProductError(null)
+                                setAmazonProductFetchedOnce(false)
+                              }}
+                              placeholder="https://www.amazon.co.uk/..."
+                              className="flex-1 px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={fetchAmazonProductDetails}
+                              className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                              disabled={amazonProductLoading}
+                            >
+                              {amazonProductLoading ? 'Fetching...' : 'Fetch Details'}
+                            </button>
+                          </div>
+                          {amazonProductError && (
+                            <p className="text-sm text-red-600">{amazonProductError}</p>
+                          )}
+                          {amazonProductInfo && (
+                            <div className="mt-3 flex items-center gap-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
+                              {amazonProductInfo.image && (
+                                <img src={amazonProductInfo.image} alt={amazonProductInfo.title} className="w-20 h-20 object-cover rounded" />
+                              )}
+                              <div className="space-y-1">
+                                <h4 className="text-sm font-semibold text-[var(--text-primary)]">{amazonProductInfo.title}</h4>
+                                {amazonProductInfo.shortDescription && (
+                                  <p className="text-xs text-[var(--text-secondary)]">{amazonProductInfo.shortDescription}</p>
+                                )}
+                                <p className="text-xs text-[var(--text-secondary)]">ASIN: {amazonProductInfo.asin}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
