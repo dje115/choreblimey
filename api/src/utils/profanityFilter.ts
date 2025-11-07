@@ -78,20 +78,32 @@ function levenshteinDistance(str1: string, str2: string): number {
 function fuzzyMatch(word: string, profanityWord: string, threshold: number = 2): boolean {
   const normalizedWord = normalizeWord(word)
   const normalizedProfanity = normalizeWord(profanityWord)
+  const wordLength = normalizedWord.length
+  const profanityLength = normalizedProfanity.length
   
   // Exact match (after normalization)
   if (normalizedWord === normalizedProfanity) {
     return true
   }
+
+  // Extremely short words (<=2 chars) can generate false positives (e.g. "hi" vs "shit")
+  // Only flag them on exact match which we already checked above
+  if (wordLength < 3 || profanityLength < 3) {
+    return false
+  }
   
   // Check if profanity word is contained in the word (handles words like "shittt")
-  if (normalizedWord.includes(normalizedProfanity) || normalizedProfanity.includes(normalizedWord)) {
+  if (
+    wordLength >= 3 &&
+    profanityLength >= 3 &&
+    (normalizedWord.includes(normalizedProfanity) || normalizedProfanity.includes(normalizedWord))
+  ) {
     return true
   }
   
   // Fuzzy match using Levenshtein distance
   const distance = levenshteinDistance(normalizedWord, normalizedProfanity)
-  const maxLength = Math.max(normalizedWord.length, normalizedProfanity.length)
+  const maxLength = Math.max(wordLength, profanityLength)
   const similarity = 1 - distance / maxLength
   
   // Match if similarity is high enough (configurable threshold)
