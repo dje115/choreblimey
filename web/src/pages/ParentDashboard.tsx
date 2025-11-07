@@ -272,6 +272,7 @@ const ParentDashboard: React.FC = () => {
   const [amazonProductFetchedOnce, setAmazonProductFetchedOnce] = useState(false)
   const [amazonProductLoading, setAmazonProductLoading] = useState(false)
   const [amazonProductError, setAmazonProductError] = useState<string | null>(null)
+  const [customGiftStarsError, setCustomGiftStarsError] = useState<string | null>(null)
   const [selectedGift, setSelectedGift] = useState<any>(null)
   const [showEditGiftModal, setShowEditGiftModal] = useState(false)
   const [giftFilters, setGiftFilters] = useState({ type: '', category: '', age: '', gender: '' })
@@ -479,6 +480,7 @@ const ParentDashboard: React.FC = () => {
       setAmazonProductInfo(null)
       setAmazonProductError(null)
       setAmazonProductFetchedOnce(false)
+      setCustomGiftStarsError(null)
     }
   }, [showAddGiftModal])
 
@@ -7886,8 +7888,12 @@ const ParentDashboard: React.FC = () => {
                             className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
                             min="1"
                             placeholder="e.g., 50"
+                            onChange={() => setCustomGiftStarsError(null)}
                             required
                           />
+                          {customGiftStarsError && (
+                            <p className="mt-1 text-xs font-semibold text-red-600">{customGiftStarsError}</p>
+                          )}
                         </div>
                       </div>
 
@@ -8048,8 +8054,10 @@ const ParentDashboard: React.FC = () => {
                             const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]:checked')
                             const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
 
-                            if (!starsInput?.value || parseInt(starsInput.value) < 1) {
-                              setToast({ message: 'Star cost is required', type: 'error' })
+                            if (!starsInput || !starsInput.value || parseInt(starsInput.value, 10) < 1) {
+                              setCustomGiftStarsError('Please enter a star cost of at least 1 star.')
+                              starsInput?.focus()
+                              setToast({ message: 'Add the number of stars required for this gift before saving.', type: 'error' })
                               return
                             }
 
@@ -8113,7 +8121,9 @@ const ParentDashboard: React.FC = () => {
                               if (customGiftType === 'amazon_product' && productInfo) {
                                 giftData.provider = 'amazon_associates'
                                 giftData.amazonAsin = productInfo.asin
-                                giftData.affiliateUrl = productInfo.affiliateLink
+                                if (productInfo.affiliateLink) {
+                                  giftData.affiliateUrl = productInfo.affiliateLink
+                                }
                                 if (productInfo.price && productInfo.currency === 'GBP') {
                                   giftData.pricePence = Math.round(productInfo.price * 100)
                                 }
