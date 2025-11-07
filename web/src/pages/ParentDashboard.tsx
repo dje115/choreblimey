@@ -269,6 +269,7 @@ const ParentDashboard: React.FC = () => {
   const [customGiftType, setCustomGiftType] = useState<'activity' | 'custom' | 'amazon_product'>('activity')
   const [amazonProductUrl, setAmazonProductUrl] = useState('')
   const [amazonProductInfo, setAmazonProductInfo] = useState<any | null>(null)
+  const [amazonProductFetchedOnce, setAmazonProductFetchedOnce] = useState(false)
   const [amazonProductLoading, setAmazonProductLoading] = useState(false)
   const [amazonProductError, setAmazonProductError] = useState<string | null>(null)
   const [selectedGift, setSelectedGift] = useState<any>(null)
@@ -477,6 +478,7 @@ const ParentDashboard: React.FC = () => {
       setAmazonProductUrl('')
       setAmazonProductInfo(null)
       setAmazonProductError(null)
+      setAmazonProductFetchedOnce(false)
     }
   }, [showAddGiftModal])
 
@@ -488,6 +490,58 @@ const ParentDashboard: React.FC = () => {
 
   // WebSocket connection for real-time updates
   const { socket, isConnected, on, off } = useSocket()
+
+  const fetchAmazonProductDetails = useCallback(async () => {
+    const url = amazonProductUrl.trim()
+    if (!url) {
+      setAmazonProductError('Enter a valid Amazon product URL')
+      return null
+    }
+
+    try {
+      setAmazonProductLoading(true)
+      setAmazonProductError(null)
+      const result = await apiClient.resolveAmazonProduct(url)
+      const product = result?.product
+
+      if (!product) {
+        setAmazonProductError('Could not find product information')
+        setAmazonProductInfo(null)
+        return null
+      }
+
+      setAmazonProductInfo(product)
+      setAmazonProductFetchedOnce(true)
+
+      const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement | null
+      const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement | null
+      const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement | null
+      const starsInput = document.getElementById('customGiftStars') as HTMLInputElement | null
+
+      if (product.title && titleInput && !titleInput.value) {
+        titleInput.value = product.title
+      }
+      if (product.shortDescription && descriptionInput && !descriptionInput.value) {
+        descriptionInput.value = product.shortDescription
+      }
+      if (product.image && imageUrlInput && !imageUrlInput.value) {
+        imageUrlInput.value = product.image
+      }
+      if (product.price && starsInput && !starsInput.value) {
+        const approxStars = Math.max(1, Math.round(product.price))
+        starsInput.value = approxStars.toString()
+      }
+
+      return product
+    } catch (err: any) {
+      console.error('Failed to resolve Amazon product', err)
+      setAmazonProductError(err?.message || 'Failed to fetch product details')
+      setAmazonProductInfo(null)
+      return null
+    } finally {
+      setAmazonProductLoading(false)
+    }
+  }, [amazonProductUrl])
 
   /**
    * Listen for completion updates via WebSocket
@@ -1650,6 +1704,7 @@ const ParentDashboard: React.FC = () => {
                               onChange={(e) => {
                                 setAmazonProductUrl(e.target.value)
                                 setAmazonProductError(null)
+                                setAmazonProductFetchedOnce(false)
                               }}
                               placeholder="https://www.amazon.co.uk/..."
                               className="flex-1 px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
@@ -1657,48 +1712,7 @@ const ParentDashboard: React.FC = () => {
                             />
                             <button
                               type="button"
-                              onClick={async () => {
-                                if (!amazonProductUrl.trim()) {
-                                  setAmazonProductError('Enter a valid Amazon product URL')
-                                  return
-                                }
-                                try {
-                                  setAmazonProductLoading(true)
-                                  setAmazonProductError(null)
-                                  const result = await apiClient.resolveAmazonProduct(amazonProductUrl.trim())
-                                  const product = result?.product
-                                  if (!product) {
-                                    setAmazonProductError('Could not find product information')
-                                    return
-                                  }
-                                  setAmazonProductInfo(product)
-
-                                  const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement
-                                  const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement
-                                  const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement
-                                  const starsInput = document.getElementById('customGiftStars') as HTMLInputElement
-
-                                  if (product.title && titleInput) {
-                                    titleInput.value = product.title
-                                  }
-                                  if (product.shortDescription && descriptionInput && !descriptionInput.value) {
-                                    descriptionInput.value = product.shortDescription
-                                  }
-                                  if (product.image && imageUrlInput) {
-                                    imageUrlInput.value = product.image
-                                  }
-                                  if (product.price && starsInput && !starsInput.value) {
-                                    const approxStars = Math.max(1, Math.round(product.price))
-                                    starsInput.value = approxStars.toString()
-                                  }
-                                } catch (err: any) {
-                                  console.error('Failed to resolve Amazon product', err)
-                                  setAmazonProductError(err?.message || 'Failed to fetch product details')
-                                  setAmazonProductInfo(null)
-                                } finally {
-                                  setAmazonProductLoading(false)
-                                }
-                              }}
+                              onClick={fetchAmazonProductDetails}
                               className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                               disabled={amazonProductLoading}
                             >
@@ -7898,6 +7912,7 @@ const ParentDashboard: React.FC = () => {
                                 setAmazonProductUrl('')
                                 setAmazonProductInfo(null)
                                 setAmazonProductError(null)
+                                setAmazonProductFetchedOnce(false)
                               }
                             }}
                             className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg bg-white focus:border-[var(--primary)] focus:outline-none transition-colors"
@@ -7926,13 +7941,13 @@ const ParentDashboard: React.FC = () => {
                         <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
                           Title <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
-                          id="customGiftTitle"
-                          className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                          placeholder="e.g., Movie Night, Pizza Night"
-                          required
-                        />
+                          <input
+                            type="text"
+                            id="customGiftTitle"
+                            className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
+                            placeholder={customGiftType === 'amazon_product' ? 'Auto-filled from Amazon (optional)' : 'e.g., Movie Night, Pizza Night'}
+                            required={customGiftType !== 'amazon_product'}
+                          />
                       </div>
 
                       <div>
@@ -8023,56 +8038,86 @@ const ParentDashboard: React.FC = () => {
                       <div className="flex gap-3 pt-2">
                         <button
                           onClick={async () => {
-                            const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement
-                            const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement
-                            const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement
-                            const starsInput = document.getElementById('customGiftStars') as HTMLInputElement
-                            const allCheckbox = document.getElementById('customGiftAvailableForAll') as HTMLInputElement
-                            const recurringCheckbox = document.getElementById('customGiftRecurring') as HTMLInputElement
+                            const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement | null
+                            const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement | null
+                            const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement | null
+                            const starsInput = document.getElementById('customGiftStars') as HTMLInputElement | null
+                            const allCheckbox = document.getElementById('customGiftAvailableForAll') as HTMLInputElement | null
+                            const recurringCheckbox = document.getElementById('customGiftRecurring') as HTMLInputElement | null
                             const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]:checked')
                             const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
-                            
-                            if (!titleInput.value.trim() || !starsInput.value || parseInt(starsInput.value) < 1) {
-                              setToast({ message: 'Title and star cost are required', type: 'error' })
+
+                            if (!starsInput?.value || parseInt(starsInput.value) < 1) {
+                              setToast({ message: 'Star cost is required', type: 'error' })
                               return
                             }
-                            
-                            if (!allCheckbox.checked && selectedChildIds.length === 0) {
+
+                            if (!allCheckbox?.checked && selectedChildIds.length === 0) {
                               setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
                               return
                             }
-                            
+
                             try {
-                              if (customGiftType === 'amazon_product' && !amazonProductInfo) {
-                                setToast({ message: 'Fetch product details before creating an Amazon gift', type: 'error' })
+                              let productInfo = amazonProductInfo
+
+                              if (customGiftType === 'amazon_product') {
+                                if (!amazonProductFetchedOnce) {
+                                  const fetched = await fetchAmazonProductDetails()
+                                  if (!fetched) {
+                                    setToast({ message: 'Enter a valid Amazon product URL before creating the gift', type: 'error' })
+                                    return
+                                  }
+                                  productInfo = fetched
+                                } else if (!productInfo) {
+                                  setToast({ message: 'Enter a valid Amazon product URL before creating the gift', type: 'error' })
+                                  return
+                                }
+                              }
+
+                              const rawTitle = titleInput?.value.trim() ?? ''
+                              const finalTitle = customGiftType === 'amazon_product'
+                                ? rawTitle || productInfo?.title || 'Amazon Gift'
+                                : rawTitle
+
+                              if (!finalTitle) {
+                                setToast({ message: 'Title is required for non-Amazon gifts', type: 'error' })
                                 return
                               }
 
+                              const rawDescription = descriptionInput?.value.trim() ?? ''
+                              const rawImage = imageUrlInput?.value.trim() ?? ''
+
                               const giftData: any = {
-                                isCustom: true, // Mark as custom gift
+                                isCustom: true,
                                 type: customGiftType,
-                                title: titleInput.value.trim(),
-                                starsRequired: parseInt(starsInput.value),
-                                availableForAll: allCheckbox.checked,
-                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds,
-                                recurring: recurringCheckbox.checked
+                                title: finalTitle,
+                                starsRequired: parseInt(starsInput.value, 10),
+                                availableForAll: allCheckbox?.checked ?? true,
+                                availableForChildIds: allCheckbox?.checked ? [] : selectedChildIds,
+                                recurring: recurringCheckbox?.checked ?? false
                               }
-                              
-                              if (descriptionInput.value.trim()) giftData.description = descriptionInput.value.trim()
-                              if (imageUrlInput.value.trim()) giftData.imageUrl = imageUrlInput.value.trim()
-                              
-                              if (customGiftType === 'amazon_product' && amazonProductInfo) {
+
+                              if (rawDescription) {
+                                giftData.description = rawDescription
+                              } else if (customGiftType === 'amazon_product' && productInfo?.shortDescription) {
+                                giftData.description = productInfo.shortDescription
+                              }
+
+                              if (rawImage) {
+                                giftData.imageUrl = rawImage
+                              } else if (customGiftType === 'amazon_product' && productInfo?.image) {
+                                giftData.imageUrl = productInfo.image
+                              }
+
+                              if (customGiftType === 'amazon_product' && productInfo) {
                                 giftData.provider = 'amazon_associates'
-                                giftData.amazonAsin = amazonProductInfo.asin
-                                giftData.affiliateUrl = amazonProductInfo.affiliateLink
-                                if (amazonProductInfo.shortDescription && !giftData.description) {
-                                  giftData.description = amazonProductInfo.shortDescription
-                                }
-                                if (amazonProductInfo.price && amazonProductInfo.currency === 'GBP') {
-                                  giftData.pricePence = Math.round(amazonProductInfo.price * 100)
+                                giftData.amazonAsin = productInfo.asin
+                                giftData.affiliateUrl = productInfo.affiliateLink
+                                if (productInfo.price && productInfo.currency === 'GBP') {
+                                  giftData.pricePence = Math.round(productInfo.price * 100)
                                 }
                               }
-                              
+
                               await apiClient.createFamilyGift(giftData)
                               setToast({ message: 'Custom gift created!', type: 'success' })
                               setShowAddGiftModal(false)
@@ -8080,6 +8125,7 @@ const ParentDashboard: React.FC = () => {
                               setAmazonProductUrl('')
                               setAmazonProductInfo(null)
                               setAmazonProductError(null)
+                              setAmazonProductFetchedOnce(false)
                               loadFamilyGifts()
                             } catch (error: any) {
                               setToast({ message: error.message || 'Failed to create gift', type: 'error' })
