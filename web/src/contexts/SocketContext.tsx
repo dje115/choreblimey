@@ -33,6 +33,26 @@ interface SocketProviderProps {
   children: React.ReactNode
 }
 
+const resolveSocketBaseUrl = (): string => {
+  const explicitSocketUrl = import.meta.env.VITE_SOCKET_BASE_URL
+  if (explicitSocketUrl) {
+    return explicitSocketUrl.replace(/\/$/, '')
+  }
+
+  const explicitApiUrl = import.meta.env.VITE_API_BASE_URL
+  if (explicitApiUrl) {
+    return explicitApiUrl.replace(/\/v1$/, '')
+  }
+
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location
+    const port = import.meta.env.VITE_API_PORT || '1501'
+    return `${protocol}//${hostname}:${port}`
+  }
+
+  return 'http://localhost:1501'
+}
+
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const { user, isAuthenticated } = useAuth()
   
@@ -65,8 +85,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     console.log('🔌 Socket: Initializing connection...')
 
     // Create socket connection
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1501/v1'
-    const socketUrl = apiBaseUrl.replace('/v1', '') // Remove /v1 prefix for socket.io
+    const socketUrl = resolveSocketBaseUrl()
 
     const newSocket = io(socketUrl, {
       auth: {

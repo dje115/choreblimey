@@ -29,6 +29,34 @@ export const sendMessage = async (req: FastifyRequest<{ Body: SendMessageBody }>
       return reply.status(400).send({ error: 'Message is too long (max 1000 characters)' })
     }
 
+    // Filter profanity from message
+    let filteredMessage = message
+    let flaggedWords: string[] = []
+    try {
+      const { getProfanityWords } = await import('../utils/profanityCache.js')
+      const { filterProfanity } = await import('../utils/profanityFilter.js')
+      const profanityWords = await getProfanityWords()
+      
+      if (profanityWords.length > 0) {
+        console.log(`🧾 Loaded ${profanityWords.length} profanity words. Sample: ${profanityWords.slice(0, 5).join(', ')}`)
+        const filterResult = filterProfanity(message, profanityWords)
+        filteredMessage = filterResult.filteredMessage
+        flaggedWords = filterResult.flaggedWords
+        
+        if (filterResult.filteredMessage !== message) {
+          console.log(`🚫 Filtered profanity: "${message}" -> "${filteredMessage}" (flagged: ${flaggedWords.join(', ')})`)
+        }
+      } else {
+        console.log('⚠️ No profanity words in cache - filter not applied')
+      }
+    } catch (error) {
+      console.error('Error filtering profanity:', error)
+      // Continue with original message if filtering fails
+    }
+
+    // Store flag info for logging after message is created
+    const shouldLogFlagged = flaggedWords.length > 0
+
     // Determine sender type and sender ID
     const senderType = role === 'child_player' ? 'child' : 'parent'
     
@@ -37,7 +65,7 @@ export const sendMessage = async (req: FastifyRequest<{ Body: SendMessageBody }>
     const data: any = {
       familyId,
       senderType,
-      message: message.trim()
+      message: filteredMessage.trim() // Use filtered message
     }
     
     if (role === 'child_player' && childId) {
@@ -77,6 +105,30 @@ export const sendMessage = async (req: FastifyRequest<{ Body: SendMessageBody }>
       }
     })
 
+    // Log flagged message asynchronously (don't block message sending)
+    if (shouldLogFlagged) {
+      // Fire and forget - log in background
+      setImmediate(async () => {
+        try {
+          await prisma.flaggedMessage.create({
+            data: {
+              messageId: newMessage.id,
+              familyId,
+              originalMessage: message,
+              filteredMessage,
+              flaggedWords: flaggedWords as any, // Store as JSON
+              senderId: role === 'child_player' ? childId : userId,
+              senderType: role === 'child_player' ? 'child' : 'parent'
+            }
+          }).catch((err) => {
+            console.error('Failed to log flagged message:', err)
+          })
+        } catch (error) {
+          console.error('Error logging flagged message:', error)
+        }
+      })
+    }
+
     // Invalidate cache
     await cache.invalidateFamily(familyId)
 
@@ -106,7 +158,7 @@ export const sendMessage = async (req: FastifyRequest<{ Body: SendMessageBody }>
           familyId: newMessage.familyId,
           senderId: newMessage.senderId || newMessage.senderChildId,
           senderType: newMessage.senderType,
-          message: newMessage.message,
+          message: newMessage.message, // Already filtered
           createdAt: newMessage.createdAt,
           sender: senderInfo
         }

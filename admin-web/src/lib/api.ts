@@ -112,10 +112,11 @@ class AdminApiClient {
     return this.handleResponse<T>(response)
   }
 
-  async delete<T = any>(endpoint: string, includeAuth: boolean = true): Promise<T> {
+  async delete<T = any>(endpoint: string, data?: any, includeAuth: boolean = true): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: this.getHeaders(includeAuth),
+      body: data ? JSON.stringify(data) : undefined,
     })
     return this.handleResponse<T>(response)
   }
@@ -276,6 +277,39 @@ class AdminApiClient {
       imageUrl,
       fileName
     })
+  }
+
+  // Profanity Word Management
+  async listProfanityWords(params?: { limit?: number; offset?: number; search?: string }) {
+    const queryString = params ? '?' + new URLSearchParams(Object.entries(params).reduce((acc, [k, v]) => {
+      if (v !== undefined && v !== null) acc[k] = String(v)
+      return acc
+    }, {} as Record<string, string>)).toString() : ''
+    return this.get(`/v1/admin/profanity/words${queryString}`)
+  }
+
+  async createProfanityWord(word: string) {
+    return this.post('/v1/admin/profanity/words', { word })
+  }
+
+  async bulkUploadProfanityWords(words: string[]) {
+    return this.post('/v1/admin/profanity/words/bulk', { words })
+  }
+
+  async deleteProfanityWord(id: string) {
+    return this.delete(`/v1/admin/profanity/words/${id}`)
+  }
+
+  async deleteProfanityWords(words: string[]) {
+    return this.post('/v1/admin/profanity/words/delete', { words })
+  }
+
+  async getFlaggedMessages(params?: { limit?: number; offset?: number; familyId?: string }) {
+    const queryString = params ? '?' + new URLSearchParams(Object.entries(params).reduce((acc, [k, v]) => {
+      if (v !== undefined && v !== null) acc[k] = String(v)
+      return acc
+    }, {} as Record<string, string>)).toString() : ''
+    return this.get(`/v1/admin/profanity/flagged${queryString}`)
   }
 }
 

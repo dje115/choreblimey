@@ -1466,8 +1466,8 @@ const ParentDashboard: React.FC = () => {
               </p>
               {/* Debug button for testing real-time updates */}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setShowStreakSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all flex items-center gap-2">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              <button onClick={() => setShowStreakSettingsModal(true)} className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 touch-manipulation">
                 🔥 Streaks
               </button>
               <button
@@ -1481,7 +1481,7 @@ const ParentDashboard: React.FC = () => {
                   setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
                   setShowHolidayModal(true)
                 }}
-                className={`px-4 py-2 rounded-full font-semibold text-sm transition-all flex items-center gap-2 ${
+                className={`min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 touch-manipulation ${
                   (() => {
                     // Check if holiday mode is active (enabled AND within date range if dates are set)
                     if (!family?.holidayMode) return false
@@ -1492,8 +1492,8 @@ const ParentDashboard: React.FC = () => {
                     const withinEnd = !endDate || endDate >= now
                     return withinStart && withinEnd
                   })()
-                    ? 'bg-yellow-400/30 hover:bg-yellow-400/40 text-yellow-50 border-2 border-yellow-300'
-                    : 'bg-white/20 hover:bg-white/30'
+                    ? 'bg-yellow-400/30 hover:bg-yellow-400/40 active:bg-yellow-400/50 text-yellow-50 border-2 border-yellow-300'
+                    : 'bg-white/20 hover:bg-white/30 active:bg-white/40'
                 }`}
               >
                 🌴 Holiday Mode {(() => {
@@ -1506,7 +1506,7 @@ const ParentDashboard: React.FC = () => {
                   return (withinStart && withinEnd) ? '☀️' : ''
                 })()}
               </button>
-              <button onClick={() => setShowSettingsModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
+              <button onClick={() => setShowSettingsModal(true)} className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base transition-all flex items-center justify-center touch-manipulation">
                 ⚙️ Settings
               </button>
             </div>
@@ -1541,7 +1541,7 @@ const ParentDashboard: React.FC = () => {
                     setHolidayOptimisticUntil(Date.now() + 60000) // 60 seconds protection
                     setShowHolidayModal(true)
                   }}
-                  className="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 border border-yellow-300 rounded-md text-yellow-900 text-sm font-semibold"
+                  className="min-h-[44px] px-4 py-3 sm:px-3 sm:py-1.5 bg-yellow-100 hover:bg-yellow-200 active:bg-yellow-300 border border-yellow-300 rounded-md text-yellow-900 text-sm sm:text-base font-semibold touch-manipulation whitespace-nowrap"
                 >
                   Manage
                 </button>
@@ -1603,16 +1603,16 @@ const ParentDashboard: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div className="flex gap-2 mt-4">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
                             <button
                               onClick={() => handleApproveCompletion(completion.id)}
-                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 active:bg-[var(--success)]/70 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                             >
                               ✅ Approve & Pay
                             </button>
                             <button
                               onClick={() => handleRejectCompletion(completion.id)}
-                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                             >
                               ❌ Reject
                             </button>
@@ -1658,7 +1658,7 @@ const ParentDashboard: React.FC = () => {
                                     href={gift.affiliateUrl || gift.sitestripeUrl || '#'} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    className="inline-block mt-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-semibold transition-colors"
+                                    className="inline-block mt-2 min-h-[44px] px-4 py-3 sm:px-3 sm:py-1.5 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-md text-base sm:text-sm font-semibold transition-colors touch-manipulation"
                                   >
                                     🔗 Purchase on Amazon
                                   </a>
@@ -1674,16 +1674,16 @@ const ParentDashboard: React.FC = () => {
                               </div>
                             </div>
                             
-                            <div className="flex gap-2 mt-4">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
                               <button
                                 onClick={() => handleApproveRedemption(redemption.id)}
-                                className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                                className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 active:bg-[var(--success)]/70 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                               >
                                 ✅ Approve & Purchase
                               </button>
                               <button
                                 onClick={() => handleRejectRedemption(redemption.id)}
-                                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                                className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                               >
                                 ❌ Reject
                               </button>
@@ -1730,16 +1730,16 @@ const ParentDashboard: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div className="flex gap-2 mt-4">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
                             <button
                               onClick={() => handleApproveStarPurchase(purchase.id)}
-                              className="flex-1 px-4 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 active:bg-[var(--success)]/70 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                             >
                               ✅ Approve
                             </button>
                             <button
                               onClick={() => handleRejectStarPurchase(purchase.id)}
-                              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold transition-all"
+                              className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                             >
                               ❌ Reject
                             </button>
@@ -1759,20 +1759,20 @@ const ParentDashboard: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setActivityTab('recent')}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                    className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all touch-manipulation ${
                       activityTab === 'recent'
                         ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20 active:bg-[var(--primary)]/30'
                     }`}
                   >
                     Recent (2 days)
                   </button>
                   <button
                     onClick={() => setActivityTab('history')}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                    className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all touch-manipulation ${
                       activityTab === 'history'
                         ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20 active:bg-[var(--primary)]/30'
                     }`}
                   >
                     History (2 months)
@@ -2473,10 +2473,10 @@ const ParentDashboard: React.FC = () => {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab as any)}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                    className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all touch-manipulation ${
                       activeTab === tab
                         ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20 active:bg-[var(--primary)]/30'
                     }`}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -2728,13 +2728,13 @@ const ParentDashboard: React.FC = () => {
                                       <div className="flex gap-2 mt-3">
                                         <button
                                           onClick={() => handleApproveCompletion(completion.id)}
-                                          className="flex-1 px-3 py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 text-white rounded-[var(--radius-md)] font-semibold text-sm transition-all"
+                                          className="min-h-[44px] flex-1 px-4 py-3 sm:px-3 sm:py-2 bg-[var(--success)] hover:bg-[var(--success)]/80 active:bg-[var(--success)]/70 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                                         >
                                           ✅ Approve
                                         </button>
                                         <button
                                           onClick={() => handleRejectCompletion(completion.id)}
-                                          className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-[var(--radius-md)] font-semibold text-sm transition-all"
+                                          className="min-h-[44px] flex-1 px-4 py-3 sm:px-3 sm:py-2 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-[var(--radius-md)] font-semibold text-base sm:text-sm transition-all touch-manipulation"
                                         >
                                           ❌ Reject
                                         </button>
@@ -2811,7 +2811,7 @@ const ParentDashboard: React.FC = () => {
                             selectedTemplateRef.current = null
                             setShowAddGiftModal(true)
                           }}
-                  className="px-4 py-2 text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md whitespace-nowrap"
+                  className="min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-full border-2 border-orange-500 text-orange-500 bg-white hover:bg-orange-500 hover:text-white active:bg-orange-600 active:text-white transition-all shadow-sm hover:shadow-md active:shadow-sm whitespace-nowrap touch-manipulation"
                 >
                   ➕ Add Custom Gift
                 </button>
@@ -2843,10 +2843,10 @@ const ParentDashboard: React.FC = () => {
                   <button
                     key={tab}
                     onClick={() => setGiftsTab(tab as any)}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                    className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all touch-manipulation ${
                       giftsTab === tab
                         ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20 active:bg-[var(--primary)]/30'
                     }`}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -3060,7 +3060,7 @@ const ParentDashboard: React.FC = () => {
                                         setToast({ message: error.message || 'Failed to fulfill redemption', type: 'error' })
                                       }
                                     }}
-                                    className="px-4 py-2 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200"
+                                    className="min-h-[44px] px-4 py-3 sm:py-2 bg-green-100 text-green-700 rounded text-base sm:text-sm hover:bg-green-200 active:bg-green-300 touch-manipulation"
                                   >
                                     Fulfill
                                   </button>
@@ -3197,13 +3197,13 @@ const ParentDashboard: React.FC = () => {
                               <p className="text-xs text-[var(--text-secondary)]">{childWallet?.stars || 0}⭐ available</p>
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                             <button
                               onClick={() => {
                                 setGiftChild(child)
                                 setShowGiftStarsMoneyModal(true)
                               }}
-                              className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold hover:shadow-lg transition-all text-sm"
+                              className="min-h-[44px] flex-1 px-4 py-3 sm:px-3 sm:py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-bold hover:shadow-lg active:shadow-md active:scale-95 transition-all text-base sm:text-sm touch-manipulation"
                               title="Gift stars or money"
                             >
                               🎁 Gift
@@ -3217,7 +3217,7 @@ const ParentDashboard: React.FC = () => {
                                 setShowPayoutModal(true)
                               }}
                               disabled={balancePence <= 0}
-                              className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                              className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg font-bold hover:shadow-lg active:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-base sm:text-sm touch-manipulation"
                             >
                               💸 Pay Out
                             </button>
@@ -3399,7 +3399,7 @@ const ParentDashboard: React.FC = () => {
                             navigator.clipboard.writeText(joinCode.code)
                             setToast({ message: '📋 Code copied to clipboard!', type: 'info' })
                           }}
-                          className="px-4 py-2 bg-[var(--primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--secondary)] transition-all font-semibold text-sm"
+                          className="min-h-[44px] px-4 py-3 sm:py-2 bg-[var(--primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--secondary)] active:bg-[var(--secondary)]/90 transition-all font-semibold text-base sm:text-sm touch-manipulation"
                         >
                           📋 Copy
                         </button>
@@ -3570,38 +3570,38 @@ const ParentDashboard: React.FC = () => {
       {/* Modals */}
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">⚙️ Family Settings</h3>
             
             {/* Tab Navigation */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
               <button
                 onClick={() => setSettingsTab('rivalry')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-lg font-semibold whitespace-nowrap transition-all touch-manipulation flex-shrink-0 ${
                   settingsTab === 'rivalry'
                     ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)] active:bg-[var(--card-border)]'
                 }`}
               >
                 ⚔️ Rivalry
               </button>
               <button
                 onClick={() => setSettingsTab('budget')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-lg font-semibold whitespace-nowrap transition-all touch-manipulation flex-shrink-0 ${
                   settingsTab === 'budget'
                     ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)] active:bg-[var(--card-border)]'
                 }`}
               >
                 💰 Budget
               </button>
               <button
                 onClick={() => setSettingsTab('account')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                className={`min-h-[44px] px-4 py-3 sm:py-2 rounded-lg font-semibold whitespace-nowrap transition-all touch-manipulation flex-shrink-0 ${
                   settingsTab === 'account'
                     ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)] active:bg-[var(--card-border)]'
                 }`}
               >
                 🔧 Account
@@ -3679,7 +3679,7 @@ const ParentDashboard: React.FC = () => {
                         <select
                           value={budgetSettings.budgetPeriod}
                           onChange={(e) => setBudgetSettings(prev => ({ ...prev, budgetPeriod: e.target.value as 'weekly' | 'monthly' }))}
-                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          className="w-full min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none touch-manipulation"
                         >
                           <option value="weekly">Weekly</option>
                           <option value="monthly">Monthly</option>
@@ -3699,7 +3699,7 @@ const ParentDashboard: React.FC = () => {
                             const value = parseFloat(e.target.value) || 0
                             setBudgetSettings(prev => ({ ...prev, maxBudgetPence: Math.round(value * 100) }))
                           }}
-                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          className="w-full min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none touch-manipulation"
                           placeholder="0.00"
                         />
                       </div>
@@ -4003,10 +4003,10 @@ const ParentDashboard: React.FC = () => {
               )}
             </div>
 
-            <div className="flex gap-4 mt-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8">
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                className="min-h-[44px] flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] active:bg-[var(--card-border)] transition-all touch-manipulation"
               >
                 Cancel
               </button>
@@ -4051,7 +4051,7 @@ const ParentDashboard: React.FC = () => {
                     setShowSettingsModal(false)
                   }
                 }}
-                className="flex-1 cb-button-primary"
+                className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
               >
                 Save Settings
               </button>
@@ -4062,8 +4062,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Streak Settings Modal */}
       {showStreakSettingsModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="text-center mb-6">
               <h3 className="cb-heading-xl text-[var(--primary)] mb-2">🔥 Streak Settings</h3>
               <p className="text-[var(--text-secondary)]">Set up rewards and penalties to keep the momentum going!</p>
@@ -4317,7 +4317,7 @@ const ParentDashboard: React.FC = () => {
                           max="500"
                           value={streakSettings.bonusMoneyPence}
                           onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusMoneyPence: parseInt(e.target.value) || 0 }))}
-                          className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none"
+                          className="w-full min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none touch-manipulation"
                           placeholder="Bonus in pence"
                         />
                       </div>
@@ -4334,7 +4334,7 @@ const ParentDashboard: React.FC = () => {
                           max="50"
                           value={streakSettings.bonusStars}
                           onChange={(e) => setStreakSettings(prev => ({ ...prev, bonusStars: parseInt(e.target.value) || 0 }))}
-                          className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none"
+                          className="w-full min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm border-2 border-green-300 rounded-lg focus:border-green-500 focus:outline-none touch-manipulation"
                           placeholder="Bonus stars"
                         />
                       </div>
@@ -4702,8 +4702,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Holiday Mode Modal */}
       {showHolidayModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="text-center mb-6">
               <h3 className="cb-heading-xl text-[var(--primary)] mb-2">🌴 Holiday Mode</h3>
               <p className="text-[var(--text-secondary)]">
@@ -4758,7 +4758,7 @@ const ParentDashboard: React.FC = () => {
                               familyHolidayStartDate: e.target.value,
                             }))
                           }
-                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          className="w-full min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none touch-manipulation"
                         />
                       </div>
                       <div>
@@ -4772,7 +4772,7 @@ const ParentDashboard: React.FC = () => {
                               familyHolidayEndDate: e.target.value,
                             }))
                           }
-                          className="w-full px-4 py-2 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none"
+                          className="w-full min-h-[44px] px-4 py-3 sm:py-2 text-base sm:text-sm border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none touch-manipulation"
                         />
                         <p className="text-xs text-[var(--text-secondary)] mt-1">Leave empty to end manually.</p>
                       </div>
@@ -5002,8 +5002,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="cb-heading-lg text-center mb-2 text-[var(--primary)]">➕ Invite to Family</h3>
             <div className="flex justify-center gap-2 mb-4">
               <button type="button" onClick={() => setInviteType('child')} className={`px-3 py-1 rounded-full text-sm border ${inviteType==='child' ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'border-[var(--card-border)]'}`}>Child</button>
@@ -5180,8 +5180,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Edit Family Modal */}
       {showFamilyModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">✏️ Edit Family Name</h3>
             <form onSubmit={handleUpdateFamily} className="space-y-5">
               <div>
@@ -5542,7 +5542,7 @@ const ParentDashboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 cb-button-primary"
+                  className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
                 >
                   Create Chore
                 </button>
@@ -5799,7 +5799,7 @@ const ParentDashboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 cb-button-primary"
+                  className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
                 >
                   Save Changes
                 </button>
@@ -6252,7 +6252,7 @@ const ParentDashboard: React.FC = () => {
                     setToast({ message: 'Failed to update profile. Please try again.', type: 'error' })
                   }
                 }}
-                className="flex-1 cb-button-primary"
+                className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
               >
                 💾 Save Changes
               </button>
@@ -6263,8 +6263,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Payout Modal */}
       {showPayoutModal && payoutChild && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">💸 Pay Out Pocket Money</h3>
             
             <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-[var(--radius-lg)] border-2 border-green-200">
@@ -6516,8 +6516,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Gift Stars/Money Modal */}
       {showGiftStarsMoneyModal && giftChild && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="cb-heading-lg text-center mb-6 text-[var(--primary)]">🎁 Gift Stars or Money</h3>
             
             <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-[var(--radius-lg)] border-2 border-purple-200">
@@ -6610,8 +6610,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Delete Account Modal */}
       {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">⚠️</span>
@@ -6689,8 +6689,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Suspend Account Modal */}
       {showSuspendAccountModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">⏸️</span>
@@ -7039,7 +7039,7 @@ const ParentDashboard: React.FC = () => {
                           setToast({ message: error.message || 'Failed to update member', type: 'error' })
                         }
                       }}
-                      className="flex-1 cb-button-primary"
+                      className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
                     >
                       💾 Save Changes
                     </button>
@@ -7321,8 +7321,8 @@ const ParentDashboard: React.FC = () => {
 
       {/* Email Change Modal */}
       {showEmailChangeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">📧</span>
@@ -7748,7 +7748,7 @@ const ParentDashboard: React.FC = () => {
                               setToast({ message: error.message || 'Failed to add gift', type: 'error' })
                             }
                           }}
-                          className="flex-1 cb-button-primary"
+                          className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
                         >
                           Add Gift
                         </button>

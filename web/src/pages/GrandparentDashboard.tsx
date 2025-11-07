@@ -162,7 +162,7 @@ const GrandparentDashboard: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-2">
-              <button onClick={logout} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
+              <button onClick={logout} className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base transition-all touch-manipulation flex items-center justify-center">
                 👋 Logout
               </button>
             </div>
@@ -213,16 +213,16 @@ const GrandparentDashboard: React.FC = () => {
 
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <h5 className="font-semibold text-gray-700 mb-2">Send a Gift 💝</h5>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <button
                         onClick={() => handleSendGift(child.id, 100)}
-                        className="flex-1 px-3 py-2 bg-purple-500 text-white rounded-lg text-sm font-semibold hover:bg-purple-600 transition-colors"
+                        className="min-h-[44px] flex-1 px-4 py-3 sm:px-3 sm:py-2 bg-purple-500 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-purple-600 active:bg-purple-700 transition-colors touch-manipulation"
                       >
                         £1 Gift
                       </button>
                       <button
                         onClick={() => handleSendGift(child.id, 500)}
-                        className="flex-1 px-3 py-2 bg-pink-500 text-white rounded-lg text-sm font-semibold hover:bg-pink-600 transition-colors"
+                        className="min-h-[44px] flex-1 px-4 py-3 sm:px-3 sm:py-2 bg-pink-500 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-pink-600 active:bg-pink-700 transition-colors touch-manipulation"
                       >
                         £5 Gift
                       </button>

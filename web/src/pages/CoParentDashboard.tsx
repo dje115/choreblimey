@@ -268,8 +268,8 @@ const CoParentDashboard: React.FC = () => {
                 {family?.nameCipher || 'Family'} • {user?.email?.split('@')[0]}
               </p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={logout} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm transition-all">
+            <div className="flex gap-2 sm:gap-3">
+              <button onClick={logout} className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base transition-all touch-manipulation flex items-center justify-center">
                 👋 Logout
               </button>
             </div>
@@ -359,16 +359,16 @@ const CoParentDashboard: React.FC = () => {
                           <p className="text-sm text-gray-700 mt-2 italic">"{completion.note}"</p>
                         )}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-0">
                         <button
                           onClick={() => handleRejectCompletion(completion.id)}
-                          className="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors"
+                          className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 active:bg-red-700 transition-colors touch-manipulation"
                         >
                           ❌ Reject
                         </button>
                         <button
                           onClick={() => handleApproveCompletion(completion.id)}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors"
+                          className="min-h-[44px] flex-1 px-4 py-3 sm:py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 active:bg-green-700 transition-colors touch-manipulation"
                         >
                           ✅ Approve
                         </button>

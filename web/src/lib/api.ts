@@ -1,4 +1,13 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1501/v1'
+const resolveDefaultApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location
+    const port = import.meta.env.VITE_API_PORT || '1501'
+    return `${protocol}//${hostname}:${port}/v1`
+  }
+  return 'http://localhost:1501/v1'
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || resolveDefaultApiBaseUrl()
 
 interface ApiResponse<T = any> {
   data?: T

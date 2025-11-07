@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { apiClient } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useSocket } from '../contexts/SocketContext'
@@ -47,11 +47,27 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
+  const currentSenderIds = useMemo(() => {
+    const ids: string[] = []
+    if (user?.id) {
+      ids.push(user.id)
+    }
+    if (user?.childId) {
+      ids.push(user.childId)
+    }
+    return ids
+  }, [user])
+
+  const isOwnMessage = useCallback((message: ChatMessage) => {
+    if (!message.senderId) {
+      return false
+    }
+    return currentSenderIds.includes(message.senderId)
+  }, [currentSenderIds])
+
   // Get display name for sender
   const getSenderName = (message: ChatMessage): string => {
-    // Check if this is the current user's message
-    const senderIdentifier = message.senderId || (message.sender as any)?.id
-    if (senderIdentifier === user?.id || senderIdentifier === user?.childId) {
+    if (isOwnMessage(message)) {
       return 'You'
     }
     
@@ -216,28 +232,29 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
             <p className="text-sm text-[var(--text-secondary)] text-center py-4">No messages yet. Start the conversation!</p>
           ) : (
             messages.map((msg) => {
-              const isOwn = msg.senderId === user?.id
+              const isOwn = isOwnMessage(msg)
+              const displayName = getSenderName(msg)
+              const bubbleClasses = isOwn
+                ? 'bg-[var(--primary)] text-white'
+                : 'bg-gray-100 text-gray-800'
+              const metaTextClass = isOwn ? 'text-white/70' : 'text-gray-500'
               return (
                 <div
                   key={msg.id}
-                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${isOwn ? 'justify-end text-right' : 'justify-start text-left'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-3 py-2 ${
-                      isOwn
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                    className={`inline-flex flex-wrap items-center gap-2 max-w-[90%] sm:max-w-[80%] rounded-2xl px-3 py-2 ${bubbleClasses}`}
                   >
-                    {!isOwn && (
-                      <div className="text-xs font-semibold mb-1 opacity-75">
-                        {getSenderName(msg)}
-                      </div>
-                    )}
-                    <div className="text-sm">{msg.message}</div>
-                    <div className={`text-xs mt-1 ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
+                    <span className={`text-xs font-semibold uppercase tracking-wide ${isOwn ? 'text-white/80' : 'text-gray-500'}`}>
+                      {displayName}
+                    </span>
+                    <span className={`text-sm font-semibold whitespace-pre-wrap break-words ${isOwn ? 'text-white' : 'text-gray-900'}`}>
+                      {msg.message}
+                    </span>
+                    <span className={`text-[10px] ${metaTextClass}`}>
                       {formatTime(msg.createdAt)}
-                    </div>
+                    </span>
                   </div>
                 </div>
               )
@@ -268,30 +285,32 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
           </div>
         ) : (
           messages.map((msg) => {
-            const isOwn = msg.senderId === user?.id
+            const isOwn = isOwnMessage(msg)
+            const displayName = getSenderName(msg)
+            const bubblePalette = isOwn
+              ? 'bg-[var(--primary)] text-white'
+              : childFriendly
+                ? 'bg-blue-50 border-2 border-blue-200 text-gray-900'
+                : 'bg-gray-100 text-gray-800'
+            const spacing = childFriendly ? 'px-5 py-3' : 'px-4 py-2 sm:py-2'
+            const metaTextClass = `${childFriendly ? 'text-sm' : 'text-xs'} ${isOwn ? 'text-white/70' : 'text-gray-500'}`
             return (
               <div
                 key={msg.id}
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${isOwn ? 'justify-end text-right' : 'justify-start text-left'}`}
               >
                 <div
-                  className={`max-w-[75%] rounded-2xl ${childFriendly ? 'px-5 py-3' : 'px-4 py-2'} ${
-                    isOwn
-                      ? 'bg-[var(--primary)] text-white'
-                      : childFriendly 
-                        ? 'bg-blue-50 border-2 border-blue-200 text-gray-900'
-                        : 'bg-gray-100 text-gray-800'
-                  }`}
+                  className={`inline-flex flex-wrap items-center gap-2 max-w-[95%] sm:max-w-[75%] rounded-2xl ${spacing} ${bubblePalette}`}
                 >
-                  {!isOwn && (
-                    <div className={`${childFriendly ? 'text-base' : 'text-xs'} font-bold mb-1 ${isOwn ? 'text-white/90' : 'text-gray-900'}`}>
-                      {getSenderName(msg)}
-                    </div>
-                  )}
-                  <div className={`${childFriendly ? 'text-base' : 'text-sm'} whitespace-pre-wrap break-words ${isOwn ? 'text-white' : 'text-gray-900'} leading-relaxed`}>{msg.message}</div>
-                  <div className={`${childFriendly ? 'text-sm' : 'text-xs'} mt-1 font-medium ${isOwn ? 'text-white/80' : 'text-gray-600'}`}>
+                  <span className={`${childFriendly ? 'text-sm' : 'text-xs'} font-semibold uppercase tracking-wide ${isOwn ? 'text-white/80' : 'text-gray-500'}`}>
+                    {displayName}
+                  </span>
+                  <span className={`${childFriendly ? 'text-base' : 'text-sm'} font-semibold whitespace-pre-wrap break-words ${isOwn ? 'text-white' : 'text-gray-900'}`}>
+                    {msg.message}
+                  </span>
+                  <span className={metaTextClass}>
                     {formatTime(msg.createdAt)}
-                  </div>
+                  </span>
                 </div>
               </div>
             )
@@ -308,7 +327,7 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            className={`flex-1 ${childFriendly ? 'px-5 py-3 text-base' : 'px-4 py-2 text-sm'} border-2 border-[var(--card-border)] rounded-full focus:border-[var(--primary)] focus:outline-none bg-white text-gray-900 placeholder:text-gray-500 font-medium`}
+            className={`flex-1 min-h-[44px] ${childFriendly ? 'px-5 py-3 text-base' : 'px-4 py-3 sm:py-2 text-base sm:text-sm'} border-2 border-[var(--card-border)] rounded-full focus:border-[var(--primary)] focus:outline-none bg-white text-gray-900 placeholder:text-gray-500 font-medium touch-manipulation`}
             style={{ color: '#111827' }}
             maxLength={1000}
             disabled={sending || !isConnected}
@@ -316,7 +335,7 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
           <button
             type="submit"
             disabled={!newMessage.trim() || sending || !isConnected}
-            className={`${childFriendly ? 'px-8 py-3 text-base' : 'px-6 py-2 text-sm'} bg-[var(--primary)] text-white rounded-full font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`min-h-[44px] ${childFriendly ? 'px-8 py-3 text-base' : 'px-6 py-3 sm:py-2 text-base sm:text-sm'} bg-[var(--primary)] text-white rounded-full font-bold hover:shadow-lg active:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation`}
             style={{ 
               color: '#ffffff',
               backgroundColor: sending || !newMessage.trim() || !isConnected ? undefined : 'var(--primary)'

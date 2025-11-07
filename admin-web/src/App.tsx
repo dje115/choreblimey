@@ -12,6 +12,7 @@ import AdminGiftTemplates from './pages/AdminGiftTemplates'
 import AdminMonitoring from './pages/AdminMonitoring'
 import AdminSecurity from './pages/AdminSecurity'
 import AdminSettings from './pages/AdminSettings'
+import AdminProfanity from './pages/AdminProfanity'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -85,6 +86,11 @@ function App() {
                     <Route path="/admin/settings" element={
                       <ProtectedRoute>
                         <AdminSettings />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/admin/profanity" element={
+                      <ProtectedRoute>
+                        <AdminProfanity />
                       </ProtectedRoute>
                     } />
             

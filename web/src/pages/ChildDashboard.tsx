@@ -1020,7 +1020,7 @@ const ChildDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] pb-24">
+    <div className="min-h-screen bg-[var(--background)] pb-24 sm:pb-6">
       {/* Hero Banner */}
       <header className="relative overflow-hidden bg-gradient-to-br from-[var(--primary)] via-[var(--secondary)] to-[var(--primary)] text-white">
         <div className="absolute inset-0 opacity-10">
@@ -1042,17 +1042,17 @@ const ChildDashboard: React.FC = () => {
                 {holidayMode.isActive ? 'Enjoy your holiday break!' : 'Time to earn those stars!'}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => setShowThemePicker(true)}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm backdrop-blur transition-all"
+                className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base backdrop-blur transition-all touch-manipulation flex items-center justify-center"
                 title="Change Theme"
               >
                 {currentTheme.emoji} Theme
               </button>
               <button
                 onClick={logout}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full font-semibold text-sm backdrop-blur transition-all"
+                className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base backdrop-blur transition-all touch-manipulation flex items-center justify-center"
               >
                 👋 Logout
               </button>
@@ -1123,10 +1123,10 @@ const ChildDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation - now responsive across all breakpoints */}
       <div className="sticky top-0 z-30 bg-white border-b-2 border-[var(--card-border)] shadow-md">
         <div className="container mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto py-3">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 overflow-x-auto py-3 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide justify-center">
             {[
               { id: 'today' as Tab, label: 'Today', icon: '📅' },
               { id: 'streaks' as Tab, label: 'Streaks', icon: '🔥' },
@@ -1147,17 +1147,21 @@ const ChildDashboard: React.FC = () => {
                       setLastReadChatTime(Date.now())
                     }
                   }}
-                  className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-all relative ${
+                  className={`min-h-[44px] px-4 sm:px-6 py-3 rounded-full font-bold text-sm sm:text-base whitespace-nowrap transition-all relative touch-manipulation flex-shrink-0 flex items-center justify-center ${
                     activeTab === tab.id
-                      ? 'bg-[var(--primary)] text-white shadow-lg scale-105'
+                      ? 'bg-[var(--primary)] text-white shadow-lg active:scale-100 sm:scale-105'
                       : hasUnread
-                        ? 'bg-orange-400 text-white animate-pulse shadow-lg'
-                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20'
+                        ? 'bg-orange-400 text-white animate-pulse shadow-lg active:bg-orange-500'
+                        : 'bg-[var(--card-border)] text-[var(--text-secondary)] hover:bg-[var(--primary)]/20 active:bg-[var(--primary)]/30'
                   }`}
+                  aria-label={tab.label}
                 >
-                  {tab.icon} {tab.label}
+                  <span className="text-lg sm:text-xl leading-none">{tab.icon}</span>
+                  <span className="child-nav-label ml-1 capitalize tracking-wide text-xs sm:text-sm md:text-base">
+                    {tab.label}
+                  </span>
                   {hasUnread && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center animate-bounce">
+                    <span className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center animate-bounce">
                       {unreadChatCount > 9 ? '9+' : unreadChatCount}
                     </span>
                   )}
@@ -1960,8 +1964,8 @@ const ChildDashboard: React.FC = () => {
             
             {/* Redemption Confirmation Modal */}
             {showRedemptionModal && selectedGiftForRedemption && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 overscroll-contain">
+                <div className="bg-white rounded-3xl p-4 sm:p-6 max-w-md w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
                   <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Confirm Redemption</h3>
                   
                   <div className="mb-6">
@@ -1998,22 +2002,22 @@ const ChildDashboard: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={() => {
                         setShowRedemptionModal(false)
                         setSelectedGiftForRedemption(null)
                       }}
-                      className="flex-1 px-4 py-3 rounded-full font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
+                      className="min-h-[44px] flex-1 px-4 py-3 rounded-full font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 active:bg-gray-400 transition-all touch-manipulation"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleRedeemGift}
                       disabled={totalStars < selectedGiftForRedemption.starsRequired || claimingReward === selectedGiftForRedemption.id}
-                      className={`flex-1 px-4 py-3 rounded-full font-bold text-white transition-all ${
+                      className={`min-h-[44px] flex-1 px-4 py-3 rounded-full font-bold text-white transition-all touch-manipulation ${
                         totalStars >= selectedGiftForRedemption.starsRequired
-                          ? 'bg-[var(--primary)] hover:scale-105'
+                          ? 'bg-[var(--primary)] hover:scale-105 active:scale-100 active:bg-[var(--primary)]/90'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
@@ -2848,34 +2852,59 @@ const ChildDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* Bottom Navigation (mobile) */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-[var(--card-border)] shadow-lg z-40 sm:hidden">
-        <div className="flex justify-around py-2">
+      {/* Bottom Navigation (mobile only) */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-[var(--card-border)] shadow-lg z-40 sm:hidden safe-area-inset-bottom">
+        <div className="flex flex-wrap justify-center items-center gap-1 py-2 px-2">
           {[
             { id: 'today' as Tab, icon: '📅', label: 'Today' },
-            { id: 'bank' as Tab, icon: '🏦', label: 'Bank' },
             { id: 'streaks' as Tab, icon: '🔥', label: 'Streak' },
             ...(familySettings?.giftsEnabled !== false ? [{ id: 'shop' as Tab, icon: '🛍️', label: 'Shop' }] : []),
-            { id: 'showdown' as Tab, icon: '⚔️', label: 'Fight' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 transition-all ${
-                activeTab === tab.id ? 'text-[var(--primary)]' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              <span className="text-2xl">{tab.icon}</span>
-              <span className="text-xs font-semibold">{tab.label}</span>
-            </button>
-          ))}
+            { id: 'showdown' as Tab, icon: '⚔️', label: 'Fight' },
+            { id: 'bank' as Tab, icon: '🏦', label: 'Bank' },
+            { id: 'chat' as Tab, icon: '💬', label: 'Chat' }
+          ].map((tab) => {
+            const hasUnread = tab.id === 'chat' && unreadChatCount > 0
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  // Clear unread count when opening chat tab
+                  if (tab.id === 'chat') {
+                    setUnreadChatCount(0)
+                    setLastReadChatTime(Date.now())
+                  }
+                }}
+                aria-label={tab.label}
+                className={`child-mobile-nav-button flex flex-col items-center justify-center gap-1 px-1 py-2 transition-all touch-manipulation relative ${
+                  activeTab === tab.id 
+                    ? 'text-[var(--primary)]' 
+                    : hasUnread
+                      ? 'text-orange-500'
+                      : 'text-[var(--text-secondary)]'
+                }`}
+              >
+                <span className="text-2xl relative">
+                  {tab.icon}
+                  {hasUnread && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center">
+                      {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                    </span>
+                  )}
+                </span>
+                <span className="text-[10px] font-semibold leading-tight text-center max-w-[56px] truncate child-nav-label">
+                  {tab.label}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </nav>
 
       {/* Completion Modal */}
       {showCompletionModal && selectedAssignment && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="cb-card w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-md max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
             <h3 className="cb-heading-lg text-center mb-4 text-[var(--primary)]">
               ✅ Complete Chore
             </h3>
@@ -2905,14 +2934,14 @@ const ChildDashboard: React.FC = () => {
                 <textarea
                   value={completionNote}
                   onChange={(e) => setCompletionNote(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none resize-none"
-                  rows={3}
+                  className="w-full min-h-[120px] px-4 py-3 text-base sm:text-sm border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none resize-none touch-manipulation"
+                  rows={4}
                   placeholder="Tell us how you completed this chore..."
                 />
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -2920,7 +2949,7 @@ const ChildDashboard: React.FC = () => {
                   setSelectedAssignment(null)
                   setCompletionNote('')
                 }}
-                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+                className="min-h-[44px] flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] active:bg-[var(--card-border)] transition-all touch-manipulation"
                 disabled={completingChore}
               >
                 Cancel
@@ -2929,7 +2958,7 @@ const ChildDashboard: React.FC = () => {
                 type="button"
                 onClick={handleSubmitCompletion}
                 disabled={completingChore}
-                className="flex-1 cb-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-h-[44px] flex-1 cb-button-primary disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
                 {completingChore ? '⏳ Submitting...' : '✅ Submit'}
               </button>
@@ -2940,8 +2969,8 @@ const ChildDashboard: React.FC = () => {
 
       {/* Theme Picker Modal */}
       {showThemePicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl">
             <div className="sticky top-0 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] text-white p-6 rounded-t-3xl">
               <div className="flex justify-between items-center">
                 <div>
@@ -2950,7 +2979,7 @@ const ChildDashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setShowThemePicker(false)}
-                  className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-2xl transition-all"
+                  className="min-w-[44px] min-h-[44px] w-10 h-10 sm:w-10 sm:h-10 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full flex items-center justify-center text-2xl transition-all touch-manipulation"
                 >
                   ✕
                 </button>

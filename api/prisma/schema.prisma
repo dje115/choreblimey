@@ -85,6 +85,7 @@ model Family {
   starPurchases StarPurchase[]
   gifts         Gift[]
   messages      FamilyMessage[]
+  flaggedMessages FlaggedMessage[]
 }
 
 model User {
@@ -766,6 +767,35 @@ model RewardItem {
   @@index([featured, blocked])
   @@index([popularityScore])
   @@index([priceUpdatedAt]) // For cache expiry queries
+}
+
+// Profanity filter words (admin-managed, accessed by main API for filtering)
+model ProfanityWord {
+  id        String   @id @default(uuid())
+  word      String   @unique // Normalized word (lowercase, trimmed)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([word])
+}
+
+// Flagged chat messages (for admin review)
+model FlaggedMessage {
+  id            String   @id @default(uuid())
+  messageId     String   // Reference to FamilyMessage.id
+  familyId      String
+  originalMessage String @db.Text // Original message content
+  filteredMessage String @db.Text // Message after filtering
+  flaggedWords  Json     // Array of words that were flagged
+  senderId      String?  // User ID or Child ID
+  senderType    String   // "parent" | "child"
+  createdAt     DateTime @default(now())
+
+  family       Family   @relation(fields: [familyId], references: [id])
+
+  @@index([familyId, createdAt])
+  @@index([messageId])
+  @@index([createdAt])
 }
 
 // Click tracking (privacy-safe, no PII)

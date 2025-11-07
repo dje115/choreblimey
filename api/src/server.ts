@@ -17,6 +17,7 @@ import { prisma } from './db/prisma.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler.js'
 import { initializeSocketIO } from './websocket/socket.js'
 import type { Server as SocketIOServer } from 'socket.io'
+import { preloadProfanityCache } from './utils/profanityCache.js'
 
 const app = Fastify({ 
   logger: true,
@@ -79,6 +80,9 @@ const start = async () => {
     const httpServer = app.server
     io = initializeSocketIO(httpServer)
     console.log('🔌 WebSocket server initialized')
+    
+    // Preload profanity words cache
+    await preloadProfanityCache()
   } catch (err) {
     console.error('❌ Failed to start server:', err)
     process.exit(1)

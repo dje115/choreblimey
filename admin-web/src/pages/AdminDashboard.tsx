@@ -310,6 +310,31 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Profanity Filter */}
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-orange-500 rounded-md flex items-center justify-center">
+                    <span className="text-white text-lg">🚫</span>
+                  </div>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900">Profanity Filter</h3>
+                  <p className="text-sm text-gray-500">Manage profanity words and flagged messages</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <a
+                  href="/admin/profanity"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-orange-700 bg-orange-100 hover:bg-orange-200"
+                >
+                  Manage Filter
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Quick Actions */}

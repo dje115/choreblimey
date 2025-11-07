@@ -735,3 +735,30 @@ model FamilyGift {
   @@index([giftTemplateId])
 }
 
+// Profanity filter words (admin-managed)
+model ProfanityWord {
+  id        String   @id @default(uuid())
+  word      String   @unique // Normalized word (lowercase, trimmed)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([word])
+}
+
+// Flagged chat messages (for admin review)
+model FlaggedMessage {
+  id            String   @id @default(uuid())
+  messageId     String   // Reference to FamilyMessage.id
+  familyId      String
+  originalMessage String @db.Text // Original message content
+  filteredMessage String @db.Text // Message after filtering
+  flaggedWords  Json     // Array of words that were flagged
+  senderId      String?  // User ID or Child ID
+  senderType    String   // "parent" | "child"
+  createdAt     DateTime @default(now())
+
+  @@index([familyId, createdAt])
+  @@index([messageId])
+  @@index([createdAt])
+}
+

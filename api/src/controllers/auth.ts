@@ -305,6 +305,18 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       await cache.del(`child_info:${joinCode}`)
     }
 
+    // Ensure no other join codes point to this child (avoid unique constraint issues)
+    await prisma.childJoinCode.updateMany({
+      where: {
+        usedByChildId: child.id,
+        id: { not: joinCodeRecord.id }
+      },
+      data: {
+        usedByChildId: null,
+        usedAt: null
+      }
+    })
+
     // Mark join code as used (only if not already used)
     if (!joinCodeRecord.usedAt) {
       await prisma.childJoinCode.update({
@@ -347,6 +359,7 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
       }
     }
   } catch (error) {
+    console.error('Failed to join family:', error)
     reply.status(500).send({ error: 'Failed to join family' })
   }
 }

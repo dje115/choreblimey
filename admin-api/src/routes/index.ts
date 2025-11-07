@@ -5,6 +5,7 @@ import * as adminMonitoring from '../controllers/adminMonitoring.js'
 import * as adminSecurity from '../controllers/adminSecurity.js'
 import * as adminGiftTemplates from '../controllers/adminGiftTemplates.js'
 import * as adminImageUpload from '../controllers/adminImageUpload.js'
+import * as adminProfanity from '../controllers/adminProfanity.js'
 
 export async function routes(app: FastifyInstance) {
   // Health check (no auth required)
@@ -52,6 +53,14 @@ export async function routes(app: FastifyInstance) {
   app.patch('/admin/gift-templates/:id', adminGiftTemplates.updateGiftTemplate)
   app.delete('/admin/gift-templates/:id', adminGiftTemplates.deleteGiftTemplate)
   app.post('/admin/gift-templates/generate-affiliate-url', adminGiftTemplates.generateAffiliateUrl)
+
+  // Profanity Word Management (admin auth required)
+  app.get('/admin/profanity/words', adminProfanity.listProfanityWords)
+  app.post('/admin/profanity/words', adminProfanity.createProfanityWord)
+  app.post('/admin/profanity/words/bulk', adminProfanity.bulkUploadProfanityWords)
+  app.delete('/admin/profanity/words/:id', adminProfanity.deleteProfanityWord)
+  app.post('/admin/profanity/words/delete', adminProfanity.deleteProfanityWords)
+  app.get('/admin/profanity/flagged', adminProfanity.getFlaggedMessages)
 
   // Admin Management (super admin only) - TODO: Implement admin management
   // app.get('/admin/admins', adminAuth.listAdmins)
