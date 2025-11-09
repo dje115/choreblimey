@@ -1625,9 +1625,9 @@ const ParentDashboard: React.FC = () => {
           )
         })()}
         {/* Main Content Grid */}
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Left Column: Manage Chores (2 cols on desktop) */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          {/* Left Column: Manage Chores */}
+          <div className="space-y-6">
             {/* Pending Approvals Section */}
             {(pendingCompletions.length > 0 || pendingRedemptions.length > 0 || pendingStarPurchases.length > 0) && (
               <div className="cb-card p-6 border-4 border-[var(--warning)]">
@@ -3221,7 +3221,7 @@ const ParentDashboard: React.FC = () => {
           </div>
 
           {/* Right Column: Chat, Family & Leaderboard */}
-          <div className="space-y-6">
+          <aside className="space-y-6">
             {/* Family Chat (Compact) - Only show if enabled for current user */}
             {(() => {
               const currentMember = members.find((m: any) => m.user?.id === user?.id || m.userId === user?.id)
@@ -3642,7 +3642,7 @@ const ParentDashboard: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
 

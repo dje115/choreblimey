@@ -321,13 +321,13 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
 
       {/* Input */}
       <form onSubmit={sendMessage} className="border-t border-[var(--card-border)] p-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-end flex-wrap sm:flex-nowrap">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            className={`flex-1 min-h-[44px] ${childFriendly ? 'px-5 py-3 text-base' : 'px-4 py-3 sm:py-2 text-base sm:text-sm'} border-2 border-[var(--card-border)] rounded-full focus:border-[var(--primary)] focus:outline-none bg-white text-gray-900 placeholder:text-gray-500 font-medium touch-manipulation`}
+            className={`flex-1 min-h-[44px] ${childFriendly ? 'px-4 py-3 text-base sm:px-5 sm:py-2 sm:text-base' : 'px-4 py-3 sm:px-4 sm:py-2 text-base sm:text-sm'} border-2 border-[var(--card-border)] rounded-full focus:border-[var(--primary)] focus:outline-none bg-white text-gray-900 placeholder:text-gray-500 font-medium touch-manipulation`}
             style={{ color: '#111827' }}
             maxLength={1000}
             disabled={sending || !isConnected}
@@ -335,7 +335,7 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
           <button
             type="submit"
             disabled={!newMessage.trim() || sending || !isConnected}
-            className={`min-h-[44px] ${childFriendly ? 'px-8 py-3 text-base' : 'px-6 py-3 sm:py-2 text-base sm:text-sm'} bg-[var(--primary)] text-white rounded-full font-bold hover:shadow-lg active:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation`}
+            className={`min-h-[44px] shrink-0 ${childFriendly ? 'px-5 py-3 text-sm sm:px-6 sm:py-2 sm:text-base' : 'px-5 py-3 sm:px-6 sm:py-2 text-sm sm:text-base'} bg-[var(--primary)] text-white rounded-full font-bold hover:shadow-lg active:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation`}
             style={{ 
               color: '#ffffff',
               backgroundColor: sending || !newMessage.trim() || !isConnected ? undefined : 'var(--primary)'

@@ -1029,30 +1029,30 @@ const ChildDashboard: React.FC = () => {
           <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-white rounded-full animate-pulse delay-200"></div>
         </div>
         
-        <div className="relative container mx-auto px-4 py-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-4xl sm:text-5xl font-bold mb-2" style={{ fontFamily: "'Baloo 2', cursive" }}>
+        <div className="relative container mx-auto px-4 py-6 sm:py-10">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-5xl font-bold leading-tight" style={{ fontFamily: "'Baloo 2', cursive" }}>
                 Hey {user?.nickname || 'Champion'}! 🌟
                 {holidayMode.isActive && (
                   <span className="ml-3 text-3xl animate-bounce" title="Holiday mode active">🌴</span>
                 )}
               </h1>
-              <p className="text-white/90 text-lg">
+              <p className="text-white/90 text-base sm:text-lg">
                 {holidayMode.isActive ? 'Enjoy your holiday break!' : 'Time to earn those stars!'}
               </p>
             </div>
-            <div className="flex gap-2 sm:gap-3">
+            <div className="flex gap-2 sm:gap-3 self-start">
               <button
                 onClick={() => setShowThemePicker(true)}
-                className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base backdrop-blur transition-all touch-manipulation flex items-center justify-center"
+                className="min-h-[40px] px-4 py-2 sm:min-h-[44px] sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base backdrop-blur transition-all touch-manipulation flex items-center justify-center"
                 title="Change Theme"
               >
                 {currentTheme.emoji} Theme
               </button>
               <button
                 onClick={logout}
-                className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base backdrop-blur transition-all touch-manipulation flex items-center justify-center"
+                className="min-h-[40px] px-4 py-2 sm:min-h-[44px] sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base backdrop-blur transition-all touch-manipulation flex items-center justify-center"
               >
                 👋 Logout
               </button>
@@ -1060,18 +1060,23 @@ const ChildDashboard: React.FC = () => {
           </div>
 
           {/* Star Bank Card */}
-          <div className="bg-white/10 backdrop-blur-md border-2 border-white/20 rounded-3xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-white/80 text-sm font-semibold uppercase tracking-wide">Your Star Bank</p>
-                <p className="text-6xl font-bold mt-2">{totalStars}⭐</p>
-                <p className="text-white/70 text-sm mt-1">£{(bannerStats.owedPence / 100).toFixed(2)} owed</p>
+          <div className="bg-white/10 backdrop-blur-md border-2 border-white/20 rounded-3xl p-5 sm:p-6 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-white/80 text-xs sm:text-sm font-semibold uppercase tracking-wide">Your Star Bank</p>
+                <div className="flex items-end gap-3">
+                  <p className="text-5xl sm:text-6xl font-bold leading-none">{totalStars}⭐</p>
+                  <div className="px-3 py-1.5 rounded-full bg-white/20 text-white/90 text-sm sm:hidden">
+                    £{(bannerStats.owedPence / 100).toFixed(2)} owed
+                  </div>
+                </div>
+                <p className="hidden sm:block text-white/70 text-sm mt-1">£{(bannerStats.owedPence / 100).toFixed(2)} owed</p>
               </div>
-              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-4xl animate-pulse">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 rounded-full flex items-center justify-center text-3xl sm:text-4xl animate-pulse self-start sm:self-auto">
                 💰
               </div>
             </div>
-            <div className={`grid gap-3 text-sm ${familySettings?.showLifetimeEarnings !== false ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-7' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'}`}>
+            <div className={`mt-4 hidden sm:grid gap-3 text-sm ${familySettings?.showLifetimeEarnings !== false ? 'sm:grid-cols-3 lg:grid-cols-7' : 'sm:grid-cols-3 lg:grid-cols-6'}`}>
               <div className="bg-white/10 rounded-xl p-3">
                 <p className="text-white/70 text-xs">Owed</p>
                 <p className="font-bold text-lg">£{(bannerStats.owedPence / 100).toFixed(2)}</p>
@@ -1846,18 +1851,18 @@ const ChildDashboard: React.FC = () => {
                 <p className="text-[var(--text-secondary)]">Ask your parents to add some rewards!</p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {/* Display Family Gifts (new system) */}
                 {familyGifts.map((gift) => (
                   <div
                     key={gift.id}
-                    className="bg-white border-2 border-[var(--card-border)] rounded-2xl overflow-hidden hover:shadow-xl transition-all cursor-pointer"
+                    className="bg-white border border-[var(--card-border)] rounded-2xl overflow-hidden hover:shadow-lg transition-transform duration-200 cursor-pointer flex flex-col"
                     onClick={() => {
                       setSelectedGiftForRedemption(gift)
                       setShowRedemptionModal(true)
                     }}
                   >
-                    <div className="aspect-square bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-4xl relative">
+                    <div className="aspect-[3/4] bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-3xl relative">
                       {gift.imageUrl ? (
                         <a
                           href={gift.affiliateUrl || gift.sitestripeUrl || undefined}
@@ -1869,12 +1874,12 @@ const ChildDashboard: React.FC = () => {
                           <img src={gift.imageUrl} alt={gift.title} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
                         </a>
                       ) : (
-                        '🎁'
+                        <span aria-hidden>🎁</span>
                       )}
                     </div>
-                    <div className="p-3">
+                    <div className="flex-1 p-3 sm:p-4 flex flex-col">
                       <h3 
-                        className={`font-bold text-base text-[var(--text-primary)] mb-1 line-clamp-2 ${gift.affiliateUrl || gift.sitestripeUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
+                        className={`font-semibold text-sm sm:text-base text-[var(--text-primary)] mb-1 line-clamp-2 ${gift.affiliateUrl || gift.sitestripeUrl ? 'cursor-pointer hover:text-[var(--primary)] transition-colors' : ''}`}
                         onClick={(e) => {
                           if (gift.affiliateUrl || gift.sitestripeUrl) {
                             e.stopPropagation()
@@ -1892,12 +1897,12 @@ const ChildDashboard: React.FC = () => {
                           Added by {gift.createdByUser.email?.split('@')[0] || 'Unknown'}
                         </p>
                       )}
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="mt-auto flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200">
-                          <span className="text-lg font-bold text-yellow-700">
+                          <span className="text-base sm:text-lg font-bold text-yellow-700">
                             {gift.starsRequired}
                           </span>
-                          <span className="text-lg">⭐</span>
+                          <span className="text-base sm:text-lg">⭐</span>
                         </div>
                         <button
                           onClick={(e) => {
@@ -1906,9 +1911,9 @@ const ChildDashboard: React.FC = () => {
                             setShowRedemptionModal(true)
                           }}
                           disabled={totalStars < gift.starsRequired || claimingReward === gift.id}
-                          className={`px-3 py-1.5 rounded-full font-bold text-xs whitespace-nowrap ${
+                          className={`px-3 py-1.5 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap ${
                             totalStars >= gift.starsRequired
-                              ? 'bg-[var(--primary)] text-white hover:scale-105'
+                              ? 'bg-[var(--primary)] text-white hover:scale-105 active:scale-100'
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           } transition-all`}
                         >
@@ -1923,33 +1928,33 @@ const ChildDashboard: React.FC = () => {
                 {rewards.map((reward) => (
                   <div
                     key={reward.id}
-                    className="bg-white border-2 border-[var(--card-border)] rounded-2xl overflow-hidden hover:shadow-xl transition-all"
+                    className="bg-white border border-[var(--card-border)] rounded-2xl overflow-hidden hover:shadow-lg transition-transform duration-200 flex flex-col"
                   >
-                    <div className="aspect-square bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-4xl">
+                    <div className="aspect-[3/4] bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center text-3xl">
                       {reward.imageUrl ? (
                         <img src={reward.imageUrl} alt={reward.title} className="w-full h-full object-cover" />
                       ) : (
-                        '🎁'
+                        <span aria-hidden>🎁</span>
                       )}
                     </div>
-                    <div className="p-3">
-                      <h3 className="font-bold text-base text-[var(--text-primary)] mb-1 line-clamp-2">{reward.title}</h3>
+                    <div className="flex-1 p-3 sm:p-4 flex flex-col">
+                      <h3 className="font-semibold text-sm sm:text-base text-[var(--text-primary)] mb-1 line-clamp-2">{reward.title}</h3>
                       <p className="text-xs text-[var(--text-secondary)] mb-2 line-clamp-2">
                         {reward.description || 'A special reward just for you!'}
                       </p>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="mt-auto flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200">
-                          <span className="text-lg font-bold text-yellow-700">
+                          <span className="text-base sm:text-lg font-bold text-yellow-700">
                             {reward.starsRequired}
                           </span>
-                          <span className="text-lg">⭐</span>
+                          <span className="text-base sm:text-lg">⭐</span>
                         </div>
                         <button
                           onClick={() => handleClaimReward(reward)}
                           disabled={totalStars < reward.starsRequired || claimingReward === reward.id}
-                          className={`px-3 py-1.5 rounded-full font-bold text-xs whitespace-nowrap ${
+                          className={`px-3 py-1.5 rounded-full font-bold text-xs sm:text-sm whitespace-nowrap ${
                             totalStars >= reward.starsRequired
-                              ? 'bg-[var(--primary)] text-white hover:scale-105'
+                              ? 'bg-[var(--primary)] text-white hover:scale-105 active:scale-100'
                               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           } transition-all`}
                         >
