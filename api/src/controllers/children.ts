@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { generateJoinCode } from '../utils/crypto.js'
+import { emitFamilyJoinCodesUpdated } from '../events/familyJoinCodes.js'
 import { cache } from '../utils/cache.js'
 
 /**
@@ -44,6 +45,9 @@ interface UpdateChildBody {
   birthMonth?: number
   birthYear?: number
   theme?: string
+  holidayMode?: boolean
+  holidayStartDate?: string | null
+  holidayEndDate?: string | null
 }
 
 /**
@@ -89,6 +93,12 @@ export const create = async (req: FastifyRequest<{ Body: CreateChildBody }>, rep
       }
     })
 
+    await emitFamilyJoinCodesUpdated(familyId, {
+      action: 'created',
+      code: joinCode,
+      nickname,
+    })
+
     // Invalidate family cache so parent dashboard shows new child immediately
     await cache.invalidateFamily(familyId)
 
@@ -119,7 +129,7 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
   try {
     const { familyId } = req.claims!
     const { id } = req.params
-    const { nickname, ageGroup, gender, email, birthMonth, birthYear, theme } = req.body
+    const { nickname, ageGroup, gender, email, birthMonth, birthYear, theme, holidayMode, holidayStartDate, holidayEndDate } = req.body
 
     // Verify child belongs to family
     const existingChild = await prisma.child.findFirst({
@@ -137,17 +147,47 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
     }
 
     // Update child
+    const updatePayload: Record<string, unknown> = {
+      nickname: nickname !== undefined ? nickname : undefined,
+      ageGroup: calculatedAgeGroup !== undefined ? calculatedAgeGroup : undefined,
+      gender: gender !== undefined ? gender : undefined,
+      email: email !== undefined ? email : undefined,
+      birthMonth: birthMonth !== undefined ? birthMonth : undefined,
+      birthYear: birthYear !== undefined ? birthYear : undefined,
+      theme: theme !== undefined ? theme : undefined,
+    }
+
+    if (holidayMode !== undefined) {
+      updatePayload.holidayMode = holidayMode
+    }
+
+    if (holidayStartDate !== undefined) {
+      if (!holidayStartDate) {
+        updatePayload.holidayStartDate = null
+      } else {
+        const parsedStart = new Date(holidayStartDate)
+        if (Number.isNaN(parsedStart.getTime())) {
+          return reply.status(400).send({ error: 'Invalid holidayStartDate' })
+        }
+        updatePayload.holidayStartDate = parsedStart
+      }
+    }
+
+    if (holidayEndDate !== undefined) {
+      if (!holidayEndDate) {
+        updatePayload.holidayEndDate = null
+      } else {
+        const parsedEnd = new Date(holidayEndDate)
+        if (Number.isNaN(parsedEnd.getTime())) {
+          return reply.status(400).send({ error: 'Invalid holidayEndDate' })
+        }
+        updatePayload.holidayEndDate = parsedEnd
+      }
+    }
+
     const child = await prisma.child.update({
       where: { id },
-      data: {
-        nickname: nickname !== undefined ? nickname : undefined,
-        ageGroup: calculatedAgeGroup !== undefined ? calculatedAgeGroup : undefined,
-        gender: gender !== undefined ? gender : undefined,
-        email: email !== undefined ? email : undefined,
-        birthMonth: birthMonth !== undefined ? birthMonth : undefined,
-        birthYear: birthYear !== undefined ? birthYear : undefined,
-        theme: theme !== undefined ? theme : undefined
-      }
+      data: updatePayload
     })
 
     // Invalidate family cache so changes are reflected immediately
@@ -162,7 +202,10 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }; Body:
         email: child.email,
         birthMonth: child.birthMonth,
         birthYear: child.birthYear,
-        theme: child.theme
+        theme: child.theme,
+        holidayMode: child.holidayMode,
+        holidayStartDate: child.holidayStartDate,
+        holidayEndDate: child.holidayEndDate,
       }
     }
   } catch (error) {

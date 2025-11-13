@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { forceLogout, LOGOUT_EVENT_NAME } from '../utils/auth'
 
 export interface User {
   id: string
@@ -46,6 +47,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(false)
   }, [])
 
+  useEffect(() => {
+    const handleForcedLogout = () => {
+      setUser(null)
+    }
+
+    window.addEventListener(LOGOUT_EVENT_NAME, handleForcedLogout)
+
+    return () => {
+      window.removeEventListener(LOGOUT_EVENT_NAME, handleForcedLogout)
+    }
+  }, [])
+
   const login = (token: string, userData: User) => {
     localStorage.setItem('auth_token', token)
     localStorage.setItem('user_data', JSON.stringify(userData))
@@ -53,9 +66,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   const logout = () => {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user_data')
     setUser(null)
+    forceLogout('manual')
   }
 
   const value: AuthContextType = {

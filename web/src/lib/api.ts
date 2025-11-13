@@ -1,3 +1,5 @@
+import { forceLogout } from '../utils/auth'
+
 const resolveDefaultApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const { protocol, hostname } = window.location
@@ -45,11 +47,19 @@ class ApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+      if (response.status === 401) {
+        forceLogout('api-401')
+      }
+
       const errorData = await response.json().catch(() => ({}))
       throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`)
     }
 
-    return response.json()
+    if (response.status === 204) {
+      return undefined as T
+    }
+
+    return response.json().catch(() => undefined as T)
   }
 
   async get<T = any>(endpoint: string, includeAuth: boolean = true): Promise<T> {
@@ -202,7 +212,7 @@ class ApiClient {
     return this.post('/children', data)
   }
 
-  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthMonth?: number; birthYear?: number; theme?: string }) {
+  async updateChild(childId: string, data: { nickname?: string; ageGroup?: string; gender?: string; birthMonth?: number; birthYear?: number; theme?: string; email?: string; holidayMode?: boolean; holidayStartDate?: string | null; holidayEndDate?: string | null }) {
     return this.patch(`/children/${childId}`, data)
   }
 

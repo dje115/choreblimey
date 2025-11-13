@@ -13,7 +13,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 // Pages
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
-import ParentDashboard from './pages/ParentDashboard'
+import ParentDashboardEntry from './pages/ParentDashboardEntry'
 import ChildDashboard from './pages/ChildDashboard'
 import ChoreManagement from './pages/ChoreManagement'
 import ChildJoinPage from './pages/ChildJoinPage'
@@ -58,7 +58,7 @@ const AppContent = () => {
               {/* Protected routes */}
               <Route path="/dashboard" element={
                 <ProtectedRoute allowedRoles={['parent_admin', 'parent_viewer', 'relative_contributor']}>
-                  <ParentDashboard />
+                  <ParentDashboardEntry />
                 </ProtectedRoute>
               } />
               <Route path="/co-parent" element={

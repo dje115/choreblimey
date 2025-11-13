@@ -10,6 +10,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from './AuthContext'
+import { forceLogout } from '../utils/auth'
 
 interface SocketContextType {
   socket: Socket | null
@@ -109,13 +110,21 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       setIsConnected(false)
     })
 
-    newSocket.on('connect_error', (error) => {
+    newSocket.on('connect_error', (error: Error & { data?: unknown }) => {
       console.error('❌ Socket connection error:', error)
       setIsConnected(false)
+      const message = error.message || ''
+      if (message.toLowerCase().includes('authentication error')) {
+        forceLogout('socket-auth-error')
+      }
     })
 
-    newSocket.on('error', (error) => {
+    newSocket.on('error', (error: Error & { data?: unknown }) => {
       console.error('❌ Socket error:', error)
+      const message = error.message || ''
+      if (message.toLowerCase().includes('authentication error')) {
+        forceLogout('socket-auth-error')
+      }
     })
 
     socketRef.current = newSocket

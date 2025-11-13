@@ -28,6 +28,7 @@ interface FamilyChatProps {
   maxMessages?: number // Max messages to show (for compact view)
   childFriendly?: boolean // If true, uses larger fonts for better readability (for child dashboard)
   onNewMessage?: () => void // Callback when a new message is received (for unread tracking)
+  canSend?: boolean // If false, render read-only chat (no sending)
 }
 
 export const FamilyChat: React.FC<FamilyChatProps> = ({ 
@@ -36,7 +37,8 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
   days = 2,
   maxMessages = 6,
   childFriendly = false,
-  onNewMessage
+  onNewMessage,
+  canSend = true
 }) => {
   const { user } = useAuth()
   const { socket, isConnected, on, off } = useSocket()
@@ -128,6 +130,9 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
   // Send message
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canSend) {
+      return
+    }
     if (!newMessage.trim() || sending || !isConnected) {
       if (!isConnected) {
         alert('Not connected to server. Please refresh the page.')
@@ -327,23 +332,28 @@ export const FamilyChat: React.FC<FamilyChatProps> = ({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            className={`flex-1 min-h-[44px] ${childFriendly ? 'px-4 py-3 text-base sm:px-5 sm:py-2 sm:text-base' : 'px-4 py-3 sm:px-4 sm:py-2 text-base sm:text-sm'} border-2 border-[var(--card-border)] rounded-full focus:border-[var(--primary)] focus:outline-none bg-white text-gray-900 placeholder:text-gray-500 font-medium touch-manipulation`}
+            className={`flex-1 min-h-[44px] ${childFriendly ? 'px-4 py-3 text-base sm:px-5 sm:py-2 sm:text-base' : 'px-4 py-3 sm:px-4 sm:py-2 text-base sm:text-sm'} border-2 border-[var(--card-border)] rounded-full focus:border-[var(--primary)] focus:outline-none bg-white text-gray-900 placeholder:text-gray-500 font-medium touch-manipulation ${!canSend ? 'cursor-not-allowed opacity-70' : ''}`}
             style={{ color: '#111827' }}
             maxLength={1000}
-            disabled={sending || !isConnected}
+            disabled={sending || !isConnected || !canSend}
           />
           <button
             type="submit"
-            disabled={!newMessage.trim() || sending || !isConnected}
+            disabled={!newMessage.trim() || sending || !isConnected || !canSend}
             className={`min-h-[44px] shrink-0 ${childFriendly ? 'px-5 py-3 text-sm sm:px-6 sm:py-2 sm:text-base' : 'px-5 py-3 sm:px-6 sm:py-2 text-sm sm:text-base'} bg-[var(--primary)] text-white rounded-full font-bold hover:shadow-lg active:shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation`}
             style={{ 
               color: '#ffffff',
-              backgroundColor: sending || !newMessage.trim() || !isConnected ? undefined : 'var(--primary)'
+              backgroundColor: sending || !newMessage.trim() || !isConnected || !canSend ? undefined : 'var(--primary)'
             }}
           >
             {sending ? 'Sending...' : 'Send'}
           </button>
         </div>
+        {!canSend && (
+          <p className={`${childFriendly ? 'text-sm' : 'text-xs'} text-slate-500 mt-2 font-semibold`}>
+            You have read-only access to the family chat.
+          </p>
+        )}
         {!isConnected && (
           <p className={`${childFriendly ? 'text-sm' : 'text-xs'} text-red-500 mt-2 font-semibold`}>⚠️ Not connected. Messages may not send.</p>
         )}

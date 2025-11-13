@@ -10,6 +10,9 @@ import { handleApiError } from '../utils/errorHandler'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 import { FamilyChat } from '../components/FamilyChat'
+import CreateChoreModal, { CreateChoreAssignmentState, CreateChoreFormState } from '../features/parent-dashboard/modals/CreateChoreModal'
+import ChoreLibraryModal from '../features/parent-dashboard/modals/ChoreLibraryModal'
+import EditChoreModal from '../features/parent-dashboard/modals/EditChoreModal'
 
 // Type definitions
 interface Family {
@@ -239,22 +242,22 @@ const ParentDashboard: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<'all' | 'recurring' | 'pending' | 'completed'>('all')
   
-  const [newChore, setNewChore] = useState({
+  const initialCreateChore: CreateChoreFormState = {
     title: '',
     description: '',
-    frequency: 'daily' as 'daily' | 'weekly' | 'once',
-    proof: 'none' as 'none' | 'photo' | 'note',
+    frequency: 'daily',
+    proof: 'none',
     baseRewardPence: 50,
-    starsOverride: null as number | null
-  })
+    starsOverride: null,
+  }
 
-  const [choreAssignments, setChoreAssignments] = useState<{
-    childIds: string[]
-    biddingEnabled: boolean
-  }>({
+  const initialChoreAssignments: CreateChoreAssignmentState = {
     childIds: [],
-    biddingEnabled: false
-  })
+    biddingEnabled: false,
+  }
+
+  const [newChore, setNewChore] = useState<CreateChoreFormState>(initialCreateChore)
+  const [choreAssignments, setChoreAssignments] = useState<CreateChoreAssignmentState>(initialChoreAssignments)
 
   const [showHolidayModal, setShowHolidayModal] = useState(false)
 
@@ -544,7 +547,6 @@ const ParentDashboard: React.FC = () => {
       setAmazonProductLoading(false)
     }
   }, [amazonProductUrl])
-
   /**
    * Listen for completion updates via WebSocket
    * This works across all devices, browsers, and tabs
@@ -788,7 +790,6 @@ const ParentDashboard: React.FC = () => {
     pollingInterval: 5000, // Poll every 5 seconds as fallback
     useVisibilityAPI: true
   })
-  
   // Initialize holiday mode state when modal opens (only on open, not on family changes)
   const holidayModalInitializedRef = useRef(false)
   useEffect(() => {
@@ -1089,6 +1090,83 @@ const ParentDashboard: React.FC = () => {
     setShowCreateChoreModal(true)
   }
 
+  const resetCreateChoreForm = () => {
+    setNewChore(initialCreateChore)
+    setChoreAssignments(initialChoreAssignments)
+  }
+
+  const closeCreateChoreModal = () => {
+    setShowCreateChoreModal(false)
+    resetCreateChoreForm()
+  }
+
+  const backToChoreLibrary = () => {
+    resetCreateChoreForm()
+    setShowCreateChoreModal(false)
+    setShowChoreLibraryModal(true)
+  }
+
+  const closeEditChoreModal = () => {
+    setShowEditChoreModal(false)
+    setSelectedChore(null)
+    setChoreAssignments(initialChoreAssignments)
+  }
+
+  const handleEditChoreSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedChore) return
+
+    try {
+      await apiClient.updateChore(selectedChore.id, {
+        title: selectedChore.title,
+        description: selectedChore.description,
+        frequency: selectedChore.frequency,
+        proof: selectedChore.proof,
+        baseRewardPence: selectedChore.baseRewardPence,
+        starsOverride:
+          typeof selectedChore.starsOverride === 'number' ? selectedChore.starsOverride : undefined,
+        active: selectedChore.active !== false,
+      })
+
+      const relevantAssignments = assignments.filter((assignment) => assignment.choreId === selectedChore.id)
+      const existingChildIds = relevantAssignments
+        .map((assignment) => assignment.childId)
+        .filter((childId): childId is string => Boolean(childId))
+
+      const childIdsToAdd = choreAssignments.childIds.filter((childId) => !existingChildIds.includes(childId))
+      const assignmentsToRemove = relevantAssignments.filter(
+        (assignment) => assignment.childId && !choreAssignments.childIds.includes(assignment.childId),
+      )
+
+      if (assignmentsToRemove.length > 0) {
+        await Promise.all(assignmentsToRemove.map((assignment) => apiClient.deleteAssignment(assignment.id)))
+      }
+
+      if (childIdsToAdd.length > 0) {
+        await Promise.all(
+          childIdsToAdd.map((childId) =>
+            apiClient.createAssignment({
+              choreId: selectedChore.id,
+              childId,
+              biddingEnabled: choreAssignments.biddingEnabled && choreAssignments.childIds.length > 1,
+            }),
+          ),
+        )
+      }
+
+      closeEditChoreModal()
+
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await loadDashboard()
+
+      notifyChildDashboards()
+      setToast({ message: '✅ Chore updated successfully!', type: 'success' })
+    } catch (error) {
+      console.error('Failed to update chore', error)
+      setToast({ message: 'Could not update chore. Try again.', type: 'error' })
+    }
+  }
+
   const handleCreateChore = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -1120,19 +1198,7 @@ const ParentDashboard: React.FC = () => {
       notifyChildDashboards()
       
       // Reset form and close modal
-      setShowCreateChoreModal(false)
-      setNewChore({
-        title: '',
-        description: '',
-        frequency: 'daily',
-        proof: 'none',
-        baseRewardPence: 50,
-        starsOverride: null
-      })
-      setChoreAssignments({
-        childIds: [],
-        biddingEnabled: false
-      })
+      closeCreateChoreModal()
       
       // Small delay to ensure database is updated
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -1196,7 +1262,6 @@ const ParentDashboard: React.FC = () => {
       setToast({ message: 'Failed to approve. Please try again.', type: 'error' })
     }
   }
-
   const handleRejectCompletion = async (completionId: string) => {
     const reason = prompt('Why are you rejecting this? (optional)')
     try {
@@ -1525,7 +1590,6 @@ const ParentDashboard: React.FC = () => {
       </div>
     )
   }
-
   return (
     <div key={refreshKey} className="min-h-screen bg-[var(--background)] pb-20">
       {/* Sticky Header */}
@@ -1826,7 +1890,6 @@ const ParentDashboard: React.FC = () => {
                 </div>
               </div>
             )}
-
             {/* Family Activity Feed */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-4">
@@ -2195,7 +2258,6 @@ const ParentDashboard: React.FC = () => {
                   })()}
                 </div>
               )}
-              
               {activityTab === 'history' && (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {(() => {
@@ -2529,7 +2591,6 @@ const ParentDashboard: React.FC = () => {
                 </div>
               )}
             </div>
-
             {/* Manage Chores Section */}
             <div className="cb-card p-6">
               <div className="flex justify-between items-center mb-6">
@@ -2844,7 +2905,6 @@ const ParentDashboard: React.FC = () => {
                 </div>
               )}
             </div>
-
             {/* Streak Rewards Section */}
             <div className="cb-card p-6">
             <div className="flex justify-between items-center mb-6 gap-4">
@@ -3219,7 +3279,6 @@ const ParentDashboard: React.FC = () => {
               )}
             </div>
           </div>
-
           {/* Right Column: Chat, Family & Leaderboard */}
           <aside className="space-y-6">
             {/* Family Chat (Compact) - Only show if enabled for current user */}
@@ -3645,7 +3704,6 @@ const ParentDashboard: React.FC = () => {
           </aside>
         </div>
       </div>
-
       {/* Modals */}
       {/* Settings Modal */}
       {showSettingsModal && (
@@ -4138,8 +4196,6 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Streak Settings Modal */}
       {showStreakSettingsModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
           <div className="cb-card w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
@@ -4778,8 +4834,6 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Holiday Mode Modal */}
       {showHolidayModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
           <div className="cb-card w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
@@ -5309,585 +5363,48 @@ const ParentDashboard: React.FC = () => {
 
       {/* Chore Library Modal */}
       {showChoreLibraryModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="cb-card w-full max-w-4xl my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">📚 Chore Library</h3>
-              <button
-                onClick={() => setShowChoreLibraryModal(false)}
-                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Category Filter */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  selectedCategory === 'all'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                ✨ All
-              </button>
-              {Object.entries(categoryLabels).map(([key, { label, icon }]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedCategory(key)}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                    selectedCategory === key
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                  }`}
-                >
-                  {icon} {label}
-                </button>
-              ))}
-            </div>
-
-            {/* Chore Templates Grid */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[60vh] overflow-y-auto p-1">
-              {(() => {
-                const filteredTemplates = choreTemplates.filter(template => {
-                  // Filter by category
-                  const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory
-                  
-                  // Exclude chores that already exist (case-insensitive title comparison)
-                  const alreadyExists = chores.some(chore => 
-                    chore.title.toLowerCase().trim() === template.title.toLowerCase().trim()
-                  )
-                  
-                  return matchesCategory && !alreadyExists
-                })
-
-                if (filteredTemplates.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12">
-                      <div className="text-6xl mb-4">✅</div>
-                      <h4 className="font-bold text-[var(--text-primary)] mb-2">All set!</h4>
-                      <p className="text-[var(--text-secondary)]">
-                        You've already created all the chores in this category.
-                        <br />
-                        Try a different category or create a custom chore below!
-                      </p>
-                    </div>
-                  )
-                }
-
-                return filteredTemplates.map((template) => {
-                  const weeklyBudgetPence = budget?.maxBudgetPence || 2000
-                  const budgetToUse = budget?.budgetPeriod === 'monthly' ? weeklyBudgetPence / 4 : weeklyBudgetPence
-                  const suggestedReward = calculateSuggestedReward(template, budgetToUse)
-
-                  return (
-                    <button
-                      key={template.id}
-                      onClick={() => handleSelectChoreTemplate(template)}
-                      className="text-left p-4 bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] hover:border-[var(--primary)] hover:shadow-lg transition-all"
-                    >
-                      <div className="flex items-start gap-3 mb-2">
-                        <span className="text-3xl">{template.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-[var(--text-primary)] text-sm mb-1">
-                            {template.title}
-                          </h4>
-                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                            {template.description}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                          💰 £{(suggestedReward / 100).toFixed(2)}
-                        </span>
-                        <span className="text-xs cb-chip bg-[var(--secondary)]/10 text-[var(--secondary)]">
-                          {template.frequency === 'daily' ? '📅 Daily' : template.frequency === 'weekly' ? '📆 Weekly' : '🎯 Once'}
-                        </span>
-                        {template.ageGroup && (
-                          <span className="text-xs cb-chip bg-purple-50 text-purple-700">
-                            {template.ageGroup}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })
-              })()}
-            </div>
-
-            {/* Custom Chore Option */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--secondary)]/10 rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--primary)]/30">
-              <button
-                onClick={() => {
-                  setShowChoreLibraryModal(false)
-                  setShowCreateChoreModal(true)
-                }}
-                className="w-full text-center"
-              >
-                <div className="text-4xl mb-2">➕</div>
-                <h4 className="font-bold text-[var(--text-primary)] mb-1">Create Custom Chore</h4>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Build your own chore from scratch
-                </p>
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChoreLibraryModal
+          isOpen={showChoreLibraryModal}
+          onClose={() => setShowChoreLibraryModal(false)}
+          templates={choreTemplates}
+          chores={chores}
+          budget={budget}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          categoryLabels={categoryLabels}
+          calculateSuggestedReward={calculateSuggestedReward}
+          onSelectTemplate={handleSelectChoreTemplate}
+          onCreateCustomChore={() => {
+            setShowChoreLibraryModal(false)
+            setShowCreateChoreModal(true)
+          }}
+        />
       )}
-
-      {/* Create Chore Modal */}
       {showCreateChoreModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="cb-card w-full max-w-2xl my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">➕ Create New Chore</h3>
-              <button
-                onClick={() => setShowChoreLibraryModal(true)}
-                className="text-sm text-[var(--secondary)] hover:underline"
-              >
-                ← Back to Library
-              </button>
-            </div>
-            <form onSubmit={handleCreateChore} className="space-y-5">
-              {/* Chore Details */}
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Chore title *</label>
-                <input
-                  value={newChore.title}
-                  onChange={(e) => setNewChore(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  placeholder="Make your bed"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Description</label>
-                <textarea
-                  value={newChore.description}
-                  onChange={(e) => setNewChore(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all resize-none"
-                  rows={3}
-                  placeholder="Optional details..."
-                />
-              </div>
-              
-              {/* Frequency and Proof Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Frequency</label>
-                  <select
-                    value={newChore.frequency}
-                    onChange={(e) => setNewChore(prev => ({ ...prev, frequency: e.target.value as any }))}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="once">One-time</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
-                  <select
-                    value={newChore.proof}
-                    onChange={(e) => setNewChore(prev => ({ ...prev, proof: e.target.value as any }))}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  >
-                    <option value="none">Trust-based (No proof needed)</option>
-                    <option value="note">Ask for explanation note</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Reward and Stars Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={(newChore.baseRewardPence / 100).toFixed(2)}
-                    onChange={(e) => setNewChore(prev => ({ ...prev, baseRewardPence: Math.round(parseFloat(e.target.value) * 100) }))}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                    placeholder="0.50"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (⭐)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={newChore.starsOverride || Math.max(1, Math.floor(newChore.baseRewardPence / 10))}
-                    onChange={(e) => setNewChore(prev => ({ ...prev, starsOverride: parseInt(e.target.value) || null }))}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                    placeholder="1"
-                  />
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Auto-calculated: {Math.max(1, Math.floor(newChore.baseRewardPence / 10))} stars (1 per £0.10)
-                  </p>
-                </div>
-              </div>
-
-              {/* Assignment Section */}
-              <div className="border-t-2 border-[var(--card-border)] pt-5">
-                <h4 className="font-bold text-[var(--text-primary)] mb-3">👥 Assign to Children</h4>
-                {children.length === 0 ? (
-                  <p className="text-sm text-[var(--text-secondary)] italic">
-                    No children in family yet. Invite children to assign chores!
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {uniqueChildren.map((child: any) => (
-                      <label
-                        key={child.id}
-                        className="flex items-center gap-3 p-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:border-[var(--primary)] transition-all cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={choreAssignments.childIds.includes(child.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setChoreAssignments(prev => ({
-                                ...prev,
-                                childIds: [...prev.childIds, child.id]
-                              }))
-                            } else {
-                              setChoreAssignments(prev => ({
-                                ...prev,
-                                childIds: prev.childIds.filter(id => id !== child.id)
-                              }))
-                            }
-                          }}
-                          className="w-5 h-5 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
-                        />
-                        <div className="flex-1">
-                          <div className="font-semibold text-[var(--text-primary)]">{child.nickname}</div>
-                          {child.ageGroup && (
-                            <div className="text-xs text-[var(--text-secondary)]">Age: {child.ageGroup}</div>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Bidding Toggle */}
-              {choreAssignments.childIds.length > 1 && (
-                <div className="border-t-2 border-[var(--card-border)] pt-5">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={choreAssignments.biddingEnabled}
-                      onChange={(e) => setChoreAssignments(prev => ({ ...prev, biddingEnabled: e.target.checked }))}
-                      className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
-                    />
-                    <div>
-                      <div className="font-bold text-[var(--text-primary)]">⚔️ Enable Sibling Rivalry (Underbid)</div>
-                      <p className="text-sm text-[var(--text-secondary)] mt-1">
-                        Allow siblings to compete for this chore by bidding lower amounts
-                      </p>
-                    </div>
-                  </label>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateChoreModal(false)
-                    setNewChore({
-                      title: '',
-                      description: '',
-                      frequency: 'daily',
-                      proof: 'none',
-                      baseRewardPence: 50,
-                      starsOverride: null
-                    })
-                    setChoreAssignments({
-                      childIds: [],
-                      biddingEnabled: false
-                    })
-                  }}
-                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
-                >
-                  Create Chore
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateChoreModal
+          isOpen={showCreateChoreModal}
+          onClose={closeCreateChoreModal}
+          onBackToLibrary={backToChoreLibrary}
+          onSubmit={handleCreateChore}
+          newChore={newChore}
+          setNewChore={setNewChore}
+          children={uniqueChildren}
+          assignments={choreAssignments}
+          setAssignments={setChoreAssignments}
+        />
       )}
-
-      {/* Edit Chore Modal */}
       {showEditChoreModal && selectedChore && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="cb-card w-full max-w-2xl my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">✏️ Edit Chore</h3>
-              <button
-                onClick={() => {
-                  setShowEditChoreModal(false)
-                  setSelectedChore(null)
-                  setChoreAssignments({ childIds: [], biddingEnabled: false })
-                }}
-                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                ✕
-              </button>
-            </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault()
-              try {
-                // 1. Update the chore details
-                await apiClient.updateChore(selectedChore.id, {
-                  title: selectedChore.title,
-                  description: selectedChore.description,
-                  frequency: selectedChore.frequency,
-                  proof: selectedChore.proof,
-                  baseRewardPence: Number(selectedChore.baseRewardPence),
-                  starsOverride: selectedChore.starsOverride ? Number(selectedChore.starsOverride) : undefined,
-                  active: selectedChore.active
-                })
-                
-                // 2. Get existing assignments for this chore
-                const existingAssignments = assignments.filter((a: any) => a.choreId === selectedChore.id)
-                const existingChildIds = existingAssignments.map((a: any) => a.childId).filter(Boolean)
-                
-                // 3. Determine which assignments to add/remove
-                const childIdsToAdd = choreAssignments.childIds.filter(id => !existingChildIds.includes(id))
-                const childIdsToRemove = existingChildIds.filter(id => !choreAssignments.childIds.includes(id))
-                
-                // 4. Remove old assignments
-                for (const assignment of existingAssignments) {
-                  if (assignment.childId && childIdsToRemove.includes(assignment.childId)) {
-                    await apiClient.deleteAssignment(assignment.id)
-                  }
-                }
-                
-                // 5. Add new assignments
-                for (const childId of childIdsToAdd) {
-                  await apiClient.createAssignment({
-                    choreId: selectedChore.id,
-                    childId,
-                    biddingEnabled: choreAssignments.biddingEnabled && choreAssignments.childIds.length > 1
-                  })
-                }
-                
-                setToast({ message: '✅ Chore updated successfully!', type: 'success' })
-                setShowEditChoreModal(false)
-                setSelectedChore(null)
-                setChoreAssignments({ childIds: [], biddingEnabled: false })
-                
-                // Reload to show changes
-                await new Promise(resolve => setTimeout(resolve, 300))
-                await loadDashboard()
-                
-                // Notify child dashboards of the update
-                notifyChildDashboards()
-              } catch (error) {
-                console.error('Failed to update chore:', error)
-                setToast({ message: 'Failed to update chore. Please try again.', type: 'error' })
-              }
-            }} className="space-y-5">
-              {/* Chore Details */}
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Chore title *</label>
-                <input
-                  value={selectedChore.title}
-                  onChange={(e) => setSelectedChore({ ...selectedChore, title: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  placeholder="Make your bed"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-[var(--text-primary)] mb-2">Description</label>
-                <textarea
-                  value={selectedChore.description || ''}
-                  onChange={(e) => setSelectedChore({ ...selectedChore, description: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all resize-none"
-                  rows={3}
-                  placeholder="Optional details..."
-                />
-              </div>
-              
-              {/* Frequency and Proof Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Frequency</label>
-                  <select
-                    value={selectedChore.frequency}
-                    onChange={(e) => setSelectedChore({ ...selectedChore, frequency: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="once">One-time</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Completion Proof</label>
-                  <select
-                    value={selectedChore.proof}
-                    onChange={(e) => setSelectedChore({ ...selectedChore, proof: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                  >
-                    <option value="none">Trust-based (No proof needed)</option>
-                    <option value="note">Ask for explanation note</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Reward and Stars Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Reward (£)</label>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={(selectedChore.baseRewardPence / 100).toFixed(2)}
-                    onChange={(e) => setSelectedChore({ ...selectedChore, baseRewardPence: Math.round(parseFloat(e.target.value) * 100) })}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                    placeholder="0.50"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--text-primary)] mb-2">Stars (⭐)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={selectedChore.starsOverride || Math.max(1, Math.floor(selectedChore.baseRewardPence / 10))}
-                    onChange={(e) => setSelectedChore({ ...selectedChore, starsOverride: parseInt(e.target.value) || null })}
-                    className="w-full px-4 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] focus:border-[var(--primary)] focus:outline-none transition-all"
-                    placeholder="1"
-                  />
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Auto-calculated: {Math.max(1, Math.floor(selectedChore.baseRewardPence / 10))} stars (1 per £0.10)
-                  </p>
-                </div>
-              </div>
-
-              {/* Assignment Section */}
-              <div className="border-t-2 border-[var(--card-border)] pt-5">
-                <h4 className="font-bold text-[var(--text-primary)] mb-3">👥 Assigned to Children</h4>
-                {children.length === 0 ? (
-                  <p className="text-sm text-[var(--text-secondary)] italic">
-                    No children in family yet. Invite children to assign chores!
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {uniqueChildren.map((child: any) => (
-                      <label
-                        key={child.id}
-                        className="flex items-center gap-3 p-3 border-2 border-[var(--card-border)] rounded-[var(--radius-md)] hover:border-[var(--primary)] transition-all cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={choreAssignments.childIds.includes(child.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setChoreAssignments(prev => ({
-                                ...prev,
-                                childIds: [...prev.childIds, child.id]
-                              }))
-                            } else {
-                              setChoreAssignments(prev => ({
-                                ...prev,
-                                childIds: prev.childIds.filter(id => id !== child.id)
-                              }))
-                            }
-                          }}
-                          className="w-5 h-5 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
-                        />
-                        <div className="flex-1">
-                          <div className="font-semibold text-[var(--text-primary)]">{child.nickname}</div>
-                          {child.ageGroup && (
-                            <div className="text-xs text-[var(--text-secondary)]">Age: {child.ageGroup}</div>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Bidding Toggle */}
-              {choreAssignments.childIds.length > 1 && (
-                <div className="border-t-2 border-[var(--card-border)] pt-5">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={choreAssignments.biddingEnabled}
-                      onChange={(e) => setChoreAssignments(prev => ({ ...prev, biddingEnabled: e.target.checked }))}
-                      className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
-                    />
-                    <div>
-                      <div className="font-bold text-[var(--text-primary)]">⚔️ Enable Sibling Rivalry (Underbid)</div>
-                      <p className="text-sm text-[var(--text-secondary)] mt-1">
-                        Allow siblings to compete for this chore by bidding lower amounts
-                      </p>
-                    </div>
-                  </label>
-                </div>
-              )}
-
-              {/* Active Toggle */}
-              <div className="border-t-2 border-[var(--card-border)] pt-5">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedChore.active !== false}
-                    onChange={(e) => setSelectedChore({ ...selectedChore, active: e.target.checked })}
-                    className="w-5 h-5 mt-1 text-[var(--primary)] rounded focus:ring-2 focus:ring-[var(--primary)]"
-                  />
-                  <div>
-                    <div className="font-bold text-[var(--text-primary)]">✅ Active</div>
-                    <p className="text-sm text-[var(--text-secondary)] mt-1">
-                      Inactive chores won't appear in children's task lists
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditChoreModal(false)
-                    setSelectedChore(null)
-                  }}
-                  className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditChoreModal
+          isOpen={showEditChoreModal}
+          chore={selectedChore}
+          onUpdateChore={(next) => setSelectedChore((prev: any) => (prev ? { ...prev, ...next } : prev))}
+          assignments={choreAssignments}
+          setAssignments={setChoreAssignments}
+          children={uniqueChildren}
+          onSubmit={handleEditChoreSubmit}
+          onClose={closeEditChoreModal}
+        />
       )}
-
       {/* Child Profile Modal */}
       {showChildProfileModal && selectedChild && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -6339,7 +5856,6 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Payout Modal */}
       {showPayoutModal && payoutChild && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
@@ -6686,8 +6202,6 @@ const ParentDashboard: React.FC = () => {
           onClose={() => setToast(null)}
         />
       )}
-
-      {/* Delete Account Modal */}
       {showDeleteAccountModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
           <div className="cb-card w-full max-w-lg max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
@@ -6821,7 +6335,6 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Adult Profile Modal */}
       {showAdultProfileModal && selectedAdult && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -7294,7 +6807,7 @@ const ParentDashboard: React.FC = () => {
                               <p className="text-sm text-[var(--text-secondary)]">
                                 {selectedAdult.paused 
                                   ? 'This member\'s account is currently paused. They cannot access ChoreBlimey.'
-                                  : 'Temporarily disable this member\'s access to ChoreBlimey'
+                                  : 'Temporarily disable this member\'s access to ChoreBlimey until you reactivate their account.'
                                 }
                               </p>
                             </div>
@@ -7464,998 +6977,7 @@ const ParentDashboard: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Gifts Management Modal */}
-      {showGiftModal && !showAddGiftModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="cb-card w-full max-w-4xl my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="cb-heading-lg text-[var(--primary)]">🎁 Gift Library</h3>
-              <button
-                onClick={() => {
-                  setShowGiftModal(false)
-                  setGiftCategory('all')
-                  if (!showAddGiftModal) {
-                    setSelectedTemplate(null)
-                  }
-                }}
-                className="text-2xl text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Category Filter Tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-              <button
-                onClick={() => setGiftCategory('all')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'all'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                ✨ All
-              </button>
-              <button
-                onClick={() => setGiftCategory('activity')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'activity'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                🎯 Activities & Experiences
-              </button>
-              <button
-                onClick={() => setGiftCategory('amazon_product')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'amazon_product'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                📦 Amazon Products
-              </button>
-              <button
-                onClick={() => setGiftCategory('toys')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'toys'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                🧸 Toys & Games
-              </button>
-              <button
-                onClick={() => setGiftCategory('books')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'books'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                📚 Books & Learning
-              </button>
-              <button
-                onClick={() => setGiftCategory('tech')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'tech'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                💻 Tech & Electronics
-              </button>
-              <button
-                onClick={() => setGiftCategory('sports')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-                  giftCategory === 'sports'
-                    ? 'bg-[var(--primary)] text-white'
-                    : 'bg-[var(--background)] text-[var(--text-secondary)]'
-                }`}
-              >
-                ⚽ Sports & Outdoor
-              </button>
-            </div>
-
-            {/* Gift Templates Grid */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[60vh] overflow-y-auto p-1">
-              {loadingGifts ? (
-                <div className="col-span-full text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)] mx-auto"></div>
-                  <p className="mt-4 text-[var(--text-secondary)]">Loading templates...</p>
-                </div>
-              ) : (() => {
-                const filteredTemplates = giftTemplates.filter((template: any) => {
-                  // Filter by category
-                  const matchesCategory = giftCategory === 'all' || 
-                    (giftCategory === 'activity' && template.type === 'activity') ||
-                    (giftCategory === 'amazon_product' && template.type === 'amazon_product') ||
-                    (giftCategory === 'toys' && template.category?.toLowerCase().includes('toy')) ||
-                    (giftCategory === 'books' && template.category?.toLowerCase().includes('book')) ||
-                    (giftCategory === 'tech' && template.category?.toLowerCase().includes('tech')) ||
-                    (giftCategory === 'sports' && template.category?.toLowerCase().includes('sport'))
-                  
-                  // Exclude templates that are already in the family (only check active gifts)
-                  // This allows re-adding gifts that were deleted (soft-deleted gifts are inactive)
-                  const alreadyExists = familyGifts.some((gift: any) => 
-                    gift.giftTemplateId === template.id && gift.active !== false
-                  )
-                  
-                  return matchesCategory && !alreadyExists
-                })
-
-                if (filteredTemplates.length === 0) {
-                  return (
-                    <div className="col-span-full text-center py-12">
-                      <div className="text-6xl mb-4">✅</div>
-                      <h4 className="font-bold text-[var(--text-primary)] mb-2">All set!</h4>
-                      <p className="text-[var(--text-secondary)]">
-                        You've already added all the gifts in this category.
-                        <br />
-                        Try a different category or create a custom gift below!
-                      </p>
-                    </div>
-                  )
-                }
-
-                return filteredTemplates.map((template: any) => (
-                  <button
-                    key={template.id}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      selectedTemplateRef.current = template
-                      setSelectedTemplate(template)
-                      setShowGiftModal(false)
-                      setTimeout(() => {
-                        setShowAddGiftModal(true)
-                      }, 150)
-                    }}
-                    className="text-left p-4 bg-white border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] hover:border-[var(--primary)] hover:shadow-lg transition-all"
-                  >
-                    <div className="flex items-start gap-3 mb-2">
-                      {template.imageUrl ? (
-                        <img 
-                          src={template.imageUrl} 
-                          alt={template.title} 
-                          className="w-16 h-16 object-cover rounded flex-shrink-0"
-                        />
-                      ) : (
-                        <span className="text-3xl flex-shrink-0">🎁</span>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-[var(--text-primary)] text-sm mb-1">
-                          {template.title}
-                        </h4>
-                        <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                          {template.description || 'A special reward for completing chores!'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs cb-chip bg-yellow-100 text-yellow-700">
-                        ⭐ {template.suggestedStars}
-                      </span>
-                      {template.type === 'amazon_product' && template.pricePence && (
-                        <span className="text-xs cb-chip bg-[var(--success)]/10 text-[var(--success)]">
-                          💰 {formatCurrency(template.pricePence, family?.currency || 'GBP')}
-                        </span>
-                      )}
-                      <span className="text-xs cb-chip bg-blue-50 text-blue-700">
-                        {template.type === 'activity' ? '🎯 Activity' : template.type === 'amazon_product' ? '📦 Product' : '🎁 Custom'}
-                      </span>
-                      {template.featured && (
-                        <span className="text-xs cb-chip bg-purple-50 text-purple-700">
-                          ⭐ Featured
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))
-              })()}
-            </div>
-
-            {/* Custom Gift Option */}
-            <div className="mt-6 p-4 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--secondary)]/10 rounded-[var(--radius-lg)] border-2 border-dashed border-[var(--primary)]/30">
-              <button
-                onClick={() => {
-                  setShowGiftModal(false)
-                  setSelectedTemplate(null)
-                  selectedTemplateRef.current = null
-                  setShowAddGiftModal(true)
-                }}
-                className="w-full text-center"
-              >
-                <div className="text-4xl mb-2">➕</div>
-                <h4 className="font-bold text-[var(--text-primary)] mb-1">Create Custom Gift</h4>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  Build your own gift from scratch
-                </p>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Gift Modal - From Template or Custom */}
-      {showAddGiftModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 1001 }}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b-2 border-[var(--card-border)] px-6 py-4 rounded-t-xl">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-[var(--text-primary)]">
-                  {selectedTemplate ? `Add "${selectedTemplate.title}"` : 'Create Custom Gift'}
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowAddGiftModal(false)
-                    setSelectedTemplate(null)
-                    setCustomGiftType('activity')
-                    setAmazonProductUrl('')
-                    setAmazonProductInfo(null)
-                    setAmazonProductError(null)
-                  }}
-                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--background)] transition-colors"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-                  {(() => {
-                    // Use ref as fallback if state is null (during transition)
-                    const template = selectedTemplate || selectedTemplateRef.current
-                    
-                    // Update state if we're using ref
-                    if (!selectedTemplate && selectedTemplateRef.current) {
-                      setSelectedTemplate(selectedTemplateRef.current)
-                    }
-                    
-                    // If there's a template, show "Add from template" form
-                    // Otherwise, show "Create custom gift" form
-                    return template ? (
-                    // Add from template
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Star Cost *</label>
-                        <input
-                          type="number"
-                          defaultValue={(selectedTemplate || selectedTemplateRef.current)?.suggestedStars}
-                          id="giftStars"
-                          className="w-full px-3 py-2 border-2 border-[var(--card-border)] rounded"
-                          min="1"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3">
-                          Available For <span className="text-red-500">*</span>
-                        </label>
-                        <div className="space-y-3 p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
-                          <label className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              id="giftAvailableForAll"
-                              defaultChecked={true}
-                              onChange={(e) => {
-                                const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="giftChildIds"]')
-                                checkboxes.forEach(cb => {
-                                  cb.disabled = e.target.checked
-                                  if (e.target.checked) cb.checked = false
-                                })
-                              }}
-                              className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
-                            />
-                            <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                              All Children
-                            </span>
-                          </label>
-                          <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
-                            {uniqueChildren.map((child: Child) => (
-                              <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
-                                <input
-                                  type="checkbox"
-                                  name="giftChildIds"
-                                  value={child.id}
-                                  disabled={true}
-                                  className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:opacity-40"
-                                />
-                                <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                                  {child.nickname}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="flex items-center gap-3 cursor-pointer group p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
-                          <input
-                            type="checkbox"
-                            id="giftRecurring"
-                            defaultChecked={template?.recurring || false}
-                            className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
-                          />
-                          <div>
-                            <div className="font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                              🔄 Recurring Gift
-                            </div>
-                            <p className="text-sm text-[var(--text-secondary)] mt-1">
-                              Allow this gift to be purchased multiple times (e.g., activity gifts like "Movie Night")
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={async () => {
-                            const template = selectedTemplate || selectedTemplateRef.current
-                            if (!template) {
-                              console.error('❌ No template available when trying to add gift')
-                              setToast({ message: 'No template selected', type: 'error' })
-                              return
-                            }
-
-                            const starsInput = document.getElementById('giftStars') as HTMLInputElement
-                            const allCheckbox = document.getElementById('giftAvailableForAll') as HTMLInputElement
-                            const recurringCheckbox = document.getElementById('giftRecurring') as HTMLInputElement
-                            const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="giftChildIds"]:checked')
-                            const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
-                            
-                            if (!starsInput?.value || parseInt(starsInput.value) < 1) {
-                              setToast({ message: 'Please enter a valid star cost', type: 'error' })
-                              return
-                            }
-                            
-                            if (!allCheckbox?.checked && selectedChildIds.length === 0) {
-                              setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
-                              return
-                            }
-                            
-                            try {
-                              await apiClient.addGiftFromTemplate(template.id, {
-                                starsRequired: parseInt(starsInput.value),
-                                availableForAll: allCheckbox.checked,
-                                availableForChildIds: allCheckbox.checked ? [] : selectedChildIds,
-                                recurring: recurringCheckbox.checked
-                              })
-                              setToast({ message: 'Gift added to family!', type: 'success' })
-                              setShowAddGiftModal(false)
-                              setSelectedTemplate(null)
-                              selectedTemplateRef.current = null
-                              await loadFamilyGifts()
-                            } catch (error: any) {
-                              console.error('Error adding gift:', error)
-                              setToast({ message: error.message || 'Failed to add gift', type: 'error' })
-                            }
-                          }}
-                          className="min-h-[44px] flex-1 cb-button-primary touch-manipulation"
-                        >
-                          Add Gift
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowAddGiftModal(false)
-                            setSelectedTemplate(null)
-                            setCustomGiftType('activity')
-                            setAmazonProductUrl('')
-                            setAmazonProductInfo(null)
-                            setAmazonProductError(null)
-                          }}
-                          className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-lg text-[var(--text-primary)] font-semibold hover:bg-[var(--background)] transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    // Create custom gift form
-                    <div className="space-y-5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                            Gift Type <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            id="customGiftType"
-                            value={customGiftType}
-                            onChange={(e) => {
-                              const value = e.target.value as 'activity' | 'custom' | 'amazon_product'
-                              setCustomGiftType(value)
-                              if (value !== 'amazon_product') {
-                                setAmazonProductUrl('')
-                                setAmazonProductInfo(null)
-                                setAmazonProductError(null)
-                                setAmazonProductFetchedOnce(false)
-                              }
-                            }}
-                            className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg bg-white focus:border-[var(--primary)] focus:outline-none transition-colors"
-                          >
-                            <option value="activity">Activity</option>
-                            <option value="custom">Custom</option>
-                            <option value="amazon_product">Amazon Product</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                            Star Cost <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            id="customGiftStars"
-                            className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                            min="1"
-                            placeholder="e.g., 50"
-                            onChange={() => setCustomGiftStarsError(null)}
-                            required
-                          />
-                          {customGiftStarsError && (
-                            <p className="mt-1 text-xs font-semibold text-red-600">{customGiftStarsError}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {customGiftType === 'amazon_product' && (
-                        <div className="space-y-3">
-                          <label className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
-                            Amazon Product URL <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <input
-                              type="url"
-                              value={amazonProductUrl}
-                              onChange={(e) => {
-                                setAmazonProductUrl(e.target.value)
-                                setAmazonProductError(null)
-                                setAmazonProductFetchedOnce(false)
-                              }}
-                              placeholder="https://www.amazon.co.uk/..."
-                              className="flex-1 px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={fetchAmazonProductDetails}
-                              className="px-5 py-2.5 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                              disabled={amazonProductLoading}
-                            >
-                              {amazonProductLoading ? 'Fetching...' : 'Fetch Details'}
-                            </button>
-                          </div>
-                          {amazonProductError && (
-                            <p className="text-sm text-red-600">{amazonProductError}</p>
-                          )}
-                          {amazonProductInfo && (
-                            <div className="mt-3 flex items-center gap-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg p-4">
-                              {amazonProductInfo.image && (
-                                <img src={amazonProductInfo.image} alt={amazonProductInfo.title} className="w-20 h-20 object-cover rounded" />
-                              )}
-                              <div className="space-y-1">
-                                <h4 className="text-sm font-semibold text-[var(--text-primary)]">{amazonProductInfo.title}</h4>
-                                {amazonProductInfo.shortDescription && (
-                                  <p className="text-xs text-[var(--text-secondary)]">{amazonProductInfo.shortDescription}</p>
-                                )}
-                                <p className="text-xs text-[var(--text-secondary)]">ASIN: {amazonProductInfo.asin}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                          Title <span className="text-red-500">*</span>
-                        </label>
-                          <input
-                            type="text"
-                            id="customGiftTitle"
-                            className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                            placeholder={customGiftType === 'amazon_product' ? 'Auto-filled from Amazon (optional)' : 'e.g., Movie Night, Pizza Night'}
-                            required={customGiftType !== 'amazon_product'}
-                          />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                          Description
-                        </label>
-                        <textarea
-                          id="customGiftDescription"
-                          rows={3}
-                          className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors resize-none"
-                          placeholder="Describe the gift or activity..."
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                          Image URL <span className="text-xs font-normal text-[var(--text-secondary)]">(optional)</span>
-                        </label>
-                        <input
-                          type="url"
-                          id="customGiftImageUrl"
-                          className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                          placeholder="https://example.com/image.jpg"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3">
-                          Available For <span className="text-red-500">*</span>
-                        </label>
-                        <div className="space-y-3 p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
-                          <label className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              id="customGiftAvailableForAll"
-                              defaultChecked={true}
-                              onChange={(e) => {
-                                const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]')
-                                checkboxes.forEach(cb => {
-                                  cb.disabled = e.target.checked
-                                  if (e.target.checked) cb.checked = false
-                                })
-                              }}
-                              className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
-                            />
-                            <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                              All Children
-                            </span>
-                          </label>
-                          <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
-                            {uniqueChildren.map((child: Child) => (
-                              <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
-                                <input
-                                  type="checkbox"
-                                  name="customGiftChildIds"
-                                  value={child.id}
-                                  disabled={true}
-                                  className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:opacity-40"
-                                />
-                                <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                                  {child.nickname}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="flex items-center gap-3 cursor-pointer group p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
-                          <input
-                            type="checkbox"
-                            id="customGiftRecurring"
-                            defaultChecked={false}
-                            className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
-                          />
-                          <div>
-                            <div className="font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                              🔄 Recurring Gift
-                            </div>
-                            <p className="text-sm text-[var(--text-secondary)] mt-1">
-                              Allow this gift to be purchased multiple times (e.g., activity gifts like "Movie Night")
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={async () => {
-                            const titleInput = document.getElementById('customGiftTitle') as HTMLInputElement | null
-                            const descriptionInput = document.getElementById('customGiftDescription') as HTMLTextAreaElement | null
-                            const imageUrlInput = document.getElementById('customGiftImageUrl') as HTMLInputElement | null
-                            const starsInput = document.getElementById('customGiftStars') as HTMLInputElement | null
-                            const allCheckbox = document.getElementById('customGiftAvailableForAll') as HTMLInputElement | null
-                            const recurringCheckbox = document.getElementById('customGiftRecurring') as HTMLInputElement | null
-                            const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="customGiftChildIds"]:checked')
-                            const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
-
-                            if (!starsInput || !starsInput.value || parseInt(starsInput.value, 10) < 1) {
-                              setCustomGiftStarsError('Please enter a star cost of at least 1 star.')
-                              starsInput?.focus()
-                              setToast({ message: 'Add the number of stars required for this gift before saving.', type: 'error' })
-                              return
-                            }
-
-                            if (!allCheckbox?.checked && selectedChildIds.length === 0) {
-                              setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
-                              return
-                            }
-
-                            try {
-                              let productInfo = amazonProductInfo
-
-                              if (customGiftType === 'amazon_product') {
-                                if (!amazonProductFetchedOnce) {
-                                  const fetched = await fetchAmazonProductDetails()
-                                  if (!fetched) {
-                                    setToast({ message: 'Enter a valid Amazon product URL before creating the gift', type: 'error' })
-                                    return
-                                  }
-                                  productInfo = fetched
-                                } else if (!productInfo) {
-                                  setToast({ message: 'Enter a valid Amazon product URL before creating the gift', type: 'error' })
-                                  return
-                                }
-                              }
-
-                              const rawTitle = titleInput?.value.trim() ?? ''
-                              const finalTitle = customGiftType === 'amazon_product'
-                                ? rawTitle || productInfo?.title || 'Amazon Gift'
-                                : rawTitle
-
-                              if (!finalTitle) {
-                                setToast({ message: 'Title is required for non-Amazon gifts', type: 'error' })
-                                return
-                              }
-
-                              const rawDescription = descriptionInput?.value.trim() ?? ''
-                              const rawImage = imageUrlInput?.value.trim() ?? ''
-
-                              const giftData: any = {
-                                isCustom: true,
-                                type: customGiftType,
-                                title: finalTitle,
-                                starsRequired: parseInt(starsInput.value, 10),
-                                availableForAll: allCheckbox?.checked ?? true,
-                                availableForChildIds: allCheckbox?.checked ? [] : selectedChildIds,
-                                recurring: recurringCheckbox?.checked ?? false
-                              }
-
-                              if (rawDescription) {
-                                giftData.description = rawDescription
-                              } else if (customGiftType === 'amazon_product' && productInfo?.shortDescription) {
-                                giftData.description = productInfo.shortDescription
-                              }
-
-                              if (rawImage) {
-                                giftData.imageUrl = rawImage
-                              } else if (customGiftType === 'amazon_product' && productInfo?.image) {
-                                giftData.imageUrl = productInfo.image
-                              }
-
-                              if (customGiftType === 'amazon_product' && productInfo) {
-                                giftData.provider = 'amazon_associates'
-                                giftData.amazonAsin = productInfo.asin
-                                if (productInfo.affiliateLink) {
-                                  giftData.affiliateUrl = productInfo.affiliateLink
-                                }
-                                if (productInfo.price && productInfo.currency === 'GBP') {
-                                  giftData.pricePence = Math.round(productInfo.price * 100)
-                                }
-                              }
-
-                              await apiClient.createFamilyGift(giftData)
-                              setToast({ message: 'Custom gift created!', type: 'success' })
-                              setShowAddGiftModal(false)
-                              setCustomGiftType('activity')
-                              setAmazonProductUrl('')
-                              setAmazonProductInfo(null)
-                              setAmazonProductError(null)
-                              setAmazonProductFetchedOnce(false)
-                              loadFamilyGifts()
-                            } catch (error: any) {
-                              setToast({ message: error.message || 'Failed to create gift', type: 'error' })
-                            }
-                          }}
-                          className="flex-1 px-6 py-3 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
-                        >
-                          Create Gift
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowAddGiftModal(false)
-                            setSelectedTemplate(null)
-                          }}
-                          className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-lg text-[var(--text-primary)] font-semibold hover:bg-[var(--background)] transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )
-                  })()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Gift Modal */}
-      {showEditGiftModal && selectedGift && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 1002 }}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b-2 border-[var(--card-border)] px-6 py-4 rounded-t-xl">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-[var(--text-primary)]">
-                  Edit Gift: {selectedGift.title}
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowEditGiftModal(false)
-                    setSelectedGift(null)
-                  }}
-                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--background)] transition-colors"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-[var(--text-primary)] mb-2">
-                    Star Cost <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id="editGiftStars"
-                    defaultValue={selectedGift.starsRequired}
-                    className="w-full px-4 py-2.5 border-2 border-[var(--card-border)] rounded-lg focus:border-[var(--primary)] focus:outline-none transition-colors"
-                    min="1"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3">
-                    Available For <span className="text-red-500">*</span>
-                  </label>
-                  <div className="space-y-3 p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        id="editGiftAvailableForAll"
-                        defaultChecked={(() => {
-                          // Check if there's only one child and they've purchased this non-recurring gift
-                          const hasSinglePurchasedChild = uniqueChildren.length === 1 && 
-                            !selectedGift.recurring && 
-                            redemptions.some((r: any) => 
-                              r.familyGiftId === selectedGift.id && 
-                              r.childId === uniqueChildren[0].id &&
-                              (r.status === 'pending' || r.status === 'fulfilled')
-                            )
-                          
-                          // If single child purchased a non-recurring gift, always uncheck "All Children"
-                          // (This handles cases where the gift was redeemed before the API auto-update logic existed)
-                          if (hasSinglePurchasedChild) {
-                            return false
-                          }
-                          
-                          // Otherwise, use the actual database value
-                          return selectedGift.availableForAll
-                        })()}
-                        onChange={(e) => {
-                          const checkboxes = document.querySelectorAll<HTMLInputElement>('input[name="editGiftChildIds"]')
-                          // Special case: if there's only one child and they've purchased a non-recurring gift,
-                          // keep their checkbox enabled even when "All Children" is checked
-                          const hasSinglePurchasedChild = uniqueChildren.length === 1 && 
-                            !selectedGift.recurring && 
-                            redemptions.some((r: any) => 
-                              r.familyGiftId === selectedGift.id && 
-                              r.childId === uniqueChildren[0].id &&
-                              (r.status === 'pending' || r.status === 'fulfilled')
-                            )
-                          
-                          checkboxes.forEach(cb => {
-                            // Don't disable if it's a single child who purchased a non-recurring gift
-                            if (!hasSinglePurchasedChild) {
-                              cb.disabled = e.target.checked
-                              if (e.target.checked) cb.checked = false
-                            }
-                          })
-                        }}
-                        className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
-                      />
-                      <span className="font-medium text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                        All Children
-                        {uniqueChildren.length === 1 && (
-                          <span className="text-xs text-[var(--text-secondary)] ml-2 font-normal">
-                            (only {uniqueChildren[0].nickname})
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                    <div className="border-t border-[var(--card-border)] pt-3 ml-7 space-y-2">
-                      {uniqueChildren.map((child: Child) => {
-                        const childIds = selectedGift.availableForChildIds as string[] | null
-                        const isChecked = !!(childIds && childIds.includes(child.id))
-                        // Check if this child has purchased this non-recurring gift
-                        const hasPurchased = !selectedGift.recurring && redemptions.some((r: any) => 
-                          r.familyGiftId === selectedGift.id && 
-                          r.childId === child.id &&
-                          (r.status === 'pending' || r.status === 'fulfilled')
-                        )
-                        // If there's only one child and they've purchased it, ensure we can see/manage their checkbox
-                        // (API already unchecks "All Children" when non-recurring gift is redeemed)
-                        const isSingleChildPurchased = uniqueChildren.length === 1 && hasPurchased && !selectedGift.recurring
-                        
-                        return (
-                          <label key={child.id} className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              name="editGiftChildIds"
-                              value={child.id}
-                              defaultChecked={isChecked}
-                              disabled={(() => {
-                                // If single child purchased, always enable their checkbox so they can re-list
-                                if (isSingleChildPurchased) return false
-                                // Otherwise, disable if "All Children" is checked
-                                const allCheckbox = document.getElementById('editGiftAvailableForAll') as HTMLInputElement
-                                return allCheckbox?.checked || selectedGift.availableForAll
-                              })()}
-                              className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer disabled:opacity-40"
-                            />
-                            <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-2">
-                              {child.nickname}
-                              {hasPurchased && (
-                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                                  ✓ Purchased
-                                </span>
-                              )}
-                              {isSingleChildPurchased && selectedGift.availableForAll && (
-                                <span className="text-xs text-[var(--text-secondary)] italic">
-                                  (Check box to re-list)
-                                </span>
-                              )}
-                            </span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="flex items-center gap-3 cursor-pointer group p-4 bg-[var(--background)] border-2 border-[var(--card-border)] rounded-lg">
-                    <input
-                      type="checkbox"
-                      id="editGiftRecurring"
-                      defaultChecked={selectedGift.recurring || false}
-                      className="w-5 h-5 text-[var(--primary)] border-2 border-[var(--card-border)] rounded focus:ring-2 focus:ring-[var(--primary)] cursor-pointer"
-                    />
-                    <div>
-                      <div className="font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                        🔄 Recurring Gift
-                      </div>
-                      <p className="text-sm text-[var(--text-secondary)] mt-1">
-                        Allow this gift to be purchased multiple times (e.g., activity gifts like "Movie Night")
-                      </p>
-                    </div>
-                  </label>
-                </div>
-                <div className="flex gap-3 pt-4 border-t border-[var(--card-border)]">
-                  <button
-                    onClick={async () => {
-                      const starsInput = document.getElementById('editGiftStars') as HTMLInputElement
-                      const allCheckbox = document.getElementById('editGiftAvailableForAll') as HTMLInputElement
-                      const recurringCheckbox = document.getElementById('editGiftRecurring') as HTMLInputElement
-                      const childCheckboxes = document.querySelectorAll<HTMLInputElement>('input[name="editGiftChildIds"]:checked')
-                      const selectedChildIds = Array.from(childCheckboxes).map(cb => cb.value)
-                      
-                      if (!starsInput.value || parseInt(starsInput.value) < 1) {
-                        setToast({ message: 'Please enter a valid star cost', type: 'error' })
-                        return
-                      }
-                      
-                      if (!allCheckbox.checked && selectedChildIds.length === 0) {
-                        setToast({ message: 'Please select at least one child or choose "All Children"', type: 'error' })
-                        return
-                      }
-                      
-                      try {
-                        await apiClient.updateFamilyGift(selectedGift.id, {
-                          starsRequired: parseInt(starsInput.value),
-                          availableForAll: allCheckbox.checked,
-                          availableForChildIds: allCheckbox.checked ? [] : selectedChildIds,
-                          recurring: recurringCheckbox.checked
-                        })
-                        setToast({ message: 'Gift updated!', type: 'success' })
-                        setShowEditGiftModal(false)
-                        setSelectedGift(null)
-                        loadFamilyGifts()
-                      } catch (error: any) {
-                        setToast({ message: error.message || 'Failed to update gift', type: 'error' })
-                      }
-                    }}
-                    className="flex-1 px-6 py-3 bg-[var(--primary)] text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
-                  >
-                    Save Changes
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Delete "${selectedGift.title}"?`)) return
-                      try {
-                        await apiClient.deleteFamilyGift(selectedGift.id)
-                        setToast({ message: 'Gift deleted', type: 'success' })
-                        setShowEditGiftModal(false)
-                        setSelectedGift(null)
-                        loadFamilyGifts()
-                      } catch (error: any) {
-                        setToast({ message: error.message || 'Failed to delete gift', type: 'error' })
-                      }
-                    }}
-                    className="px-6 py-3 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-colors"
-                  >
-                    Delete
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowEditGiftModal(false)
-                      setSelectedGift(null)
-                    }}
-                    className="px-6 py-3 border-2 border-[var(--card-border)] rounded-lg text-[var(--text-primary)] font-semibold hover:bg-[var(--background)] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Chat Modal - Only show if enabled for current user */}
-      {showChatModal && (() => {
-        const currentMember = members.find((m: any) => m.user?.id === user?.id || m.userId === user?.id)
-        const chatEnabled = currentMember?.chatEnabled !== false // Default to true if not set
-        
-        if (!chatEnabled) {
-          setShowChatModal(false) // Close modal if chat is disabled
-          return null
-        }
-        
-        return (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="cb-card w-full max-w-2xl h-[80vh] flex flex-col">
-              <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--card-border)]">
-                <h3 className="cb-heading-lg text-[var(--primary)]">💬 Family Chat</h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setChatTab('recent')}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
-                      chatTab === 'recent'
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
-                    }`}
-                  >
-                    Recent (2 days)
-                  </button>
-                  <button
-                    onClick={() => setChatTab('history')}
-                    className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
-                      chatTab === 'history'
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'bg-[var(--background)] text-[var(--text-secondary)] border-2 border-[var(--card-border)]'
-                    }`}
-                  >
-                    History (2 months)
-                  </button>
-                  <button
-                    onClick={() => setShowChatModal(false)}
-                    className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-2xl font-light w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--background)] transition-colors"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <FamilyChat 
-                  compact={false}
-                  days={chatTab === 'recent' ? 2 : 60}
-                  maxMessages={chatTab === 'recent' ? 150 : 500}
-                />
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Confetti Celebration */}
-      <Confetti active={showConfetti} />
     </div>
   )
 }
-
 export default ParentDashboard

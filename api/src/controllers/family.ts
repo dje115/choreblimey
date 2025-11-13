@@ -3,6 +3,7 @@ import { prisma } from '../db/prisma.js'
 import { generateToken, generateJoinCode } from '../utils/crypto.js'
 import { sendMagicLink } from '../utils/email.js'
 import { cache, cacheKeys, cacheTTL } from '../utils/cache.js'
+import { emitFamilyJoinCodesUpdated } from '../events/familyJoinCodes.js'
 
 interface FamilyCreateBody {
   nameCipher: string
@@ -177,6 +178,12 @@ export const invite = async (req: FastifyRequest<{ Body: FamilyInviteBody }>, re
           intendedNickname: nickname || null,
           expiresAt
         }
+      })
+
+      await emitFamilyJoinCodesUpdated(actualFamilyId, {
+        action: 'created',
+        code: joinCodeRecord.code,
+        nickname: nickname || null,
       })
 
       // Store child info in cache for 7 days (to be used when child joins)

@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import jwt from 'jsonwebtoken'
 import { generateToken, generateJoinCode } from '../utils/crypto.js'
+import { emitFamilyJoinCodesUpdated } from '../events/familyJoinCodes.js'
 import { sendMagicLink } from '../utils/email.js'
 import { cache } from '../utils/cache.js'
 
@@ -331,6 +332,14 @@ export const childJoin = async (req: FastifyRequest<{ Body: ChildJoinBody }>, re
     // Invalidate family cache so parent dashboard shows new child immediately
     await cache.invalidateFamily(familyId)
 
+    // Notify family dashboards that join codes changed (child redeemed code)
+    await emitFamilyJoinCodesUpdated(familyId, {
+      action: 'consumed',
+      code: joinCodeRecord.code,
+      childId: child.id,
+      nickname: child.nickname,
+    })
+
     // Generate JWT for child (they get child_player role)
     console.log('Creating child JWT with familyId:', familyId, 'childId:', child.id)
     const jwtToken = jwt.sign(
@@ -390,6 +399,12 @@ export const generateChildJoinCode = async (req: FastifyRequest<{ Body: Generate
         intendedNickname: nickname,
         expiresAt
       }
+    })
+
+    await emitFamilyJoinCodesUpdated(familyId, {
+      action: 'created',
+      code: joinCode.code,
+      nickname,
     })
 
     return {
