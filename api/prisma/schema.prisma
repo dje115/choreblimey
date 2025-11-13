@@ -61,6 +61,39 @@ model Family {
   penaltyType             String   @default("both") // 'money' | 'stars' | 'both'
   minBalancePence         Int      @default(100)  // Minimum balance protection (never drop below)
   minBalanceStars         Int      @default(10)   // Minimum stars protection (never drop below)
+  
+  // Bonus Settings (separate from streak bonuses)
+  // Achievement Bonuses
+  achievementBonusEnabled Boolean  @default(false) // Enable achievement bonuses
+  achievementChoresRequired Int    @default(10)   // Complete X chores to earn bonus
+  achievementBonusMoneyPence Int   @default(100)   // Achievement bonus money
+  achievementBonusStars     Int    @default(10)    // Achievement bonus stars
+  achievementBonusType      String @default("both") // 'money' | 'stars' | 'both'
+  
+  // Birthday Bonuses
+  birthdayBonusEnabled     Boolean @default(true)  // Enable birthday bonuses
+  birthdayBonusMoneyPence  Int     @default(500)  // Birthday bonus money (£5)
+  birthdayBonusStars        Int     @default(50)   // Birthday bonus stars
+  birthdayBonusType         String  @default("both") // 'money' | 'stars' | 'both'
+  
+  // Perfect Week Bonus
+  perfectWeekBonusEnabled  Boolean @default(false) // Enable perfect week bonus
+  perfectWeekBonusMoneyPence Int   @default(200)   // Perfect week bonus money (£2)
+  perfectWeekBonusStars      Int   @default(20)    // Perfect week bonus stars
+  perfectWeekBonusType       String @default("both") // 'money' | 'stars' | 'both'
+  
+  // Monthly Milestone Bonuses
+  monthlyBonusEnabled       Boolean @default(false) // Enable monthly milestone bonus
+  monthlyBonusMoneyPence    Int     @default(1000) // Monthly bonus money (£10)
+  monthlyBonusStars         Int     @default(100)   // Monthly bonus stars
+  monthlyBonusType          String  @default("both") // 'money' | 'stars' | 'both'
+  
+  // Surprise Random Bonuses
+  surpriseBonusEnabled      Boolean @default(false) // Enable surprise random bonuses
+  surpriseBonusChance        Int     @default(5)    // Percentage chance per completion (1-100)
+  surpriseBonusMoneyPence   Int     @default(50)    // Surprise bonus money
+  surpriseBonusStars         Int     @default(5)     // Surprise bonus stars
+  surpriseBonusType          String  @default("both") // 'money' | 'stars' | 'both'
 
   // Back-relations
   members       FamilyMember[]

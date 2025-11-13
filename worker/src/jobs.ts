@@ -16,6 +16,7 @@ import { birthdayBonus } from './jobs/birthdayBonus.js'
 import { refreshPriceCache } from './jobs/refreshPriceCache.js'
 import { accountCleanup } from './jobs/accountCleanup.js'
 import { choreGeneration } from './jobs/choreGeneration.js'
+import { bonusProcessor } from './jobs/bonusProcessor.js'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:1507'
 
@@ -31,7 +32,8 @@ const QUEUE_NAMES = {
   BIRTHDAY_BONUS: 'birthday-bonus',
   PRICE_CACHE: 'price-cache',
   ACCOUNT_CLEANUP: 'account-cleanup',
-  CHORE_GENERATION: 'chore-generation'
+  CHORE_GENERATION: 'chore-generation',
+  BONUS_PROCESSOR: 'bonus-processor'
 }
 
 // Create queues (BullMQ v5+ handles scheduling automatically, no need for QueueScheduler)
@@ -41,6 +43,7 @@ const birthdayBonusQueue = new Queue(QUEUE_NAMES.BIRTHDAY_BONUS, { connection })
 const priceCacheQueue = new Queue(QUEUE_NAMES.PRICE_CACHE, { connection })
 const accountCleanupQueue = new Queue(QUEUE_NAMES.ACCOUNT_CLEANUP, { connection })
 const choreGenerationQueue = new Queue(QUEUE_NAMES.CHORE_GENERATION, { connection })
+const bonusProcessorQueue = new Queue(QUEUE_NAMES.BONUS_PROCESSOR, { connection })
 
 // Create workers
 const rewardsSyncWorker = new Worker(
@@ -79,6 +82,12 @@ const choreGenerationWorker = new Worker(
   { connection }
 )
 
+const bonusProcessorWorker = new Worker(
+  QUEUE_NAMES.BONUS_PROCESSOR,
+  async (job) => await bonusProcessor(job),
+  { connection }
+)
+
 // Worker event handlers
 const workers = [
   { name: 'Rewards Sync', worker: rewardsSyncWorker },
@@ -86,7 +95,8 @@ const workers = [
   { name: 'Birthday Bonus', worker: birthdayBonusWorker },
   { name: 'Price Cache', worker: priceCacheWorker },
   { name: 'Account Cleanup', worker: accountCleanupWorker },
-  { name: 'Chore Generation', worker: choreGenerationWorker }
+  { name: 'Chore Generation', worker: choreGenerationWorker },
+  { name: 'Bonus Processor', worker: bonusProcessorWorker }
 ]
 
 workers.forEach(({ name, worker }) => {
@@ -179,6 +189,30 @@ async function scheduleJobs() {
   )
   console.log('⏰ Scheduled: Daily chore generation (5:00 AM)')
   
+  // 7. Weekly bonus processor (Sunday night at 11:00 PM for perfect week bonuses)
+  await bonusProcessorQueue.add(
+    'weekly-bonus-check',
+    { type: 'perfect_week' },
+    {
+      repeat: {
+        pattern: '0 23 * * 0' // 11:00 PM on Sunday
+      }
+    }
+  )
+  console.log('⏰ Scheduled: Weekly bonus processor (Sunday 11:00 PM)')
+  
+  // 8. Monthly bonus processor (1st of month at 1:00 AM)
+  await bonusProcessorQueue.add(
+    'monthly-bonus-check',
+    { type: 'monthly' },
+    {
+      repeat: {
+        pattern: '0 1 1 * *' // 1:00 AM on 1st of month
+      }
+    }
+  )
+  console.log('⏰ Scheduled: Monthly bonus processor (1st of month at 1:00 AM)')
+  
   // Optional: Run jobs immediately on startup for testing
   if (process.env.RUN_JOBS_ON_STARTUP === 'true') {
     console.log('🚀 Running jobs immediately on startup...')
@@ -237,6 +271,7 @@ async function start() {
     console.log('  - Price Cache Refresh (every 6 hours)')
     console.log('  - Account Cleanup (monthly on 1st at 2:00 AM)')
     console.log('  - Chore Generation (daily at 5:00 AM)')
+    console.log('  - Bonus Processor (weekly Sunday 11:00 PM, monthly 1st at 1:00 AM)')
   } catch (error) {
     console.error('💥 Failed to start worker service:', error)
     process.exit(1)

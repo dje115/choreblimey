@@ -28,3 +28,4 @@ export const forceLogout = (reason?: string): void => {
 
   window.dispatchEvent(event)
 }
+

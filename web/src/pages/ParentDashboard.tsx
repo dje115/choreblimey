@@ -128,6 +128,8 @@ const ParentDashboard: React.FC = () => {
   const [settingsTab, setSettingsTab] = useState<'rivalry' | 'budget' | 'account'>('rivalry')
   const [showStreakSettingsModal, setShowStreakSettingsModal] = useState(false)
   const [streakSettingsTab, setStreakSettingsTab] = useState<'overview' | 'bonuses' | 'penalties' | 'protection'>('overview')
+  const [showBonusSettingsModal, setShowBonusSettingsModal] = useState(false)
+  const [bonusSettingsTab, setBonusSettingsTab] = useState<'achievement' | 'birthday' | 'perfect-week' | 'monthly' | 'surprise'>('achievement')
   const [showCreateChoreModal, setShowCreateChoreModal] = useState(false)
   const [showChoreLibraryModal, setShowChoreLibraryModal] = useState(false)
   const [showEditChoreModal, setShowEditChoreModal] = useState(false)
@@ -192,6 +194,41 @@ const ParentDashboard: React.FC = () => {
     // Minimum balance protection (kids always keep at least this much)
     minBalancePence: 100, // Always keep at least 100p (£1)
     minBalanceStars: 10 // Always keep at least 10 stars
+  })
+
+  // Bonus Settings (separate from streak bonuses)
+  const [bonusSettings, setBonusSettings] = useState({
+    // Achievement Bonuses
+    achievementEnabled: false,
+    achievementChoresRequired: 10, // Complete X chores
+    achievementMoneyPence: 100, // Earn Y bonus
+    achievementStars: 10,
+    achievementType: 'both' as 'money' | 'stars' | 'both',
+    
+    // Birthday Bonuses
+    birthdayEnabled: true,
+    birthdayMoneyPence: 500, // £5 birthday bonus
+    birthdayStars: 50,
+    birthdayType: 'both' as 'money' | 'stars' | 'both',
+    
+    // Perfect Week Bonus
+    perfectWeekEnabled: false,
+    perfectWeekMoneyPence: 200, // £2 bonus
+    perfectWeekStars: 20,
+    perfectWeekType: 'both' as 'money' | 'stars' | 'both',
+    
+    // Monthly Milestone Bonuses
+    monthlyEnabled: false,
+    monthlyMoneyPence: 1000, // £10 bonus
+    monthlyStars: 100,
+    monthlyType: 'both' as 'money' | 'stars' | 'both',
+    
+    // Surprise Random Bonuses
+    surpriseEnabled: false,
+    surpriseChance: 5, // 5% chance per completion
+    surpriseMoneyPence: 50,
+    surpriseStars: 5,
+    surpriseType: 'both' as 'money' | 'stars' | 'both'
   })
   const [payouts, setPayouts] = useState<any[]>([])
   const [processingPayout, setProcessingPayout] = useState(false)
@@ -376,6 +413,32 @@ const ParentDashboard: React.FC = () => {
             penaltyType: (familyData.penaltyType || 'both') as 'money' | 'stars' | 'both',
             minBalancePence: familyData.minBalancePence ?? 100,
             minBalanceStars: familyData.minBalanceStars ?? 10,
+          })
+
+          // Load bonus settings from family
+          setBonusSettings({
+            achievementEnabled: familyData.achievementBonusEnabled ?? false,
+            achievementChoresRequired: familyData.achievementChoresRequired ?? 10,
+            achievementMoneyPence: familyData.achievementBonusMoneyPence ?? 100,
+            achievementStars: familyData.achievementBonusStars ?? 10,
+            achievementType: (familyData.achievementBonusType || 'both') as 'money' | 'stars' | 'both',
+            birthdayEnabled: familyData.birthdayBonusEnabled ?? true,
+            birthdayMoneyPence: familyData.birthdayBonusMoneyPence ?? 500,
+            birthdayStars: familyData.birthdayBonusStars ?? 50,
+            birthdayType: (familyData.birthdayBonusType || 'both') as 'money' | 'stars' | 'both',
+            perfectWeekEnabled: familyData.perfectWeekBonusEnabled ?? false,
+            perfectWeekMoneyPence: familyData.perfectWeekBonusMoneyPence ?? 200,
+            perfectWeekStars: familyData.perfectWeekBonusStars ?? 20,
+            perfectWeekType: (familyData.perfectWeekBonusType || 'both') as 'money' | 'stars' | 'both',
+            monthlyEnabled: familyData.monthlyBonusEnabled ?? false,
+            monthlyMoneyPence: familyData.monthlyBonusMoneyPence ?? 1000,
+            monthlyStars: familyData.monthlyBonusStars ?? 100,
+            monthlyType: (familyData.monthlyBonusType || 'both') as 'money' | 'stars' | 'both',
+            surpriseEnabled: familyData.surpriseBonusEnabled ?? false,
+            surpriseChance: familyData.surpriseBonusChance ?? 5,
+            surpriseMoneyPence: familyData.surpriseBonusMoneyPence ?? 50,
+            surpriseStars: familyData.surpriseBonusStars ?? 5,
+            surpriseType: (familyData.surpriseBonusType || 'both') as 'money' | 'stars' | 'both'
           })
         }
       }
@@ -705,6 +768,33 @@ const ParentDashboard: React.FC = () => {
           penaltyType: familyData.penaltyType ?? prev.penaltyType,
           minBalancePence: familyData.minBalancePence ?? prev.minBalancePence,
           minBalanceStars: familyData.minBalanceStars ?? prev.minBalanceStars
+        }))
+
+        // Update bonus settings immediately
+        setBonusSettings((prev: any) => ({
+          ...prev,
+          achievementEnabled: familyData.achievementBonusEnabled ?? prev.achievementEnabled,
+          achievementChoresRequired: familyData.achievementChoresRequired ?? prev.achievementChoresRequired,
+          achievementMoneyPence: familyData.achievementBonusMoneyPence ?? prev.achievementMoneyPence,
+          achievementStars: familyData.achievementBonusStars ?? prev.achievementStars,
+          achievementType: familyData.achievementBonusType ?? prev.achievementType,
+          birthdayEnabled: familyData.birthdayBonusEnabled ?? prev.birthdayEnabled,
+          birthdayMoneyPence: familyData.birthdayBonusMoneyPence ?? prev.birthdayMoneyPence,
+          birthdayStars: familyData.birthdayBonusStars ?? prev.birthdayStars,
+          birthdayType: familyData.birthdayBonusType ?? prev.birthdayType,
+          perfectWeekEnabled: familyData.perfectWeekBonusEnabled ?? prev.perfectWeekEnabled,
+          perfectWeekMoneyPence: familyData.perfectWeekBonusMoneyPence ?? prev.perfectWeekMoneyPence,
+          perfectWeekStars: familyData.perfectWeekBonusStars ?? prev.perfectWeekStars,
+          perfectWeekType: familyData.perfectWeekBonusType ?? prev.perfectWeekType,
+          monthlyEnabled: familyData.monthlyBonusEnabled ?? prev.monthlyEnabled,
+          monthlyMoneyPence: familyData.monthlyBonusMoneyPence ?? prev.monthlyMoneyPence,
+          monthlyStars: familyData.monthlyBonusStars ?? prev.monthlyStars,
+          monthlyType: familyData.monthlyBonusType ?? prev.monthlyType,
+          surpriseEnabled: familyData.surpriseBonusEnabled ?? prev.surpriseEnabled,
+          surpriseChance: familyData.surpriseBonusChance ?? prev.surpriseChance,
+          surpriseMoneyPence: familyData.surpriseBonusMoneyPence ?? prev.surpriseMoneyPence,
+          surpriseStars: familyData.surpriseBonusStars ?? prev.surpriseStars,
+          surpriseType: familyData.surpriseBonusType ?? prev.surpriseType
         }))
         
         // Update holiday mode immediately - ONLY if modal is not open (to avoid overwriting user's changes)
@@ -1608,6 +1698,9 @@ const ParentDashboard: React.FC = () => {
             <div className="flex flex-wrap gap-2 sm:gap-3">
               <button onClick={() => setShowStreakSettingsModal(true)} className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 touch-manipulation">
                 🔥 Streaks
+              </button>
+              <button onClick={() => setShowBonusSettingsModal(true)} className="min-h-[44px] px-4 py-3 sm:px-4 sm:py-2 bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 touch-manipulation">
+                🎁 Bonuses
               </button>
               <button
                 onClick={() => {
@@ -4829,6 +4922,242 @@ const ParentDashboard: React.FC = () => {
               >
                 <span className="text-xl">🔥</span>
                 Save Streak Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBonusSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 overscroll-contain">
+          <div className="cb-card w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain">
+            <div className="text-center mb-6">
+              <h3 className="cb-heading-xl text-[var(--primary)] mb-2">🎁 Bonus Settings</h3>
+              <p className="text-[var(--text-secondary)]">Configure special rewards and bonuses for your children!</p>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+              <button
+                onClick={() => setBonusSettingsTab('achievement')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  bonusSettingsTab === 'achievement'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                🏆 Achievement
+              </button>
+              <button
+                onClick={() => setBonusSettingsTab('birthday')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  bonusSettingsTab === 'birthday'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                🎂 Birthday
+              </button>
+              <button
+                onClick={() => setBonusSettingsTab('perfect-week')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  bonusSettingsTab === 'perfect-week'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                ⭐ Perfect Week
+              </button>
+              <button
+                onClick={() => setBonusSettingsTab('monthly')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  bonusSettingsTab === 'monthly'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                📅 Monthly
+              </button>
+              <button
+                onClick={() => setBonusSettingsTab('surprise')}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                  bonusSettingsTab === 'surprise'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] text-[var(--text-secondary)] hover:bg-[var(--card-border)]'
+                }`}
+              >
+                🎲 Surprise
+              </button>
+            </div>
+
+            <div className="space-y-8">
+              {/* Achievement Bonuses Tab */}
+              {bonusSettingsTab === 'achievement' && (
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-6 rounded-[var(--radius-lg)] border-2 border-yellow-200">
+                  <h4 className="font-bold text-lg text-yellow-900 mb-4 flex items-center gap-2">
+                    <span className="text-2xl">🏆</span> Achievement Bonuses
+                  </h4>
+                  <p className="text-sm text-yellow-800 mb-4">
+                    Reward children when they complete a certain number of chores!
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={bonusSettings.achievementEnabled}
+                        onChange={(e) => setBonusSettings(prev => ({ ...prev, achievementEnabled: e.target.checked }))}
+                        className="w-5 h-5 accent-yellow-500"
+                      />
+                      <span className="font-semibold text-yellow-900">Enable Achievement Bonuses</span>
+                    </label>
+
+                    {bonusSettings.achievementEnabled && (
+                      <div className="space-y-4 pl-8">
+                        <div>
+                          <label className="block font-semibold text-yellow-900 mb-2">
+                            Complete {bonusSettings.achievementChoresRequired} chores to earn bonus
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={bonusSettings.achievementChoresRequired}
+                            onChange={(e) => setBonusSettings(prev => ({ ...prev, achievementChoresRequired: parseInt(e.target.value) || 1 }))}
+                            className="w-full px-4 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                          />
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setBonusSettings(prev => ({ ...prev, achievementType: 'money' }))}
+                            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                              bonusSettings.achievementType === 'money'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                            }`}
+                          >
+                            💰 Money
+                          </button>
+                          <button
+                            onClick={() => setBonusSettings(prev => ({ ...prev, achievementType: 'stars' }))}
+                            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                              bonusSettings.achievementType === 'stars'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                            }`}
+                          >
+                            ⭐ Stars
+                          </button>
+                          <button
+                            onClick={() => setBonusSettings(prev => ({ ...prev, achievementType: 'both' }))}
+                            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                              bonusSettings.achievementType === 'both'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                            }`}
+                          >
+                            💰 + ⭐ Both
+                          </button>
+                        </div>
+
+                        {(bonusSettings.achievementType === 'money' || bonusSettings.achievementType === 'both') && (
+                          <div>
+                            <label className="block font-semibold text-yellow-900 mb-2">
+                              Money Bonus: £{(bonusSettings.achievementMoneyPence / 100).toFixed(2)}
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="2000"
+                              step="10"
+                              value={bonusSettings.achievementMoneyPence}
+                              onChange={(e) => setBonusSettings(prev => ({ ...prev, achievementMoneyPence: parseInt(e.target.value) }))}
+                              className="w-full h-3 bg-yellow-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                            />
+                          </div>
+                        )}
+
+                        {(bonusSettings.achievementType === 'stars' || bonusSettings.achievementType === 'both') && (
+                          <div>
+                            <label className="block font-semibold text-yellow-900 mb-2">
+                              Star Bonus: {bonusSettings.achievementStars} ⭐
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={bonusSettings.achievementStars}
+                              onChange={(e) => setBonusSettings(prev => ({ ...prev, achievementStars: parseInt(e.target.value) }))}
+                              className="w-full h-3 bg-yellow-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Other tabs - placeholder for now */}
+              {bonusSettingsTab !== 'achievement' && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-[var(--radius-lg)] border-2 border-blue-200 text-center">
+                  <p className="text-blue-800">
+                    🚧 {bonusSettingsTab === 'birthday' ? 'Birthday' : bonusSettingsTab === 'perfect-week' ? 'Perfect Week' : bonusSettingsTab === 'monthly' ? 'Monthly' : 'Surprise'} Bonus settings coming soon!
+                  </p>
+                  <p className="text-sm text-blue-600 mt-2">
+                    This feature is under development. Check back soon!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => setShowBonusSettingsModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-[var(--card-border)] rounded-[var(--radius-lg)] font-semibold hover:bg-[var(--background)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const settingsToSave = {
+                      achievementBonusEnabled: bonusSettings.achievementEnabled,
+                      achievementChoresRequired: bonusSettings.achievementChoresRequired,
+                      achievementBonusMoneyPence: bonusSettings.achievementMoneyPence,
+                      achievementBonusStars: bonusSettings.achievementStars,
+                      achievementBonusType: bonusSettings.achievementType,
+                      birthdayBonusEnabled: bonusSettings.birthdayEnabled,
+                      birthdayBonusMoneyPence: bonusSettings.birthdayMoneyPence,
+                      birthdayBonusStars: bonusSettings.birthdayStars,
+                      birthdayBonusType: bonusSettings.birthdayType,
+                      perfectWeekBonusEnabled: bonusSettings.perfectWeekEnabled,
+                      perfectWeekBonusMoneyPence: bonusSettings.perfectWeekMoneyPence,
+                      perfectWeekBonusStars: bonusSettings.perfectWeekStars,
+                      perfectWeekBonusType: bonusSettings.perfectWeekType,
+                      monthlyBonusEnabled: bonusSettings.monthlyEnabled,
+                      monthlyBonusMoneyPence: bonusSettings.monthlyMoneyPence,
+                      monthlyBonusStars: bonusSettings.monthlyStars,
+                      monthlyBonusType: bonusSettings.monthlyType,
+                      surpriseBonusEnabled: bonusSettings.surpriseEnabled,
+                      surpriseBonusChance: bonusSettings.surpriseChance,
+                      surpriseBonusMoneyPence: bonusSettings.surpriseMoneyPence,
+                      surpriseBonusStars: bonusSettings.surpriseStars,
+                      surpriseBonusType: bonusSettings.surpriseType
+                    }
+                    
+                    await apiClient.updateFamily(settingsToSave)
+                    setToast({ message: '🎁 Bonus settings saved successfully!', type: 'success' })
+                    setShowBonusSettingsModal(false)
+                  } catch (error: any) {
+                    console.error('Failed to save bonus settings:', error)
+                    setToast({ message: 'Failed to save bonus settings. Please try again.', type: 'error' })
+                  }
+                }}
+                className="flex-1 cb-button-primary flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">🎁</span>
+                Save Bonus Settings
               </button>
             </div>
           </div>

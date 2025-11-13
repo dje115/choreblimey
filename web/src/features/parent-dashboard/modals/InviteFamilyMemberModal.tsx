@@ -416,3 +416,4 @@ const InviteFamilyMemberModal: React.FC<InviteFamilyMemberModalProps> = ({
 }
 
 export default InviteFamilyMemberModal
+

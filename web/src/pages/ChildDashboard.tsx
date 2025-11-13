@@ -1,15 +1,20 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { apiClient } from '../lib/api'
 import { formatCurrency } from '../utils/currency'
-import { notifyUpdate } from '../utils/notifications'
-import { useRealtimeUpdates } from '../hooks/useRealtimeUpdates'
-import { useSocket } from '../contexts/SocketContext'
 import { handleApiError } from '../utils/errorHandler'
 import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 import { childThemes, getTheme, applyTheme, type ChildTheme } from '../themes/childThemes'
-import { FamilyChat } from '../components/FamilyChat'
+import { apiClient } from '../lib/api'
+import {
+  TodayTab,
+  StreaksTab,
+  BankTab,
+  ChatTab,
+  ShopTab,
+  ShowdownTab,
+  useChildDashboardData,
+} from '../features/child-dashboard'
 
 interface Wallet {
   balancePence: number

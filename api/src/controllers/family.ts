@@ -52,6 +52,29 @@ interface FamilyUpdateBody {
   holidayMode?: boolean
   holidayStartDate?: string | null
   holidayEndDate?: string | null
+  // Bonus Settings (separate from streak bonuses)
+  achievementBonusEnabled?: boolean
+  achievementChoresRequired?: number
+  achievementBonusMoneyPence?: number
+  achievementBonusStars?: number
+  achievementBonusType?: 'money' | 'stars' | 'both'
+  birthdayBonusEnabled?: boolean
+  birthdayBonusMoneyPence?: number
+  birthdayBonusStars?: number
+  birthdayBonusType?: 'money' | 'stars' | 'both'
+  perfectWeekBonusEnabled?: boolean
+  perfectWeekBonusMoneyPence?: number
+  perfectWeekBonusStars?: number
+  perfectWeekBonusType?: 'money' | 'stars' | 'both'
+  monthlyBonusEnabled?: boolean
+  monthlyBonusMoneyPence?: number
+  monthlyBonusStars?: number
+  monthlyBonusType?: 'money' | 'stars' | 'both'
+  surpriseBonusEnabled?: boolean
+  surpriseBonusChance?: number
+  surpriseBonusMoneyPence?: number
+  surpriseBonusStars?: number
+  surpriseBonusType?: 'money' | 'stars' | 'both'
 }
 
 /**
@@ -295,6 +318,29 @@ export const get = async (req: FastifyRequest, reply: FastifyReply) => {
         penaltyType: true,
         minBalancePence: true,
         minBalanceStars: true,
+        // Bonus Settings
+        achievementBonusEnabled: true,
+        achievementChoresRequired: true,
+        achievementBonusMoneyPence: true,
+        achievementBonusStars: true,
+        achievementBonusType: true,
+        birthdayBonusEnabled: true,
+        birthdayBonusMoneyPence: true,
+        birthdayBonusStars: true,
+        birthdayBonusType: true,
+        perfectWeekBonusEnabled: true,
+        perfectWeekBonusMoneyPence: true,
+        perfectWeekBonusStars: true,
+        perfectWeekBonusType: true,
+        monthlyBonusEnabled: true,
+        monthlyBonusMoneyPence: true,
+        monthlyBonusStars: true,
+        monthlyBonusType: true,
+        surpriseBonusEnabled: true,
+        surpriseBonusChance: true,
+        surpriseBonusMoneyPence: true,
+        surpriseBonusStars: true,
+        surpriseBonusType: true,
         members: {
           select: {
             id: true,
@@ -369,7 +415,13 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
       streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
       penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
       minBalancePence, minBalanceStars,
-      holidayMode, holidayStartDate, holidayEndDate
+      holidayMode, holidayStartDate, holidayEndDate,
+      // Bonus Settings
+      achievementBonusEnabled, achievementChoresRequired, achievementBonusMoneyPence, achievementBonusStars, achievementBonusType,
+      birthdayBonusEnabled, birthdayBonusMoneyPence, birthdayBonusStars, birthdayBonusType,
+      perfectWeekBonusEnabled, perfectWeekBonusMoneyPence, perfectWeekBonusStars, perfectWeekBonusType,
+      monthlyBonusEnabled, monthlyBonusMoneyPence, monthlyBonusStars, monthlyBonusType,
+      surpriseBonusEnabled, surpriseBonusChance, surpriseBonusMoneyPence, surpriseBonusStars, surpriseBonusType
     } = req.body || {}
 
     // Try to get familyId from JWT or find it from user's membership
@@ -466,6 +518,36 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     if (penaltyType !== undefined) updateData.penaltyType = penaltyType
     if (minBalancePence !== undefined) updateData.minBalancePence = minBalancePence
     if (minBalanceStars !== undefined) updateData.minBalanceStars = minBalanceStars
+    
+    // Bonus Settings
+    if (achievementBonusEnabled !== undefined) updateData.achievementBonusEnabled = achievementBonusEnabled
+    if (achievementChoresRequired !== undefined) updateData.achievementChoresRequired = achievementChoresRequired
+    if (achievementBonusMoneyPence !== undefined) updateData.achievementBonusMoneyPence = achievementBonusMoneyPence
+    if (achievementBonusStars !== undefined) updateData.achievementBonusStars = achievementBonusStars
+    if (achievementBonusType !== undefined) updateData.achievementBonusType = achievementBonusType
+    if (birthdayBonusEnabled !== undefined) updateData.birthdayBonusEnabled = birthdayBonusEnabled
+    if (birthdayBonusMoneyPence !== undefined) updateData.birthdayBonusMoneyPence = birthdayBonusMoneyPence
+    if (birthdayBonusStars !== undefined) updateData.birthdayBonusStars = birthdayBonusStars
+    if (birthdayBonusType !== undefined) updateData.birthdayBonusType = birthdayBonusType
+    if (perfectWeekBonusEnabled !== undefined) updateData.perfectWeekBonusEnabled = perfectWeekBonusEnabled
+    if (perfectWeekBonusMoneyPence !== undefined) updateData.perfectWeekBonusMoneyPence = perfectWeekBonusMoneyPence
+    if (perfectWeekBonusStars !== undefined) updateData.perfectWeekBonusStars = perfectWeekBonusStars
+    if (perfectWeekBonusType !== undefined) updateData.perfectWeekBonusType = perfectWeekBonusType
+    if (monthlyBonusEnabled !== undefined) updateData.monthlyBonusEnabled = monthlyBonusEnabled
+    if (monthlyBonusMoneyPence !== undefined) updateData.monthlyBonusMoneyPence = monthlyBonusMoneyPence
+    if (monthlyBonusStars !== undefined) updateData.monthlyBonusStars = monthlyBonusStars
+    if (monthlyBonusType !== undefined) updateData.monthlyBonusType = monthlyBonusType
+    if (surpriseBonusEnabled !== undefined) updateData.surpriseBonusEnabled = surpriseBonusEnabled
+    if (surpriseBonusChance !== undefined) {
+      if (surpriseBonusChance < 1 || surpriseBonusChance > 100) {
+        return reply.status(400).send({ error: 'Surprise bonus chance must be between 1 and 100' })
+      }
+      updateData.surpriseBonusChance = surpriseBonusChance
+    }
+    if (surpriseBonusMoneyPence !== undefined) updateData.surpriseBonusMoneyPence = surpriseBonusMoneyPence
+    if (surpriseBonusStars !== undefined) updateData.surpriseBonusStars = surpriseBonusStars
+    if (surpriseBonusType !== undefined) updateData.surpriseBonusType = surpriseBonusType
+    
     if (holidayMode !== undefined) updateData.holidayMode = holidayMode
     if (holidayStartDate !== undefined) {
       if (!holidayStartDate) {
@@ -528,6 +610,29 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
         penaltyType: true,
         minBalancePence: true,
         minBalanceStars: true,
+        // Bonus Settings
+        achievementBonusEnabled: true,
+        achievementChoresRequired: true,
+        achievementBonusMoneyPence: true,
+        achievementBonusStars: true,
+        achievementBonusType: true,
+        birthdayBonusEnabled: true,
+        birthdayBonusMoneyPence: true,
+        birthdayBonusStars: true,
+        birthdayBonusType: true,
+        perfectWeekBonusEnabled: true,
+        perfectWeekBonusMoneyPence: true,
+        perfectWeekBonusStars: true,
+        perfectWeekBonusType: true,
+        monthlyBonusEnabled: true,
+        monthlyBonusMoneyPence: true,
+        monthlyBonusStars: true,
+        monthlyBonusType: true,
+        surpriseBonusEnabled: true,
+        surpriseBonusChance: true,
+        surpriseBonusMoneyPence: true,
+        surpriseBonusStars: true,
+        surpriseBonusType: true,
         members: {
           select: {
             id: true,
@@ -587,7 +692,30 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
           thirdMissStars: familyWithRelations.thirdMissStars,
           penaltyType: familyWithRelations.penaltyType,
           minBalancePence: familyWithRelations.minBalancePence,
-          minBalanceStars: familyWithRelations.minBalanceStars
+          minBalanceStars: familyWithRelations.minBalanceStars,
+          // Bonus Settings
+          achievementBonusEnabled: familyWithRelations.achievementBonusEnabled,
+          achievementChoresRequired: familyWithRelations.achievementChoresRequired,
+          achievementBonusMoneyPence: familyWithRelations.achievementBonusMoneyPence,
+          achievementBonusStars: familyWithRelations.achievementBonusStars,
+          achievementBonusType: familyWithRelations.achievementBonusType,
+          birthdayBonusEnabled: familyWithRelations.birthdayBonusEnabled,
+          birthdayBonusMoneyPence: familyWithRelations.birthdayBonusMoneyPence,
+          birthdayBonusStars: familyWithRelations.birthdayBonusStars,
+          birthdayBonusType: familyWithRelations.birthdayBonusType,
+          perfectWeekBonusEnabled: familyWithRelations.perfectWeekBonusEnabled,
+          perfectWeekBonusMoneyPence: familyWithRelations.perfectWeekBonusMoneyPence,
+          perfectWeekBonusStars: familyWithRelations.perfectWeekBonusStars,
+          perfectWeekBonusType: familyWithRelations.perfectWeekBonusType,
+          monthlyBonusEnabled: familyWithRelations.monthlyBonusEnabled,
+          monthlyBonusMoneyPence: familyWithRelations.monthlyBonusMoneyPence,
+          monthlyBonusStars: familyWithRelations.monthlyBonusStars,
+          monthlyBonusType: familyWithRelations.monthlyBonusType,
+          surpriseBonusEnabled: familyWithRelations.surpriseBonusEnabled,
+          surpriseBonusChance: familyWithRelations.surpriseBonusChance,
+          surpriseBonusMoneyPence: familyWithRelations.surpriseBonusMoneyPence,
+          surpriseBonusStars: familyWithRelations.surpriseBonusStars,
+          surpriseBonusType: familyWithRelations.surpriseBonusType
         }
       })
       console.log('✅ family:settings:updated event emitted')

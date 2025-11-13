@@ -38,3 +38,4 @@ export const emitFamilyJoinCodesUpdated = async (
     console.error('❌ Failed to load websocket server for family join code update', { familyId, error })
   }
 }
+

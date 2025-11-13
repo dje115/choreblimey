@@ -739,6 +739,28 @@ async function applyStreakPenalty(
         })
       }
 
+      // Create audit log for streak penalty
+      await prisma.auditLog.create({
+        data: {
+          familyId: family.id,
+          actorId: null, // System action
+          action: 'streak_penalty_applied',
+          target: child.id,
+          metaJson: {
+            childNickname: child.nickname,
+            choreId: chore.id,
+            choreTitle: chore.title,
+            penaltyReason: reason,
+            consecutiveMissedDays,
+            daysAfterProtection,
+            penaltyTier: daysAfterProtection === 1 ? 'first' : daysAfterProtection === 2 ? 'second' : 'third_plus',
+            penaltyPence: actualPenaltyPence,
+            penaltyStars: actualPenaltyStars,
+            protectionDays: protectionDays
+          }
+        }
+      })
+
       // Invalidate wallet cache
       await cache.invalidateWallet(child.id)
     }

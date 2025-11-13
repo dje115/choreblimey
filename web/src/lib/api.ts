@@ -147,6 +147,29 @@ class ApiClient {
     holidayMode?: boolean
     holidayStartDate?: string | null
     holidayEndDate?: string | null
+    // Bonus Settings (separate from streak bonuses)
+    achievementBonusEnabled?: boolean
+    achievementChoresRequired?: number
+    achievementBonusMoneyPence?: number
+    achievementBonusStars?: number
+    achievementBonusType?: 'money' | 'stars' | 'both'
+    birthdayBonusEnabled?: boolean
+    birthdayBonusMoneyPence?: number
+    birthdayBonusStars?: number
+    birthdayBonusType?: 'money' | 'stars' | 'both'
+    perfectWeekBonusEnabled?: boolean
+    perfectWeekBonusMoneyPence?: number
+    perfectWeekBonusStars?: number
+    perfectWeekBonusType?: 'money' | 'stars' | 'both'
+    monthlyBonusEnabled?: boolean
+    monthlyBonusMoneyPence?: number
+    monthlyBonusStars?: number
+    monthlyBonusType?: 'money' | 'stars' | 'both'
+    surpriseBonusEnabled?: boolean
+    surpriseBonusChance?: number
+    surpriseBonusMoneyPence?: number
+    surpriseBonusStars?: number
+    surpriseBonusType?: 'money' | 'stars' | 'both'
   }) {
     return this.patch('/family', data)
   }

@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../db/prisma.js'
 import { updateStreak, getChildStreakStats, calculateStreakBonus } from '../utils/streaks.js'
+import { processAllBonuses } from '../utils/bonuses.js'
 import { cache } from '../utils/cache.js'
 
 interface CompletionCreateBody {
@@ -323,6 +324,112 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
             }
           })
         }
+
+        // Create audit log for streak bonus
+        const child = await prisma.child.findUnique({
+          where: { id: completion.childId },
+          select: { nickname: true }
+        })
+
+        await prisma.auditLog.create({
+          data: {
+            familyId,
+            actorId: userId, // Parent who approved (triggered the bonus check)
+            action: 'streak_bonus_awarded',
+            target: completion.childId,
+            metaJson: {
+              childNickname: child?.nickname || 'Unknown',
+              completionId: completion.id,
+              choreId: completion.assignment.chore.id,
+              choreTitle: completion.assignment.chore.title,
+              streakLength: streakStats.currentStreak,
+              bonusMoneyPence: streakBonus.bonusMoneyPence,
+              bonusStars: streakBonus.bonusStars
+            }
+          }
+        })
+      }
+    }
+
+    // Process all other bonuses (achievement, birthday, perfect week, monthly, surprise)
+    const otherBonuses = await processAllBonuses(familyId, completion.childId)
+    
+    let totalOtherBonusPence = 0
+    let totalOtherBonusStars = 0
+    const bonusDetails: any[] = []
+
+    if (otherBonuses.length > 0) {
+      // Calculate totals first
+      for (const bonus of otherBonuses) {
+        totalOtherBonusPence += bonus.bonusMoneyPence
+        totalOtherBonusStars += bonus.bonusStars
+        bonusDetails.push({
+          type: bonus.bonusType,
+          moneyPence: bonus.bonusMoneyPence,
+          stars: bonus.bonusStars,
+          reason: bonus.reason
+        })
+      }
+
+      // Update wallet with all bonuses at once
+      const bonusUpdateData: any = {}
+      if (totalOtherBonusPence > 0) {
+        bonusUpdateData.balancePence = { increment: totalOtherBonusPence }
+      }
+      if (totalOtherBonusStars > 0) {
+        bonusUpdateData.stars = { increment: totalOtherBonusStars }
+      }
+
+      if (Object.keys(bonusUpdateData).length > 0) {
+        bonusWallet = await prisma.wallet.update({
+          where: { id: bonusWallet.id },
+          data: bonusUpdateData
+        })
+
+        // Create transaction for bonuses
+        if (totalOtherBonusPence > 0) {
+          await prisma.transaction.create({
+            data: {
+              walletId: bonusWallet.id,
+              familyId,
+              type: 'credit',
+              amountPence: totalOtherBonusPence,
+              source: 'system',
+              metaJson: {
+                type: 'bonus_awarded',
+                bonuses: bonusDetails,
+                totalBonusMoneyPence: totalOtherBonusPence,
+                totalBonusStars: totalOtherBonusStars
+              }
+            }
+          })
+        }
+
+        // Create audit logs for each bonus
+        const child = await prisma.child.findUnique({
+          where: { id: completion.childId },
+          select: { nickname: true }
+        })
+
+        for (const bonus of otherBonuses) {
+          await prisma.auditLog.create({
+            data: {
+              familyId,
+              actorId: userId,
+              action: `${bonus.bonusType}_bonus_awarded`,
+              target: completion.childId,
+              metaJson: {
+                childNickname: child?.nickname || 'Unknown',
+                completionId: completion.id,
+                choreId: completion.assignment.chore.id,
+                choreTitle: completion.assignment.chore.title,
+                bonusMoneyPence: bonus.bonusMoneyPence,
+                bonusStars: bonus.bonusStars,
+                reason: bonus.reason
+              }
+            }
+          })
+        }
       }
     }
 
@@ -360,6 +467,11 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
           moneyPence: streakBonus.bonusMoneyPence,
           stars: streakBonus.bonusStars,
           streakLength: streakStats.currentStreak
+        } : undefined,
+        bonuses: otherBonuses.length > 0 ? {
+          totalMoneyPence: totalOtherBonusPence,
+          totalStars: totalOtherBonusStars,
+          details: bonusDetails
         } : undefined
       })
     }
@@ -376,6 +488,11 @@ export const approve = async (req: FastifyRequest<{ Params: { id: string } }>, r
         moneyPence: streakBonus.bonusMoneyPence,
         stars: streakBonus.bonusStars,
         streakLength: streakStats.currentStreak
+      } : undefined,
+      bonuses: otherBonuses.length > 0 ? {
+        totalMoneyPence: totalOtherBonusPence,
+        totalStars: totalOtherBonusStars,
+        details: bonusDetails
       } : undefined
     }
   } catch (error) {
