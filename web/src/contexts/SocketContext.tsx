@@ -110,9 +110,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         if (!eventHandlersRef.current.has(event)) {
           eventHandlersRef.current.set(event, new Set())
         }
-        eventHandlersRef.current.get(event)!.add(callback)
-        newSocket.on(event, callback)
-        console.log('👂 Socket: Registered queued listener for event:', event)
+        const handlers = eventHandlersRef.current.get(event)!
+        // Only register if not already registered
+        if (!handlers.has(callback)) {
+          handlers.add(callback)
+          newSocket.on(event, callback)
+          console.log('👂 Socket: Registered queued listener for event:', event)
+        } else {
+          console.log('⚠️ Socket: Skipping duplicate queued listener for event:', event)
+        }
       })
       pendingListenersRef.current = []
     })
@@ -148,9 +154,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         if (!eventHandlersRef.current.has(event)) {
           eventHandlersRef.current.set(event, new Set())
         }
-        eventHandlersRef.current.get(event)!.add(callback)
-        newSocket.on(event, callback)
-        console.log('👂 Socket: Registered queued listener for event:', event)
+        const handlers = eventHandlersRef.current.get(event)!
+        // Only register if not already registered
+        if (!handlers.has(callback)) {
+          handlers.add(callback)
+          newSocket.on(event, callback)
+          console.log('👂 Socket: Registered queued listener for event:', event)
+        } else {
+          console.log('⚠️ Socket: Skipping duplicate queued listener for event:', event)
+        }
       })
       pendingListenersRef.current = []
     }
@@ -196,9 +208,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     if (!eventHandlersRef.current.has(event)) {
       eventHandlersRef.current.set(event, new Set())
     }
-    eventHandlersRef.current.get(event)!.add(callback)
+    
+    // Check if this handler is already registered to avoid duplicates
+    const handlers = eventHandlersRef.current.get(event)!
+    if (handlers.has(callback)) {
+      console.log('⚠️ Socket: Listener already registered for event:', event)
+      return
+    }
+    
+    handlers.add(callback)
 
-    // Register with socket
+    // Register with socket (socket.io allows registering listeners even when not connected)
     socketRef.current.on(event, callback)
     console.log('👂 Socket: Listening to event:', event)
   }, [])
