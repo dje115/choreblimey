@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { apiClient } from '../../../lib/api'
-import { getBroadcastChannel, type NotificationType } from '../../../utils/notifications'
-import { notifyUpdate } from '../../../utils/notifications'
+import { getBroadcastChannel, notifyUpdate, type NotificationType } from '../../../utils/notifications'
+import { useSocket } from '../../../contexts/SocketContext'
 
 interface FamilyMembersResponse {
   members: Array<{
@@ -43,6 +43,27 @@ interface Payout {
   createdAt: string
   method?: string | null
   note?: string | null
+}
+
+interface Redemption {
+  id: string
+  childId?: string | null
+  familyGift?: { id: string; title: string; imageUrl?: string | null } | null
+  reward?: { id: string; title: string } | null
+  status: string
+  costPaid?: number | null
+  createdAt: string
+  processedAt?: string | null
+}
+
+interface StarPurchase {
+  id: string
+  childId: string
+  starsRequested: number
+  amountPence?: number | null
+  status: string
+  createdAt: string
+  processedAt?: string | null
 }
 
 interface AssignmentSummary {
@@ -93,6 +114,8 @@ interface FinancesState {
   payouts: Payout[]
   assignments: AssignmentSummary[]
   familySettings: FamilyFinanceSettings | null
+  redemptions: Redemption[]
+  starPurchases: StarPurchase[]
 }
 
 export interface UseFinancesDataResult extends FinancesState {
@@ -113,7 +136,10 @@ export const useFinancesData = (): UseFinancesDataResult => {
     payouts: [],
     assignments: [],
     familySettings: DEFAULT_FINANCE_SETTINGS,
+    redemptions: [],
+    starPurchases: [],
   })
+  const { on, off } = useSocket()
 
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     setState((previous) => ({
@@ -124,11 +150,13 @@ export const useFinancesData = (): UseFinancesDataResult => {
     }))
 
     try {
-      const [familyRes, membersRes, payoutsRes, assignmentsRes] = await Promise.allSettled([
+      const [familyRes, membersRes, payoutsRes, assignmentsRes, redemptionsRes, starPurchasesRes] = await Promise.allSettled([
         apiClient.getFamily() as Promise<{ family: any }> ,
         apiClient.getFamilyMembers() as Promise<FamilyMembersResponse>,
-        apiClient.getPayouts() as Promise<{ payouts: Payout[] }>,
+        apiClient.getPayouts() as Promise<{ payouts: Payout[] }> ,
         apiClient.listAssignments() as Promise<{ assignments: AssignmentSummary[] }> ,
+        apiClient.getRedemptions() as Promise<{ redemptions: Redemption[] }> ,
+        apiClient.getStarPurchases() as Promise<{ purchases: StarPurchase[] }> ,
       ])
 
       const children: FamilyMembersResponse['children'] =
@@ -151,6 +179,10 @@ export const useFinancesData = (): UseFinancesDataResult => {
 
       const assignments: AssignmentSummary[] =
         assignmentsRes.status === 'fulfilled' ? assignmentsRes.value.assignments ?? [] : []
+
+      const redemptions: Redemption[] = redemptionsRes.status === 'fulfilled' ? redemptionsRes.value.redemptions ?? [] : []
+      const starPurchases: StarPurchase[] =
+        starPurchasesRes.status === 'fulfilled' ? starPurchasesRes.value.purchases ?? [] : []
 
       const familySettings: FamilyFinanceSettings | null = (() => {
         if (familyRes.status !== 'fulfilled') {
@@ -203,6 +235,8 @@ export const useFinancesData = (): UseFinancesDataResult => {
         payouts,
         assignments,
         familySettings,
+        redemptions,
+        starPurchases,
       })
     } catch (error) {
       console.error('Failed to load finances data', error)
@@ -220,7 +254,7 @@ export const useFinancesData = (): UseFinancesDataResult => {
   }, [load])
 
   useEffect(() => {
-    const relevant: NotificationType[] = ['familyUpdated', 'giftUpdated']
+    const relevant: NotificationType[] = ['familyUpdated', 'giftUpdated', 'redemptionUpdated', 'payoutUpdated']
 
     const handleCustomEvent = () => {
       void load()
@@ -250,6 +284,35 @@ export const useFinancesData = (): UseFinancesDataResult => {
       channel?.removeEventListener('message', handleBroadcast)
     }
   }, [load])
+
+  useEffect(() => {
+    if (!on || !off) {
+      return
+    }
+
+    const events: Array<{ event: string; notifications: NotificationType[] }> = [
+      { event: 'payout:created', notifications: ['payoutUpdated'] },
+      { event: 'payout:updated', notifications: ['payoutUpdated'] },
+      { event: 'redemption:fulfilled', notifications: ['redemptionUpdated'] },
+      { event: 'redemption:rejected', notifications: ['redemptionUpdated'] },
+      { event: 'starPurchase:approved', notifications: ['redemptionUpdated'] },
+      { event: 'starPurchase:rejected', notifications: ['redemptionUpdated'] },
+      { event: 'starPurchase:created', notifications: ['redemptionUpdated'] },
+    ]
+
+    const handlers = events.map(({ event, notifications }) => {
+      const handler = () => {
+        notifications.forEach((notification) => notifyUpdate(notification))
+        void load({ silent: true })
+      }
+      on(event, handler)
+      return { event, handler }
+    })
+
+    return () => {
+      handlers.forEach(({ event, handler }) => off(event, handler))
+    }
+  }, [on, off, load])
 
   const refresh = useCallback(async () => {
     await load({ silent: true })

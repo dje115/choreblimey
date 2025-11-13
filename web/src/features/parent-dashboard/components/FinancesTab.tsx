@@ -25,12 +25,15 @@ const FinancesTab: React.FC = () => {
     assignments,
     familySettings,
     saveFamilySettings,
+    redemptions,
+    starPurchases,
   } = useFinancesData()
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [selectedPayoutChild, setSelectedPayoutChild] = useState<typeof children[number] | null>(null)
   const [selectedGiftChild, setSelectedGiftChild] = useState<typeof children[number] | null>(null)
   const [settingsDraft, setSettingsDraft] = useState<FamilyFinanceSettings | null>(familySettings)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [historyView, setHistoryView] = useState<'gift-redemptions' | 'star-purchases'>('gift-redemptions')
 
   const childNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -39,6 +42,34 @@ const FinancesTab: React.FC = () => {
   }, [children])
 
   const recentPayouts = useMemo(() => payouts.slice(0, 10), [payouts])
+
+  const fulfilledRedemptions = useMemo(
+    () =>
+      redemptions
+        .filter((redemption) => redemption.status !== 'pending')
+        .map((redemption) => ({
+          ...redemption,
+          processedAt: redemption.processedAt ?? redemption.createdAt,
+        }))
+        .sort((a, b) => new Date(b.processedAt ?? b.createdAt).getTime() - new Date(a.processedAt ?? a.createdAt).getTime())
+        .slice(0, 15),
+    [redemptions],
+  )
+
+  const processedStarPurchases = useMemo(
+    () =>
+      starPurchases
+        .filter((purchase) => purchase.status !== 'pending')
+        .map((purchase) => ({
+          ...purchase,
+          processedAt: purchase.processedAt ?? purchase.createdAt,
+        }))
+        .sort((a, b) => new Date(b.processedAt ?? b.createdAt).getTime() - new Date(a.processedAt ?? a.createdAt).getTime())
+        .slice(0, 15),
+    [starPurchases],
+  )
+
+  const historyEntries = historyView === 'gift-redemptions' ? fulfilledRedemptions : processedStarPurchases
 
   useEffect(() => {
     setSettingsDraft(familySettings)
@@ -534,9 +565,126 @@ const FinancesTab: React.FC = () => {
         </section>
       )}
 
-      {loading && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500">Loading financial data…</div>
-      )}
+      <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Reward & star history</p>
+            <p className="text-xs text-slate-500">
+              Review recent gift redemptions and star purchases to keep budgets on track.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <button
+              type="button"
+              onClick={() => setHistoryView('gift-redemptions')}
+              className={`rounded-full px-3 py-1 transition ${
+                historyView === 'gift-redemptions' ? 'bg-indigo-600 text-white shadow' : 'bg-slate-100'
+              }`}
+            >
+              Gift purchases
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryView('star-purchases')}
+              className={`rounded-full px-3 py-1 transition ${
+                historyView === 'star-purchases' ? 'bg-indigo-600 text-white shadow' : 'bg-slate-100'
+              }`}
+            >
+              Star buys
+            </button>
+          </div>
+        </div>
+
+        {historyEntries.length === 0 ? (
+          <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+            No recent {historyView === 'gift-redemptions' ? 'gift activity' : 'star purchases'}.
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-3 text-sm">
+            {historyEntries.map((entry) => {
+              const processedAt = new Date(entry.processedAt ?? entry.createdAt).toLocaleString('en-GB', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })
+
+              if (historyView === 'gift-redemptions') {
+                const redemption = entry as typeof fulfilledRedemptions[number]
+                const childName = childNameById.get(redemption.childId ?? '') ?? 'Child'
+                const starsCost = redemption.costPaid ?? redemption.familyGift?.['starsRequired'] ?? null
+                const title = redemption.familyGift?.title ?? redemption.reward?.title ?? 'Reward'
+
+                return (
+                  <li
+                    key={`finance-redemption-${redemption.id}`}
+                    className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-800">{title}</p>
+                      <p className="text-xs text-slate-500">
+                        {processedAt}
+                        <span className="ml-1 text-slate-400">• {childName}</span>
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {starsCost != null && (
+                        <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600">
+                          {starsCost}⭐
+                        </span>
+                      )}
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          redemption.status === 'fulfilled'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : redemption.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {redemption.status}
+                      </span>
+                    </div>
+                  </li>
+                )
+              }
+
+              const purchase = entry as typeof processedStarPurchases[number]
+              const childName = childNameById.get(purchase.childId) ?? 'Child'
+              return (
+                <li
+                  key={`finance-starpurchase-${purchase.id}`}
+                  className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-800">{purchase.starsRequested}⭐ requested</p>
+                    <p className="text-xs text-slate-500">
+                      {processedAt}
+                      <span className="ml-1 text-slate-400">• {childName}</span>
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {purchase.amountPence != null && purchase.amountPence > 0 && (
+                      <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600">
+                        {formatCurrency(purchase.amountPence)}
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        purchase.status === 'approved'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : purchase.status === 'rejected'
+                          ? 'bg-rose-100 text-rose-700'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {purchase.status}
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
 
       <ProcessPayoutModal
         isOpen={Boolean(selectedPayoutChild)}
