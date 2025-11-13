@@ -50,6 +50,10 @@ interface Redemption {
     id: string
     title: string
   } | null
+  child?: {
+    id: string
+    nickname?: string | null
+  } | null
 }
 
 interface StarPurchase {
@@ -115,21 +119,31 @@ export const useStreakRewardsData = (): UseStreakRewardsDataResult => {
     setState((previous) => ({ ...previous, loading: true, error: undefined }))
 
     try {
-      const [familyRes, giftsRes, pendingRes, historyRes, purchasesRes] = await Promise.all([
+      const [familyRes, giftsRes, redemptionsRes, purchasesRes] = await Promise.all([
         apiClient.getFamily() as Promise<FamilyResponse>,
         apiClient.getFamilyGifts() as Promise<{ gifts: FamilyGift[] }> ,
-        apiClient.getRedemptions('pending') as Promise<{ redemptions: Redemption[] }> ,
-        apiClient.getRedemptions('history') as Promise<{ redemptions: Redemption[] }> ,
+        apiClient.getRedemptions() as Promise<{ redemptions: Redemption[] }> ,
         apiClient.getStarPurchases() as Promise<{ purchases: StarPurchase[] }> ,
       ])
+
+      const allRedemptions = redemptionsRes?.redemptions ?? []
+      const pendingRedemptions = allRedemptions.filter((redemption) => redemption.status === 'pending')
+      const historyRedemptions = allRedemptions
+        .filter((redemption) => redemption.status !== 'pending')
+        .map((redemption) => ({
+          ...redemption,
+          processedAt: redemption.processedAt ?? redemption.createdAt,
+        }))
+
+      const nonPendingPurchases = (purchasesRes?.purchases ?? []).filter((purchase) => purchase.status !== 'pending')
 
       setState({
         loading: false,
         family: familyRes.family,
         gifts: giftsRes?.gifts ?? [],
-        pendingRedemptions: pendingRes?.redemptions ?? [],
-        recentRedemptions: historyRes?.redemptions ?? [],
-        starPurchases: purchasesRes?.purchases ?? [],
+        pendingRedemptions,
+        recentRedemptions: historyRedemptions,
+        starPurchases: nonPendingPurchases,
         refreshing: false,
       })
     } catch (error) {
@@ -184,7 +198,6 @@ export const useStreakRewardsData = (): UseStreakRewardsDataResult => {
       return
     }
 
-    const events: NotificationType[] = ['redemptionUpdated', 'giftUpdated']
     const handlers = [
       'redemption:created',
       'redemption:fulfilled',
@@ -194,7 +207,7 @@ export const useStreakRewardsData = (): UseStreakRewardsDataResult => {
       'starPurchase:rejected',
     ].map((eventName) => {
       const handler = () => {
-        events.forEach((event) => notifyUpdate(event))
+        notifyUpdate('redemptionUpdated')
         void load()
       }
       on(eventName, handler)
@@ -350,14 +363,19 @@ export const useStreakRewardsData = (): UseStreakRewardsDataResult => {
     async (redemptionId: string) => {
       markRedemptionBusy(redemptionId)
       try {
-        await apiClient.fulfillRedemption(redemptionId)
-        setState((previous) => ({
-          ...previous,
-          pendingRedemptions: previous.pendingRedemptions.filter((redemption) => redemption.id !== redemptionId),
-          recentRedemptions: previous.recentRedemptions.map((redemption) =>
-            redemption.id === redemptionId ? { ...redemption, status: 'fulfilled', processedAt: new Date().toISOString() } : redemption,
-          ),
-        }))
+        const response = await apiClient.fulfillRedemption(redemptionId) as { redemption?: Redemption }
+        const fulfilled = response?.redemption
+        setState((previous) => {
+          const updatedHistory = fulfilled
+            ? [{ ...fulfilled, processedAt: fulfilled.processedAt ?? new Date().toISOString() }, ...previous.recentRedemptions].slice(0, 100)
+            : previous.recentRedemptions
+
+          return {
+            ...previous,
+            pendingRedemptions: previous.pendingRedemptions.filter((redemption) => redemption.id !== redemptionId),
+            recentRedemptions: updatedHistory,
+          }
+        })
         notifyUpdate('redemptionUpdated')
       } finally {
         unmarkRedemptionBusy(redemptionId)
@@ -370,14 +388,19 @@ export const useStreakRewardsData = (): UseStreakRewardsDataResult => {
     async (redemptionId: string) => {
       markRedemptionBusy(redemptionId)
       try {
-        await apiClient.rejectRedemption(redemptionId)
-        setState((previous) => ({
-          ...previous,
-          pendingRedemptions: previous.pendingRedemptions.filter((redemption) => redemption.id !== redemptionId),
-          recentRedemptions: previous.recentRedemptions.map((redemption) =>
-            redemption.id === redemptionId ? { ...redemption, status: 'rejected', processedAt: new Date().toISOString() } : redemption,
-          ),
-        }))
+        const response = await apiClient.rejectRedemption(redemptionId) as { redemption?: Redemption }
+        const rejected = response?.redemption
+        setState((previous) => {
+          const updatedHistory = rejected
+            ? [{ ...rejected, processedAt: rejected.processedAt ?? new Date().toISOString() }, ...previous.recentRedemptions].slice(0, 100)
+            : previous.recentRedemptions
+
+          return {
+            ...previous,
+            pendingRedemptions: previous.pendingRedemptions.filter((redemption) => redemption.id !== redemptionId),
+            recentRedemptions: updatedHistory,
+          }
+        })
         notifyUpdate('redemptionUpdated')
       } finally {
         unmarkRedemptionBusy(redemptionId)
