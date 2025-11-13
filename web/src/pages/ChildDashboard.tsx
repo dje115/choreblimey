@@ -7,6 +7,8 @@ import Toast from '../components/Toast'
 import Confetti from '../components/Confetti'
 import { childThemes, getTheme, applyTheme, type ChildTheme } from '../themes/childThemes'
 import { apiClient } from '../lib/api'
+import { useRealtimeUpdates } from '../hooks/useRealtimeUpdates'
+import { notifyUpdate } from '../utils/notifications'
 import {
   TodayTab,
   StreaksTab,
