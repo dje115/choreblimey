@@ -66,6 +66,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const eventHandlersRef = useRef<Map<string, Set<(data: any) => void>>>(new Map())
+  const pendingListenersRef = useRef<Array<{ event: string; callback: (data: any) => void }>>([])
 
   // Initialize socket connection
   useEffect(() => {
@@ -103,6 +104,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     newSocket.on('connect', () => {
       console.log('✅ Socket connected:', newSocket.id)
       setIsConnected(true)
+      
+      // Register any pending listeners that were queued before socket initialization
+      pendingListenersRef.current.forEach(({ event, callback }) => {
+        if (!eventHandlersRef.current.has(event)) {
+          eventHandlersRef.current.set(event, new Set())
+        }
+        eventHandlersRef.current.get(event)!.add(callback)
+        newSocket.on(event, callback)
+        console.log('👂 Socket: Registered queued listener for event:', event)
+      })
+      pendingListenersRef.current = []
     })
 
     newSocket.on('disconnect', (reason) => {
@@ -129,6 +141,19 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
     socketRef.current = newSocket
     setSocket(newSocket)
+    
+    // If socket is already connected (or connects immediately), register pending listeners
+    if (newSocket.connected) {
+      pendingListenersRef.current.forEach(({ event, callback }) => {
+        if (!eventHandlersRef.current.has(event)) {
+          eventHandlersRef.current.set(event, new Set())
+        }
+        eventHandlersRef.current.get(event)!.add(callback)
+        newSocket.on(event, callback)
+        console.log('👂 Socket: Registered queued listener for event:', event)
+      })
+      pendingListenersRef.current = []
+    }
 
     // Cleanup on unmount
     return () => {
@@ -140,6 +165,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         })
       })
       eventHandlersRef.current.clear()
+      pendingListenersRef.current = []
       newSocket.disconnect()
       socketRef.current = null
       setSocket(null)
@@ -160,7 +186,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   // Register event listener
   const on = useCallback((event: string, callback: (data: any) => void) => {
     if (!socketRef.current) {
-      console.warn('⚠️ Socket not initialized, cannot listen to:', event)
+      // Queue the listener to be registered once socket is initialized
+      pendingListenersRef.current.push({ event, callback })
+      console.log('⏳ Socket: Queued listener for event (socket not ready):', event)
       return
     }
 
