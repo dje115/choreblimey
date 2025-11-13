@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useSocket } from '../contexts/SocketContext'
 import { formatCurrency } from '../utils/currency'
 import { handleApiError } from '../utils/errorHandler'
 import Toast from '../components/Toast'
