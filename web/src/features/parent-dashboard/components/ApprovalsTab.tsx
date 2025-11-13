@@ -5,7 +5,7 @@ import type { UseApprovalsDataResult } from '../hooks/useApprovalsData'
 import { notifyUpdate } from '../../../utils/notifications'
 
 interface FeedbackMessage {
-  type: 'success' | 'error'
+  type: 'success' | 'error' | 'warning' | 'info'
   message: string
 }
 
@@ -41,6 +41,9 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
     completions,
     redemptions,
     starPurchases,
+    completionHistory,
+    redemptionHistory,
+    starPurchaseHistory,
     approveCompletion,
     rejectCompletion,
     approveRedemption,
@@ -139,6 +142,49 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
 
   const totalPending = completions.length + redemptions.length + starPurchases.length
 
+  const [historyView, setHistoryView] = useState<'completions' | 'redemptions' | 'purchases'>('completions')
+  const [historyStatus, setHistoryStatus] = useState<string>('all')
+
+  const historyEntries = useMemo(() => {
+    const base = historyView === 'completions'
+      ? completionHistory
+      : historyView === 'redemptions'
+        ? redemptionHistory
+        : starPurchaseHistory
+
+    if (historyStatus === 'all') {
+      return base
+    }
+    return base.filter((entry) => entry.status === historyStatus)
+  }, [historyView, historyStatus, completionHistory, redemptionHistory, starPurchaseHistory])
+
+  const historyStatuses = useMemo(() => {
+    const source = historyView === 'completions'
+      ? completionHistory
+      : historyView === 'redemptions'
+        ? redemptionHistory
+        : starPurchaseHistory
+    const unique = Array.from(new Set(source.map((entry) => entry.status)))
+    return ['all', ...unique]
+  }, [historyView, completionHistory, redemptionHistory, starPurchaseHistory])
+
+  const formatDateTime = (value: string | undefined | null) =>
+    value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown time'
+
+  const badgeClasses = (status: string) => {
+    switch (status) {
+      case 'approved':
+      case 'fulfilled':
+      case 'approved_and_paid':
+        return 'bg-emerald-100 text-emerald-700'
+      case 'rejected':
+      case 'cancelled':
+        return 'bg-rose-100 text-rose-700'
+      default:
+        return 'bg-slate-100 text-slate-600'
+    }
+  }
+
   const approvalsUnavailable = useMemo(
     () => ({
       completions: completions.length === 0,
@@ -203,6 +249,7 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
             {completions.map((completion) => {
               const busy = busyIds.has(completion.id)
               const choreTitle = completion.assignment?.chore?.title ?? 'Chore'
+              const childName = completion.child?.nickname ?? 'Child'
               return (
                 <div
                   key={completion.id}
@@ -212,6 +259,7 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
                     <p className="text-sm font-semibold text-slate-800">{choreTitle}</p>
                     <p className="text-xs text-slate-500">
                       Submitted {new Date(completion.timestamp).toLocaleString()}
+                      <span className="ml-1 text-slate-400">• {childName}</span>
                     </p>
                     {completion.assignment?.chore?.baseRewardPence != null && (
                       <p className="mt-1 text-xs text-slate-500">
@@ -261,6 +309,7 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
             {redemptions.map((redemption) => {
               const busy = busyIds.has(redemption.id)
               const rewardTitle = redemption.reward?.title ?? redemption.familyGift?.title ?? 'Reward'
+              const childName = redemption.child?.nickname ?? 'Child'
               return (
                 <div
                   key={redemption.id}
@@ -270,6 +319,7 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
                     <p className="text-sm font-semibold text-slate-800">{rewardTitle}</p>
                     <p className="text-xs text-slate-500">
                       Requested {new Date(redemption.createdAt).toLocaleString()}
+                      <span className="ml-1 text-slate-400">• {childName}</span>
                     </p>
                     {redemption.starsCost != null && (
                       <p className="mt-1 text-xs text-slate-500">Cost: {redemption.starsCost}⭐</p>
@@ -312,6 +362,7 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
           <div className="space-y-3">
             {starPurchases.map((purchase) => {
               const busy = busyIds.has(purchase.id)
+              const childName = purchase.child?.nickname ?? 'Child'
               return (
                 <div
                   key={purchase.id}
@@ -321,6 +372,7 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
                     <p className="text-sm font-semibold text-slate-800">{purchase.starsRequested}⭐ requested</p>
                     <p className="text-xs text-slate-500">
                       Requested {new Date(purchase.createdAt).toLocaleString()}
+                      <span className="ml-1 text-slate-400">• {childName}</span>
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -353,6 +405,137 @@ const ApprovalsTab: React.FC<ApprovalsTabProps> = ({ approvals }) => {
           Loading the latest approvals…
         </div>
       )}
+
+      <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">History</p>
+            <p className="text-xs text-slate-500">Review recently processed chores, rewards, and star purchases.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1 text-xs font-semibold text-slate-600">
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryView('completions')
+                  setHistoryStatus('all')
+                }}
+                className={`rounded-full px-3 py-1 transition ${historyView === 'completions' ? 'bg-indigo-600 text-white' : ''}`}
+              >
+                Completions
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryView('redemptions')
+                  setHistoryStatus('all')
+                }}
+                className={`rounded-full px-3 py-1 transition ${historyView === 'redemptions' ? 'bg-indigo-600 text-white' : ''}`}
+              >
+                Redemptions
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setHistoryView('purchases')
+                  setHistoryStatus('all')
+                }}
+                className={`rounded-full px-3 py-1 transition ${historyView === 'purchases' ? 'bg-indigo-600 text-white' : ''}`}
+              >
+                Star purchases
+              </button>
+            </div>
+            <select
+              value={historyStatus}
+              onChange={(event) => setHistoryStatus(event.target.value)}
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 focus:border-indigo-400 focus:outline-none"
+            >
+              {historyStatuses.map((statusOption) => (
+                <option key={statusOption} value={statusOption}>
+                  {statusOption === 'all' ? 'All statuses' : statusOption.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {historyEntries.length === 0 ? (
+          <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center text-sm text-slate-500">
+            No {historyStatus === 'all' ? '' : `${historyStatus.replace(/_/g, ' ')} `}
+            {historyView === 'completions' ? 'completions' : historyView === 'redemptions' ? 'redemptions' : 'star purchases'} yet.
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-3 text-sm">
+            {historyEntries.slice(0, 25).map((entry) => {
+              if (historyView === 'completions') {
+                const completion = entry
+                const choreTitle = completion.assignment?.chore?.title ?? 'Chore'
+              const childName = completion.child?.nickname ?? 'Child'
+                return (
+                  <li
+                    key={`history-completion-${completion.id}`}
+                    className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{choreTitle}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatDateTime(completion.timestamp)}
+                        <span className="ml-1 text-slate-400">• {childName}</span>
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeClasses(completion.status)}`}>
+                      {completion.status.replace(/_/g, ' ')}
+                    </span>
+                  </li>
+                )
+              }
+
+              if (historyView === 'redemptions') {
+                const redemption = entry
+                const rewardTitle = redemption.reward?.title ?? redemption.familyGift?.title ?? 'Reward'
+                const childName = redemption.child?.nickname ?? 'Child'
+                return (
+                  <li
+                    key={`history-redemption-${redemption.id}`}
+                    className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{rewardTitle}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatDateTime(redemption.processedAt ?? redemption.createdAt)}
+                        <span className="ml-1 text-slate-400">• {childName}</span>
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeClasses(redemption.status)}`}>
+                      {redemption.status.replace(/_/g, ' ')}
+                    </span>
+                  </li>
+                )
+              }
+
+              const purchase = entry
+              const childName = purchase.child?.nickname ?? 'Child'
+              return (
+                <li
+                  key={`history-purchase-${purchase.id}`}
+                  className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{purchase.starsRequested}⭐ requested</p>
+                    <p className="text-xs text-slate-500">
+                      {formatDateTime(purchase.processedAt ?? purchase.createdAt)}
+                      <span className="ml-1 text-slate-400">• {childName}</span>
+                    </p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeClasses(purchase.status)}`}>
+                    {purchase.status.replace(/_/g, ' ')}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

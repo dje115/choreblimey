@@ -18,6 +18,10 @@ export interface PendingCompletion {
       baseRewardPence?: number | null
     } | null
   } | null
+  child?: {
+    id: string
+    nickname?: string | null
+  } | null
 }
 
 export interface PendingRedemption {
@@ -34,6 +38,10 @@ export interface PendingRedemption {
     id: string
     title: string
   } | null
+  child?: {
+    id: string
+    nickname?: string | null
+  } | null
 }
 
 export interface PendingStarPurchase {
@@ -42,7 +50,15 @@ export interface PendingStarPurchase {
   status: string
   starsRequested: number
   createdAt: string
+  child?: {
+    id: string
+    nickname?: string | null
+  } | null
 }
+
+export type CompletionHistoryEntry = PendingCompletion
+export type RedemptionHistoryEntry = PendingRedemption & { processedAt?: string | null }
+export type StarPurchaseHistoryEntry = PendingStarPurchase & { processedAt?: string | null }
 
 export interface UseApprovalsDataResult {
   loading: boolean
@@ -50,6 +66,9 @@ export interface UseApprovalsDataResult {
   completions: PendingCompletion[]
   redemptions: PendingRedemption[]
   starPurchases: PendingStarPurchase[]
+  completionHistory: CompletionHistoryEntry[]
+  redemptionHistory: RedemptionHistoryEntry[]
+  starPurchaseHistory: StarPurchaseHistoryEntry[]
   approveCompletion: (completionId: string) => Promise<void>
   rejectCompletion: (completionId: string, reason?: string) => Promise<void>
   approveRedemption: (redemptionId: string) => Promise<void>
@@ -66,6 +85,9 @@ export const useApprovalsData = (): UseApprovalsDataResult => {
   const [completions, setCompletions] = useState<PendingCompletion[]>([])
   const [redemptions, setRedemptions] = useState<PendingRedemption[]>([])
   const [starPurchases, setStarPurchases] = useState<PendingStarPurchase[]>([])
+  const [completionHistory, setCompletionHistory] = useState<CompletionHistoryEntry[]>([])
+  const [redemptionHistory, setRedemptionHistory] = useState<RedemptionHistoryEntry[]>([])
+  const [starPurchaseHistory, setStarPurchaseHistory] = useState<StarPurchaseHistoryEntry[]>([])
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const { on, off } = useSocket()
 
@@ -75,14 +97,40 @@ export const useApprovalsData = (): UseApprovalsDataResult => {
 
     try {
       const [completionResponse, redemptionResponse, starPurchaseResponse] = await Promise.all([
-        apiClient.listCompletions('pending') as Promise<{ completions: PendingCompletion[] }>,
-        apiClient.getRedemptions('pending') as Promise<{ redemptions: PendingRedemption[] }>,
-        apiClient.getStarPurchases('pending') as Promise<{ purchases: PendingStarPurchase[] }>,
+        apiClient.listCompletions() as Promise<{ completions: PendingCompletion[] }> ,
+        apiClient.getRedemptions() as Promise<{ redemptions: PendingRedemption[] }> ,
+        apiClient.getStarPurchases() as Promise<{ purchases: PendingStarPurchase[] }> ,
       ])
 
-      setCompletions(completionResponse?.completions ?? [])
-      setRedemptions(redemptionResponse?.redemptions ?? [])
-      setStarPurchases(starPurchaseResponse?.purchases ?? [])
+      const completionsData = completionResponse?.completions ?? []
+      setCompletions(completionsData.filter((completion) => completion.status === 'pending'))
+      setCompletionHistory(
+        completionsData
+          .filter((completion) => completion.status !== 'pending')
+          .map((completion) => ({ ...completion })),
+      )
+
+      const redemptionsData = redemptionResponse?.redemptions ?? []
+      setRedemptions(redemptionsData.filter((redemption) => redemption.status === 'pending'))
+      setRedemptionHistory(
+        redemptionsData
+          .filter((redemption) => redemption.status !== 'pending')
+          .map((redemption) => ({
+            ...redemption,
+            processedAt: redemption.status === 'pending' ? redemption.createdAt : redemption.processedAt ?? redemption.createdAt,
+          })),
+      )
+
+      const starPurchasesData = starPurchaseResponse?.purchases ?? []
+      setStarPurchases(starPurchasesData.filter((purchase) => purchase.status === 'pending'))
+      setStarPurchaseHistory(
+        starPurchasesData
+          .filter((purchase) => purchase.status !== 'pending')
+          .map((purchase) => ({
+            ...purchase,
+            processedAt: purchase.status === 'pending' ? purchase.createdAt : purchase.processedAt ?? purchase.createdAt,
+          })),
+      )
     } catch (err) {
       console.error('Failed to load approvals data', err)
       setError(err instanceof Error ? err.message : 'Failed to load approvals')
@@ -267,6 +315,9 @@ export const useApprovalsData = (): UseApprovalsDataResult => {
     completions,
     redemptions,
     starPurchases,
+    completionHistory,
+    redemptionHistory,
+    starPurchaseHistory,
     approveCompletion,
     rejectCompletion,
     approveRedemption,
