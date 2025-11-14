@@ -235,7 +235,8 @@ async function shutdown() {
     birthdayBonusWorker.close(),
     priceCacheWorker.close(),
     accountCleanupWorker.close(),
-    choreGenerationWorker.close()
+    choreGenerationWorker.close(),
+    bonusProcessorWorker.close()
   ])
   
   await Promise.all([
@@ -244,7 +245,8 @@ async function shutdown() {
     birthdayBonusQueue.close(),
     priceCacheQueue.close(),
     accountCleanupQueue.close(),
-    choreGenerationQueue.close()
+    choreGenerationQueue.close(),
+    bonusProcessorQueue.close()
   ])
   
   await connection.quit()
@@ -287,5 +289,6 @@ export {
   birthdayBonusQueue,
   priceCacheQueue,
   accountCleanupQueue,
-  choreGenerationQueue
+  choreGenerationQueue,
+  bonusProcessorQueue
 }
