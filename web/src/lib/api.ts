@@ -260,6 +260,10 @@ class ApiClient {
     return this.get('/chores')
   }
 
+  async deleteChore(choreId: string) {
+    return this.delete(`/chores/${choreId}`)
+  }
+
   async createChore(data: any) {
     return this.post('/chores', data)
   }
