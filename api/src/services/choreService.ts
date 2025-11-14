@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma.js'
 import { ErrorCode, createError } from '../utils/errors.js'
 import { ChoreCreateSchema, ChoreUpdateSchema } from '../utils/validation.js'
+import { cache } from '../utils/cache.js'
 
 /**
  * Chore service for managing family chores
