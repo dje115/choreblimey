@@ -199,6 +199,34 @@ export class ChoreService {
 
     return chore
   }
+
+  /**
+   * Delete a chore by ID
+   * @param choreId - The ID of the chore to delete
+   * @param familyId - The family ID for verification
+   * @throws {Error} If chore not found or doesn't belong to family
+   */
+  async deleteChore(choreId: string, familyId: string): Promise<void> {
+    // Verify chore exists and belongs to family
+    const chore = await prisma.chore.findFirst({
+      where: { id: choreId, familyId }
+    })
+
+    if (!chore) {
+      throw {
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: 'Chore not found'
+      }
+    }
+
+    // Delete the chore (assignments will be cascade deleted via foreign key)
+    await prisma.chore.delete({
+      where: { id: choreId }
+    })
+
+    // Invalidate family cache
+    await cache.invalidateFamily(familyId)
+  }
 }
 
 // Export singleton instance

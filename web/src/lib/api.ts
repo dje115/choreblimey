@@ -127,6 +127,10 @@ class ApiClient {
     budgetPeriod?: 'weekly' | 'monthly'
     showLifetimeEarnings?: boolean
     giftsEnabled?: boolean
+    // Rivalry Settings
+    rivalryEnabled?: boolean
+    minUnderbidDifference?: number
+    friendlyMode?: boolean
     // Streak Settings
     streakProtectionDays?: number
     bonusEnabled?: boolean
@@ -517,6 +521,19 @@ class ApiClient {
     if (params?.days) query.append('days', params.days.toString())
     const queryString = query.toString()
     return this.get(`/chat/messages${queryString ? `?${queryString}` : ''}`)
+  }
+
+  // Account management endpoints
+  async deleteAccount(): Promise<{ message: string }> {
+    return this.delete('/auth/account')
+  }
+
+  async suspendAccount(): Promise<{ message: string; suspended: boolean }> {
+    return this.post('/auth/account/suspend')
+  }
+
+  async changeEmail(newEmail: string): Promise<{ message: string }> {
+    return this.post('/auth/account/change-email', { newEmail })
   }
 }
 

@@ -169,3 +169,49 @@ export const update = async (req: FastifyRequest<{ Params: { id: string }, Body:
     sendError(reply, ErrorCode.SYSTEM_DATABASE_ERROR, 'Failed to update chore', 500)
   }
 }
+
+/**
+ * Delete a chore
+ * @route DELETE /chores/:id
+ * @description Deletes the specified chore and all associated assignments
+ * @param {FastifyRequest<{ Params: { id: string } }>} req - Request with chore ID
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<void>} Success message
+ * @throws {404} Not Found - Chore not found
+ * @throws {500} Internal Server Error - Database error
+ */
+export const remove = async (req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply): Promise<void> => {
+  try {
+    const { familyId } = req.claims!
+    const { id } = req.params
+    
+    // Verify chore exists and belongs to family
+    const chore = await choreService.getChoreById(id, familyId)
+    
+    if (!chore) {
+      return sendError(reply, ErrorCode.RESOURCE_NOT_FOUND, 'Chore not found', 404)
+    }
+    
+    // Delete the chore (assignments will be cascade deleted)
+    await choreService.deleteChore(id, familyId)
+    
+    // Emit WebSocket event to notify all family members
+    const { io } = await import('../server.js')
+    if (io) {
+      const { emitToFamily } = await import('../websocket/socket.js')
+      emitToFamily(io, familyId, 'chore:deleted', {
+        choreId: id
+      })
+    }
+    
+    return { message: 'Chore deleted successfully' }
+  } catch (error: any) {
+    console.error('Error deleting chore:', error)
+    
+    if (error.code === ErrorCode.RESOURCE_NOT_FOUND) {
+      return sendError(reply, error.code, error.message, 404)
+    }
+    
+    sendError(reply, ErrorCode.SYSTEM_DATABASE_ERROR, 'Failed to delete chore', 500)
+  }
+}

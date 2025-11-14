@@ -77,3 +77,4 @@ const RedemptionModal: React.FC<RedemptionModalProps> = ({ gift, totalStars, cla
 
 export default RedemptionModal
 
+

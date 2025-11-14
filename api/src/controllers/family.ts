@@ -32,6 +32,10 @@ interface FamilyUpdateBody {
   giftsEnabled?: boolean
   buyStarsEnabled?: boolean
   starConversionRatePence?: number
+  // Rivalry Settings
+  rivalryEnabled?: boolean
+  minUnderbidDifference?: number
+  friendlyMode?: boolean
   // Streak Settings
   streakProtectionDays?: number
   bonusEnabled?: boolean
@@ -412,6 +416,7 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
     const { 
       nameCipher, region, maxBudgetPence, budgetPeriod, showLifetimeEarnings, giftsEnabled,
       buyStarsEnabled, starConversionRatePence,
+      rivalryEnabled, minUnderbidDifference, friendlyMode,
       streakProtectionDays, bonusEnabled, bonusDays, bonusMoneyPence, bonusStars, bonusType,
       penaltyEnabled, firstMissPence, firstMissStars, secondMissPence, secondMissStars, thirdMissPence, thirdMissStars, penaltyType,
       minBalancePence, minBalanceStars,
@@ -500,6 +505,17 @@ export const update = async (req: FastifyRequest<{ Body: FamilyUpdateBody }>, re
       }
       updateData.starConversionRatePence = starConversionRatePence
     }
+    
+    // Rivalry settings
+    if (rivalryEnabled !== undefined) updateData.rivalryEnabled = rivalryEnabled
+    if (minUnderbidDifference !== undefined) {
+      // Validate: 1-20 pence
+      if (minUnderbidDifference < 1 || minUnderbidDifference > 20) {
+        return reply.status(400).send({ error: 'Minimum underbid difference must be between 1 and 20 pence' })
+      }
+      updateData.minUnderbidDifference = minUnderbidDifference
+    }
+    if (friendlyMode !== undefined) updateData.friendlyMode = friendlyMode
     
     // Streak settings
     if (streakProtectionDays !== undefined) updateData.streakProtectionDays = streakProtectionDays

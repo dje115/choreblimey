@@ -10,6 +10,11 @@ export async function routes(app: FastifyInstance) {
   app.get('/auth/callback', ctrl.auth.callback)
   app.post('/auth/child-join', ctrl.auth.childJoin)
   app.post('/auth/generate-join-code', ctrl.auth.generateChildJoinCode)
+  
+  // Account management routes (auth required)
+  app.delete('/auth/account', ctrl.auth.deleteAccount)
+  app.post('/auth/account/suspend', ctrl.auth.suspendAccount)
+  app.post('/auth/account/change-email', ctrl.auth.changeEmail)
 
   // Family management
   app.get('/family', ctrl.family.get)
@@ -35,6 +40,7 @@ export async function routes(app: FastifyInstance) {
   app.get('/chores', ctrl.chores.list)
   app.post('/chores', ctrl.chores.create)
   app.patch('/chores/:id', ctrl.chores.update)
+  app.delete('/chores/:id', ctrl.chores.remove)
 
   // Assignments
   app.get('/assignments', ctrl.assignments.list)

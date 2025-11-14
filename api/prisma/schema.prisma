@@ -35,6 +35,11 @@ model Family {
   buyStarsEnabled Boolean       @default(false) // Toggle to enable/disable buy stars feature on child dashboard
   starConversionRatePence Int   @default(10) // Cost in pence per star (5p to 30p, default 10p)
   
+  // Rivalry Settings
+  rivalryEnabled         Boolean @default(true)  // Enable sibling rivalry/bidding feature
+  minUnderbidDifference  Int    @default(5)     // Minimum pence difference required for underbidding (1-20)
+  friendlyMode           Boolean @default(true)  // Use friendly/humorous wording only
+  
   // Login tracking for auto-delete
   lastLoginAt   DateTime?       // When ANY family member last logged in
   suspendedAt   DateTime?       // When account was suspended (for 12-month deletion)

@@ -356,7 +356,18 @@ const ChoreManagement: React.FC = () => {
                           Edit ✏️
                         </button>
                         <button 
-                          onClick={() => {/* TODO: Implement delete */}}
+                          onClick={async () => {
+                            if (!window.confirm(`Are you sure you want to delete "${chore.title}"? This will also delete all assignments for this chore.`)) {
+                              return
+                            }
+                            try {
+                              await apiClient.deleteChore(chore.id)
+                              await loadChores()
+                            } catch (error: any) {
+                              console.error('Failed to delete chore:', error)
+                              alert(error.message || 'Failed to delete chore. Please try again.')
+                            }
+                          }}
                           className="bubble-button bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm px-4 py-2"
                         >
                           Delete ❌

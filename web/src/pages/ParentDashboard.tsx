@@ -266,6 +266,17 @@ const ParentDashboard: React.FC = () => {
     minUnderbidDifference: 5,
     friendlyMode: true
   })
+
+  // Load rivalry settings from family data
+  useEffect(() => {
+    if (family) {
+      setRivalrySettings({
+        enabled: family.rivalryEnabled ?? true,
+        minUnderbidDifference: family.minUnderbidDifference ?? 5,
+        friendlyMode: family.friendlyMode ?? true
+      })
+    }
+  }, [family])
   
   const [budgetSettings, setBudgetSettings] = useState({
     maxBudgetPence: 0,
@@ -4258,15 +4269,17 @@ const ParentDashboard: React.FC = () => {
                       })
                     }
                     
-                    // Save budget settings
+                    // Save budget and rivalry settings
                     await apiClient.updateFamily({
                       maxBudgetPence: budgetSettings.maxBudgetPence,
                       budgetPeriod: budgetSettings.budgetPeriod,
                       showLifetimeEarnings: budgetSettings.showLifetimeEarnings,
                       buyStarsEnabled: budgetSettings.buyStarsEnabled,
-                      starConversionRatePence: budgetSettings.starConversionRatePence
+                      starConversionRatePence: budgetSettings.starConversionRatePence,
+                      rivalryEnabled: rivalrySettings.enabled,
+                      minUnderbidDifference: rivalrySettings.minUnderbidDifference,
+                      friendlyMode: rivalrySettings.friendlyMode
                     })
-                    // TODO: Save rivalry settings when backend is ready
                     
                     // WebSocket will update state automatically, but update here too for immediate feedback
                     setToast({ message: '✅ Settings saved successfully!', type: 'success' })
@@ -6586,17 +6599,20 @@ const ParentDashboard: React.FC = () => {
                   }
                   
                   try {
-                    // TODO: Implement account deletion API call
-                    setToast({ message: 'Account deletion initiated. You will be logged out.', type: 'success' })
+                    await apiClient.deleteAccount()
+                    setToast({ message: 'Account deleted successfully. You will be logged out.', type: 'success' })
                     setShowDeleteAccountModal(false)
                     setDeleteConfirmation('')
                     // Logout user after deletion
                     setTimeout(() => {
                       logout()
                     }, 2000)
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Failed to delete account:', error)
-                    setToast({ message: 'Failed to delete account. Please try again.', type: 'error' })
+                    setToast({ 
+                      message: error.message || 'Failed to delete account. Please try again.', 
+                      type: 'error' 
+                    })
                   }
                 }}
                 disabled={deleteConfirmation !== 'DELETE'}
@@ -6643,17 +6659,19 @@ const ParentDashboard: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
-                    // TODO: Implement account suspension API call
+                    await apiClient.suspendAccount()
                     setToast({ message: 'Account suspended successfully. You can reactivate by logging in.', type: 'success' })
                     setShowSuspendAccountModal(false)
-                    setAccountSuspended(true)
                     // Logout user after suspension
                     setTimeout(() => {
                       logout()
                     }, 2000)
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Failed to suspend account:', error)
-                    setToast({ message: 'Failed to suspend account. Please try again.', type: 'error' })
+                    setToast({ 
+                      message: error.message || 'Failed to suspend account. Please try again.', 
+                      type: 'error' 
+                    })
                   }
                 }}
                 className="flex-1 px-6 py-3 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-all"
@@ -7288,13 +7306,16 @@ const ParentDashboard: React.FC = () => {
                   }
                   
                   try {
-                    // TODO: Implement email change API call
+                    await apiClient.changeEmail(newEmail)
                     setToast({ message: 'Email change initiated. Check your new email for verification.', type: 'success' })
                     setShowEmailChangeModal(false)
                     setNewEmail('')
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Failed to change email:', error)
-                    setToast({ message: 'Failed to change email. Please try again.', type: 'error' })
+                    setToast({ 
+                      message: error.message || 'Failed to change email. Please try again.', 
+                      type: 'error' 
+                    })
                   }
                 }}
                 disabled={!newEmail || !newEmail.includes('@')}

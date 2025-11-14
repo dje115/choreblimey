@@ -418,3 +418,219 @@ export const generateChildJoinCode = async (req: FastifyRequest<{ Body: Generate
     reply.status(500).send({ error: 'Failed to generate join code' })
   }
 }
+
+/**
+ * Delete user account and all associated data
+ * @route DELETE /auth/account
+ * @description Deletes the authenticated user's account and all associated data
+ * @param {FastifyRequest} req - Request with authenticated user
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ message }>} Success message
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {403} Forbidden - User is the only admin of a family
+ * @throws {500} Internal Server Error - Failed to delete account
+ */
+export const deleteAccount = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { sub: userId, familyId } = req.claims!
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Get user with all memberships
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        members: {
+          include: {
+            family: {
+              include: {
+                members: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    if (!user) {
+      return reply.status(404).send({ error: 'User not found' })
+    }
+
+    // Check if user is the only admin of any family
+    for (const membership of user.members) {
+      const adminMembers = membership.family.members.filter(m => m.role === 'parent_admin')
+      if (adminMembers.length === 1 && adminMembers[0].userId === userId) {
+        return reply.status(403).send({ 
+          error: 'Cannot delete account: You are the only admin of a family. Please transfer admin rights or delete the family first.' 
+        })
+      }
+    }
+
+    // Delete user's memberships (this will cascade delete related data)
+    await prisma.familyMember.deleteMany({
+      where: { userId }
+    })
+
+    // Delete user's auth tokens
+    await prisma.authToken.deleteMany({
+      where: { email: user.email }
+    })
+
+    // Delete the user
+    await prisma.user.delete({
+      where: { id: userId }
+    })
+
+    // Invalidate caches for all families the user was a member of
+    for (const membership of user.members) {
+      await cache.invalidateFamily(membership.familyId)
+    }
+
+    return { message: 'Account deleted successfully' }
+  } catch (error: any) {
+    console.error('Failed to delete account:', error)
+    reply.status(500).send({ error: 'Failed to delete account' })
+  }
+}
+
+/**
+ * Suspend user account
+ * @route POST /auth/account/suspend
+ * @description Suspends the authenticated user's account
+ * @param {FastifyRequest} req - Request with authenticated user
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ message, suspended }>} Success message and suspension status
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {500} Internal Server Error - Failed to suspend account
+ */
+export const suspendAccount = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { sub: userId, familyId } = req.claims!
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    // Get user's family memberships
+    const memberships = await prisma.familyMember.findMany({
+      where: { userId },
+      include: { family: true }
+    })
+
+    if (memberships.length === 0) {
+      return reply.status(404).send({ error: 'User not found in any family' })
+    }
+
+    // Suspend all families the user is admin of
+    const familyIds = memberships
+      .filter(m => m.role === 'parent_admin')
+      .map(m => m.familyId)
+
+    if (familyIds.length > 0) {
+      await prisma.family.updateMany({
+        where: { id: { in: familyIds } },
+        data: { suspendedAt: new Date() }
+      })
+
+      // Invalidate caches
+      for (const fid of familyIds) {
+        await cache.invalidateFamily(fid)
+      }
+    }
+
+    return { 
+      message: 'Account suspended successfully',
+      suspended: true
+    }
+  } catch (error: any) {
+    console.error('Failed to suspend account:', error)
+    reply.status(500).send({ error: 'Failed to suspend account' })
+  }
+}
+
+interface ChangeEmailBody {
+  newEmail: string
+}
+
+/**
+ * Change user email address
+ * @route POST /auth/account/change-email
+ * @description Initiates email change process by sending verification email to new address
+ * @param {FastifyRequest<{ Body: ChangeEmailBody }>} req - Request with new email
+ * @param {FastifyReply} reply - Fastify reply object
+ * @returns {Promise<{ message }>} Success message
+ * @throws {400} Bad Request - Invalid email or email already in use
+ * @throws {401} Unauthorized - Not authenticated
+ * @throws {500} Internal Server Error - Failed to initiate email change
+ */
+export const changeEmail = async (req: FastifyRequest<{ Body: ChangeEmailBody }>, reply: FastifyReply) => {
+  try {
+    const { sub: userId } = req.claims!
+    const { newEmail } = req.body
+
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' })
+    }
+
+    if (!newEmail || !newEmail.includes('@')) {
+      return reply.status(400).send({ error: 'Valid email is required' })
+    }
+
+    // Check if email is already in use
+    const existingUser = await prisma.user.findUnique({
+      where: { email: newEmail }
+    })
+
+    if (existingUser && existingUser.id !== userId) {
+      return reply.status(400).send({ error: 'Email address is already in use' })
+    }
+
+    // Get current user
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+
+    if (!user) {
+      return reply.status(404).send({ error: 'User not found' })
+    }
+
+    // Generate verification token
+    const token = generateToken()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+    // Delete any existing email change tokens for this user
+    await prisma.authToken.deleteMany({
+      where: { 
+        email: user.email, 
+        type: 'email_change'
+      }
+    })
+
+    // Create email change token
+    await prisma.authToken.create({
+      data: {
+        email: newEmail, // Token is sent to new email
+        token,
+        type: 'email_change',
+        expiresAt,
+        metaJson: {
+          oldEmail: user.email,
+          userId: userId
+        }
+      }
+    })
+
+    // Send verification email to new address
+    // TODO: Create email template for email change verification
+    await sendMagicLink(newEmail, token)
+
+    return { 
+      message: 'Verification email sent to new address. Please check your email to complete the change.' 
+    }
+  } catch (error: any) {
+    console.error('Failed to initiate email change:', error)
+    reply.status(500).send({ error: 'Failed to initiate email change' })
+  }
+}
